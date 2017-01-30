@@ -6,6 +6,7 @@ Settings =
 	volumeFactor = 1,
 	useVolumeMA = 1,
 	useCumulativeDelta = 0,
+	useClosePrice = 1,
 	line=
 	{
 		{
@@ -73,7 +74,7 @@ end
 
 function OnCalculate(index)
 
-	return myCalculateVolume(index, Settings.lookBack, Settings.volumeFactor, Settings.useVolumeMA, Settings.useCumulativeDelta)
+	return myCalculateVolume(index, Settings.lookBack, Settings.volumeFactor, Settings.useVolumeMA, Settings.useCumulativeDelta, Settings.useClosePrice)
 end
 
 ----------------------------------------------------------
@@ -84,7 +85,7 @@ function CalculateVolume()
 	local DeltaCalculations={}
 	local cache_DeltaEMA={}
 	
-	return function(ind, _l, _v, _u, _ucd)
+	return function(ind, _l, _v, _u, _ucd, _ucp)
 		
 		local index = ind
 		local lookBack = _l
@@ -92,6 +93,7 @@ function CalculateVolume()
 		local useVolumeMA = _u
 		local useCumulativeDelta = _ucd
 		local DeltaFactor = 2
+		local useClosePrice = _ucp
 		
 		local k = 2/(_l+1)
 
@@ -132,6 +134,12 @@ function CalculateVolume()
 		
 		local priceMin = L(index)
 		local priceMax = H(index) 
+
+        if useClosePrice == 1 then           
+           priceMinLocal = math.min(O(index), C(index))
+           priceMaxLocal = math.max(O(index), C(index))
+        end
+
 		local volClimaxCurrent = V(index) * (priceMax - priceMin)
 		local volChurnCurrent = 0
 		
@@ -147,6 +155,7 @@ function CalculateVolume()
 		local v_L = 0
 		local priceMinLocal = L(n)
 		local priceMaxLocal = H(n)
+		local min_index = index
 		
 		for n=index-lookBack,index do
            
@@ -154,7 +163,12 @@ function CalculateVolume()
 		   priceMaxLocal = H(n)
             
             climax = V(n) * (priceMaxLocal - priceMinLocal) 
-            
+
+            if useClosePrice == 1 then           
+                priceMinLocal = math.min(O(n), C(n))
+                priceMaxLocal = math.max(O(n), C(n))
+            end
+           
             -- Previous maximal price range can be found here
             
             if climax >= volClimaxLocal
@@ -175,7 +189,10 @@ function CalculateVolume()
             end
 			
 			if v_H < V(n) then v_H = V(n) end
-			if v_L > V(n) then v_L = V(n) end
+			if v_L > V(n) then 
+				v_L = V(n)
+				min_index = n
+			end
 			
 		end
 		
@@ -190,40 +207,40 @@ function CalculateVolume()
 			outDeltaEMA = nil
 		end
 		
-		if (V(index) == v_L)
+		if (index == n)
         then
-			return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil
+			return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil --Low
 		end
         
         -- When volume is equal to one seen before mark it as accummulation / distribution - profit is taken
         
         if (volChurnCurrent == volChurnLocal)
         then
-			return outVolEMA, outDeltaEMA, nil, nil, nil, out, nil, nil
+			return outVolEMA, outDeltaEMA, nil, nil, nil, out, nil, nil --Churn
 		end
         
         -- When volume is higher than all previous and price is going up - start or end of the up trend
         
         if (volClimaxCurrent == volClimaxLocal and C(index) > (priceMax + priceMin) / 2)
         then
- 			return outVolEMA, outDeltaEMA, nil, out, nil, nil, nil, nil
+ 			return outVolEMA, outDeltaEMA, nil, out, nil, nil, nil, nil --Climax High
        end
         
         -- When volume is extra high and price is not changing - absolute consolidation or fast accummulation / distribution
         
         if (volClimaxCurrent == volClimaxLocal and volChurnCurrent == volChurnLocal)
         then
- 			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, out
+ 			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, out --Climax Churn
 		end
         
         -- When volume is higher than all previous and price is going down - start or end of the down trend
         
         if (volClimaxCurrent == volClimaxLocal and C(index) < (priceMax + priceMin) / 2)
         then
-			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, out, nil
+			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, out, nil --Climax Low
 		end
 			
-		return outVolEMA, outDeltaEMA, out, nil, nil, nil, nil, nil
+		return outVolEMA, outDeltaEMA, out, nil, nil, nil, nil, nil --neutral
 			
 	end
 	
