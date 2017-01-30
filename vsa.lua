@@ -136,8 +136,8 @@ function CalculateVolume()
 		local priceMax = H(index) 
 
         if useClosePrice == 1 then           
-           priceMinLocal = math.min(O(index), C(index))
-           priceMaxLocal = math.max(O(index), C(index))
+           priceMin = math.min(O(index), C(index))
+           priceMax = math.max(O(index), C(index))
         end
 
 		local volClimaxCurrent = V(index) * (priceMax - priceMin)
@@ -162,12 +162,12 @@ function CalculateVolume()
 		   priceMinLocal = L(n)
 		   priceMaxLocal = H(n)
             
-            climax = V(n) * (priceMaxLocal - priceMinLocal) 
-
             if useClosePrice == 1 then           
                 priceMinLocal = math.min(O(n), C(n))
                 priceMaxLocal = math.max(O(n), C(n))
             end
+
+	    climax = V(n) * (priceMaxLocal - priceMinLocal) 
            
             -- Previous maximal price range can be found here
             
