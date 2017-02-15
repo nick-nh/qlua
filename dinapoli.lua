@@ -1,8 +1,9 @@
+ --logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
 
-Settings = 
+ Settings = 
 {
 	Name = "*Dinapoli",
-	period = 21,
+	period = 64,
 	bars = 300,
 	display_mode = 1,
 	all_time_max = 0,
@@ -103,7 +104,7 @@ function DinapoliSMA()
 	
 	local SMA=fSMA()
 	
-	return function(ind, _p, _b, _dm, _alm)
+	return function(ind, _p, _b, _dm, _alm, ds)
 		local period = _p
 		local index = ind
 		local Display_mode = _dm
@@ -138,14 +139,14 @@ function DinapoliSMA()
 			return nil, nil, nil, nil, nil, SixtyOBlvl, SixtyOSlvl, EightyOBlvl, EightyOSlvl, OBLevel, OSLevel
 		end
 							
-		if index <= period then
-			TrendlessOSBuffer[index] = 0
-			top[index]=0
-			bottom[index]=0
+		if index <= period or not CandleExist(index) then
+			TrendlessOSBuffer[index] = TrendlessOSBuffer[index-1]
+			top[index]=top[index-1]
+			bottom[index]=bottom[index-1]
 			return nil, nil, nil, nil, nil, SixtyOBlvl, SixtyOSlvl, EightyOBlvl, EightyOSlvl, OBLevel, OSLevel
 		end
 		
-		TrendlessOSBuffer[index]= C(index) - SMA(index, period)		
+		TrendlessOSBuffer[index]= C(index) - SMA(index, period)--SMA(index, {Period=period, Metod = "SMA", VType="C", round="off"}, ds)	
 		
 		if TrendlessOSBuffer[index] > top[index-1] then
 			top[index] = TrendlessOSBuffer[index];
@@ -242,16 +243,57 @@ end
 
 function Init()
 	myDinapoliSMA = DinapoliSMA()
-	return 11
+     
+	return #Settings.line
 end
 
 function OnCalculate(index)
 	--if index < Settings.period then
 	--	return nil, nil, nil, nil, nil, nil, nil, nil, nil
 	--end
+   --WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)).."; T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))," - ").."; C("..index.."): "..isnil(C(index),"-"));
 
 	return myDinapoliSMA(index, Settings.period, Settings.bars, Settings.display_mode, Settings.all_time_max)
 end
+
+-- Пользовательcкие функции
+function WriteLog(text)
+
+   logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n");
+   logfile:flush();
+   LASTLOGSTRING = text;
+
+end;
+
+function isnil(a,b)
+   if a == nil then
+      return b
+   else
+      return a
+   end;
+end;
+
+function toYYYYMMDDHHMMSS(datetime)
+   if type(datetime) ~= "table" then
+      message("в функции toYYYYMMDDHHMMSS неверно задан параметр: datetime="..tostring(datetime))
+      return ""
+   else
+      local Res = tostring(datetime.year)
+      if #Res == 1 then Res = "000"..Res end
+      local month = tostring(datetime.month)
+      if #month == 1 then Res = Res.."0"..month; else Res = Res..month; end
+      local day = tostring(datetime.day)
+      if #day == 1 then Res = Res.."0"..day; else Res = Res..day; end
+      local hour = tostring(datetime.hour)
+      if #hour == 1 then Res = Res.."0"..hour; else Res = Res..hour; end
+      local minute = tostring(datetime.min)
+      if #minute == 1 then Res = Res.."0"..minute; else Res = Res..minute; end
+      local sec = tostring(datetime.sec);
+      if #sec == 1 then Res = Res.."0"..sec; else Res = Res..sec; end;
+      return Res
+   end
+end --toYYYYMMDDHHMMSS
+
 
 function highestHigh(BB, index, period)
 
@@ -303,10 +345,16 @@ function fSMA()
 		   
 		   if Index >= Period then
 			  local sum = 0
+			  local quant = 0
 			  for i = Index-Period+1, Index do
-				 sum = sum + C(i)
+				 if C(i) ~= nil then
+					 sum = sum + C(i) or 0
+					 quant = quant + 1
+				 end
 			  end
-			  Out = sum/Period
+			  if quant ~=0 then
+				Out = sum/quant
+			  end
 		   end
 		   
 		return Out
