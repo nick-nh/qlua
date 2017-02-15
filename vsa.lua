@@ -157,7 +157,7 @@ function CalculateVolume()
 		local priceMaxLocal = H(n)
 		local min_index = index
 		
-		for n=index-lookBack,index do
+		for n=index-lookBack + 1,index do
            
 		   priceMinLocal = L(n)
 		   priceMaxLocal = H(n)
