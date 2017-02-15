@@ -109,11 +109,25 @@ function CalculateVolume()
 			return nil, nil, nil, nil, nil, nil, nil, nil
 		end
 		
-		cache_volEMA[index]=k*math.pow(V(index), volumeFactor)+(1-k)*cache_volEMA[index-1]
+		if not CandleExist(index) then
+			cache_volEMA[index] = cache_volEMA[index-1] 
+			DeltaBuffer[index] = DeltaBuffer[index-1]
+			DeltaCalculations[index] = DeltaCalculations[index-1]
+			cache_DeltaEMA[index] = cache_DeltaEMA[index-1]
+			return nil
+		end
+		
+		cache_volEMA[index]=k*math.pow(V(index), volumeFactor)+(1-k)*(cache_volEMA[index-1] or 0)
 		
         local extraVolume = math.pow(V(index), volumeFactor)
     
-		if C(index) > C(index - 1) then
+		local previous = index-1
+		
+		if not CandleExist(previous) then
+			previous = FindExistCandle(previous)
+		end
+		
+		if C(index) > (C(previous) or 0) then
 			DeltaBuffer[index] = extraVolume
 		else
 			DeltaBuffer[index] = -1*extraVolume
@@ -126,7 +140,7 @@ function CalculateVolume()
 		
 		DeltaCalculations[index] = DeltaBuffer[index - 1] + extraVolume
 
-		cache_DeltaEMA[index]=k*DeltaCalculations[index]+(1-k)*cache_DeltaEMA[index-1]
+		cache_DeltaEMA[index]=k*DeltaCalculations[index]+(1-k)*(cache_DeltaEMA[index-1] or 0)
 		
 		if index < lookBack then
 			return nil, nil, nil, nil, nil, nil, nil, nil
@@ -140,7 +154,7 @@ function CalculateVolume()
            priceMax = math.max(O(index), C(index))
         end
 
-		local volClimaxCurrent = V(index) * (priceMax - priceMin)
+		local volClimaxCurrent = (V(index) or 0) * (priceMax - priceMin)
 		local volChurnCurrent = 0
 		
 		if volClimaxCurrent > 0 then       
@@ -159,40 +173,44 @@ function CalculateVolume()
 		
 		for n=index-lookBack + 1,index do
            
-		   priceMinLocal = L(n)
-		   priceMaxLocal = H(n)
-            
-            if useClosePrice == 1 then           
-                priceMinLocal = math.min(O(n), C(n))
-                priceMaxLocal = math.max(O(n), C(n))
-            end
-
-	    climax = V(n) * (priceMaxLocal - priceMinLocal) 
-           
-            -- Previous maximal price range can be found here
-            
-            if climax >= volClimaxLocal
-            then
-                volClimaxLocal = climax;
-            end
-            
-            -- Previous consolidation can be found here
-            
-            if climax > 0
-            then           
-                churn = V(n) / (priceMaxLocal - priceMinLocal)
-                
-                if churn >= volChurnLocal
-                then
-                    volChurnLocal = churn; 
-                end
-            end
-			
-			if v_H < V(n) then v_H = V(n) end
-			if v_L > V(n) then 
-				v_L = V(n)
-				min_index = n
-			end
+		   if CandleExist(n) then
+		   
+			   priceMinLocal = L(n)
+			   priceMaxLocal = H(n)
+				
+			   if useClosePrice == 1 then           
+				   priceMinLocal = math.min(O(n), C(n))
+				   priceMaxLocal = math.max(O(n), C(n))
+			   end
+				
+			   climax = V(n) * (priceMaxLocal - priceMinLocal) 
+			   
+				-- Previous maximal price range can be found here
+				
+				if climax >= volClimaxLocal
+				then
+					volClimaxLocal = climax;
+				end
+				
+				-- Previous consolidation can be found here
+				
+				if climax > 0
+				then           
+					churn = V(n) / (priceMaxLocal - priceMinLocal)
+					
+					if churn >= volChurnLocal
+					then
+						volChurnLocal = churn; 
+					end
+				end
+				
+				if v_H < V(n) then v_H = V(n) end
+				if v_L > V(n) then 
+					v_L = V(n)
+					min_index = n
+				end
+				
+		   end
 			
 		end
 		
@@ -246,6 +264,17 @@ function CalculateVolume()
 	
 end
 	----------------------------
+function FindExistCandle(I)
+
+	local out = I
+	
+	while not CandleExist(out) do
+		out = out -1
+	end	
+	
+	return out
+ 
+end
 	
 function round(num, idp)
 	if idp and num then
