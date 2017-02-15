@@ -53,17 +53,28 @@ function OnCalculate(index)
 	NRTR_buy = nil
 	NRTR_sell = nil
 	NRTR_1 = nil
+	
+	if not CandleExist(index) then
+		return nil
+	end
 
 	NRTR, NRTR_1 = myNRTR(index, Settings.period, Settings.value_type, Settings.multiple)
 
 	NRTR_1 = NRTR_1 or C(index)
+	NRTR = NRTR or C(index)
 	
-	if C(index) > NRTR and C(index-1) < NRTR_1 then
+	local previous = index-1
+		
+	if not CandleExist(previous) then
+		previous = FindExistCandle(previous)
+	end
+	
+	if C(index) > NRTR and C(previous) < NRTR_1 then
 		NRTR_buy = NRTR
 		NRTR_sell = nil
 	end
 
-	if C(index) < NRTR and C(index-1) > NRTR_1 then
+	if C(index) < NRTR and C(previous) > NRTR_1 then
 		NRTR_buy = nil
 		NRTR_sell = NRTR
 	end
@@ -78,6 +89,17 @@ end
 
 --------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------
+function FindExistCandle(I)
+
+	local out = I
+	
+	while not CandleExist(out) do
+		out = out -1
+	end	
+	
+	return out
+ 
+end
 
 function dValue(i,param)
 local v = param or "C"
@@ -98,7 +120,14 @@ local v = param or "C"
 	elseif   v == "W" then
 		return (H(i) + L(i)+2*C(i))/4
 	elseif   v == "ATR" then
-		return math.max(math.abs(H(i) - L(i)), math.abs(H(i) - C(i-1)), math.abs(C(i-1) - L(i)))
+	
+		local previous = i-1
+		
+		if not CandleExist(previous) then
+			previous = FindExistCandle(previous)
+		end
+	
+		return math.max(math.abs(H(i) - L(i)), math.abs(H(i) - C(previous)), math.abs(C(previous) - L(i)))
 	else
 		return C(i)
 	end 
@@ -142,6 +171,13 @@ function cached_NRTR()
 			return nil
 		end
 		
+		if index <= period or not CandleExist(index) then
+			cache_NRTR[index] = cache_NRTR[index-1] 
+			cache_EMA[index] = cache_EMA[index-1]
+			cache_HPrice[index] = cache_HPrice[index-1]
+			cache_LPrice[index] = cache_LPrice[index-1]
+			return nil
+		end
 				
 		p = cache_NRTR[index-1] or C(index)
 				
@@ -203,14 +239,13 @@ function highestHigh(index, period)
 	else
 
 		local highestHigh = H(index)
-		
-		
-		for i = math.max(index - period, 2), index, 1 do
-			
-			if H(i) > highestHigh then
-				highestHigh = H(i)
-			end
-			
+				
+		for i = math.max(index - period, 2), index, 1 do			
+			if CandleExist(i) then				
+				if H(i) > highestHigh then
+					highestHigh = H(i)
+				end				
+			end			
 		end
 	
 		return highestHigh 
@@ -228,8 +263,10 @@ function lowestLow(index, period)
 		
 		for i = math.max(index - period, 2), index, 1 do
 						
-			if L(i) < lowestLow then
-				lowestLow = L(i)
+			if CandleExist(i) then
+				if L(i) < lowestLow then
+					lowestLow = L(i)
+				end
 			end
 			
 		end
