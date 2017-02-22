@@ -99,13 +99,20 @@ function CalculateVolume()
 
 		if index == 1 then
 			cache_volEMA = {}
-			cache_volEMA[index]= math.pow(V(index), volumeFactor)
 			DeltaBuffer = {}
-			DeltaBuffer[index]= math.pow(V(index), volumeFactor)
 			DeltaCalculations = {}
-			DeltaCalculations[index]= math.pow(V(index), volumeFactor)
 			cache_DeltaEMA = {}
-			cache_DeltaEMA[index]= math.pow(V(index), volumeFactor)
+			if CandleExist(index) then
+				DeltaBuffer[index]= math.pow(V(index), volumeFactor)
+				DeltaCalculations[index]= math.pow(V(index), volumeFactor)
+				cache_volEMA[index]= math.pow(V(index), volumeFactor)
+				cache_DeltaEMA[index]= math.pow(V(index), volumeFactor)
+			else 
+				cache_volEMA[index]= 0
+				DeltaBuffer[index]= 0
+				DeltaCalculations[index]= 0
+				cache_DeltaEMA[index]= 0
+			end
 			return nil, nil, nil, nil, nil, nil, nil, nil
 		end
 		
@@ -117,7 +124,7 @@ function CalculateVolume()
 			return nil
 		end
 		
-		cache_volEMA[index]=k*math.pow(V(index), volumeFactor)+(1-k)*(cache_volEMA[index-1] or 0)
+		cache_volEMA[index]=k*math.pow(V(index), volumeFactor)+(1-k)*cache_volEMA[index-1]
 		
         local extraVolume = math.pow(V(index), volumeFactor)
     
@@ -127,7 +134,14 @@ function CalculateVolume()
 			previous = FindExistCandle(previous)
 		end
 		
-		if C(index) > (C(previous) or 0) then
+		if previous == 0 then
+			DeltaBuffer[index] = DeltaBuffer[index-1]
+			DeltaCalculations[index] = DeltaCalculations[index-1]
+			cache_DeltaEMA[index] = cache_DeltaEMA[index-1]
+			return nil
+		end
+		
+		if C(index) > C(previous) then
 			DeltaBuffer[index] = extraVolume
 		else
 			DeltaBuffer[index] = -1*extraVolume
@@ -140,7 +154,7 @@ function CalculateVolume()
 		
 		DeltaCalculations[index] = DeltaBuffer[index - 1] + extraVolume
 
-		cache_DeltaEMA[index]=k*DeltaCalculations[index]+(1-k)*(cache_DeltaEMA[index-1] or 0)
+		cache_DeltaEMA[index]=k*DeltaCalculations[index]+(1-k)*cache_DeltaEMA[index-1]
 		
 		if index < lookBack then
 			return nil, nil, nil, nil, nil, nil, nil, nil
@@ -154,7 +168,7 @@ function CalculateVolume()
            priceMax = math.max(O(index), C(index))
         end
 
-		local volClimaxCurrent = (V(index) or 0) * (priceMax - priceMin)
+		local volClimaxCurrent = V(index) * (priceMax - priceMin)
 		local volChurnCurrent = 0
 		
 		if volClimaxCurrent > 0 then       
@@ -268,7 +282,7 @@ function FindExistCandle(I)
 
 	local out = I
 	
-	while not CandleExist(out) do
+	while not CandleExist(out) and out > 0 do
 		out = out -1
 	end	
 	
