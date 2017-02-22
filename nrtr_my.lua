@@ -164,10 +164,17 @@ function cached_NRTR()
 			cache_HPrice = {}
 			cache_LPrice = {}
 			
-			cache_EMA[index] = math.abs(H(i) - L(i))
-			cache_NRTR[index] = C(index)
-			cache_LPrice[index] = C(index)
-			cache_HPrice[index] = C(index)
+			if CandleExist(index) then
+				cache_EMA[index] = math.abs(H(i) - L(i))
+				cache_NRTR[index] = C(index)
+				cache_LPrice[index] = C(index)
+				cache_HPrice[index] = C(index)
+			else 
+				cache_EMA[index] = 0
+				cache_NRTR[index] = 0
+				cache_LPrice[index] = 0
+				cache_HPrice[index] = 0
+			end
 			return nil
 		end
 		
