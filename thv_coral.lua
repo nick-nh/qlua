@@ -2,27 +2,14 @@
 Settings = 
 {
 	Name = "*THV Coral",
-	period = 30,
+	period = 14,
 	koef = 1,
 	line=
 	{
 		{
-			Name = "g_ibuf_92",
-			Color = RGB(255, 255, 2),
-			Type = TYPE_POINT,
-			Width = 2
-		},
-		{
-			Name = "g_ibuf_96",
-			Color = RGB(0, 255, 0),
-			Type = TYPE_POINT,
-			Width = 2
-		}
-	,
-		{
-			Name = "g_ibuf_100",
-			Color = RGB(255, 0, 0),
-			Type = TYPE_POINT,
+			Name = "THV MA",
+			Color = RGB(0, 128, 128),
+			Type = TYPE_LINE,
 			Width = 2
 		}
 	}
@@ -89,6 +76,19 @@ function cached_THV()
 			return nil,nil,nil
 		end
 		  
+		if not CandleExist(index) then
+			g_ibuf_92[index] = g_ibuf_92[index-1] 
+			g_ibuf_96[index] = g_ibuf_96[index-1]
+			g_ibuf_100[index] = g_ibuf_100[index-1]
+			g_ibuf_104[index] = g_ibuf_104[index-1] 
+			gda_108[index] = gda_108[index-1]
+			gda_112[index] = gda_112[index-1]
+			gda_116[index] = gda_116[index-1] 
+			gda_120[index] = gda_120[index-1]
+			gda_124[index] = gda_124[index-1]
+			gda_128[index] = gda_128[index-1] 
+			return nil
+		end
 			
 		  gda_108[index] = gd_172 * C(index) + gd_180 * (gda_108[index - 1])
 		  gda_112[index] = gd_172 * (gda_108[index]) + gd_180 * (gda_112[index - 1])
@@ -103,18 +103,28 @@ function cached_THV()
 		  g_ibuf_96[index] = ld_0
 		  g_ibuf_100[index] = ld_0
 		  
+		local out = nil
+		
+		--[[
 		  if ld_8 > ld_0 then 
-			g_ibuf_96[index] = nil 
+			--g_ibuf_96[index] = nil 
 		  else 
 			if ld_8 < ld_0 then 
-				g_ibuf_100[index] = nil 
+				--g_ibuf_100[index] = nil 
 			else 
-				g_ibuf_92[index] = nil 
+				--g_ibuf_92[index] = nil 
 			end
 		  end
-	     
-	return g_ibuf_92[index], g_ibuf_96[index], g_ibuf_100[index]	
-	
+		  ]]--
+		  
+		  if ld_8 > ld_0 then 
+			out = g_ibuf_100[index]
+		  else 
+			out = g_ibuf_96[index]
+		  end
+			
+		--return g_ibuf_96[index], g_ibuf_100[index]	
+		return out
 	end	
 	
 end
@@ -123,7 +133,7 @@ end
 function Init()
 	
 	myTHV = cached_THV()
-	return 3
+	return 2
 end
 
 function OnCalculate(index)
