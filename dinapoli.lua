@@ -139,15 +139,20 @@ function DinapoliSMA()
 			return nil, nil, nil, nil, nil, SixtyOBlvl, SixtyOSlvl, EightyOBlvl, EightyOSlvl, OBLevel, OSLevel
 		end
 							
+		TrendlessOSBuffer[index] = TrendlessOSBuffer[index-1]
+		top[index]=top[index-1]
+		bottom[index]=bottom[index-1]
+		
 		if index <= period or not CandleExist(index) then
-			TrendlessOSBuffer[index] = TrendlessOSBuffer[index-1]
-			top[index]=top[index-1]
-			bottom[index]=bottom[index-1]
 			return nil, nil, nil, nil, nil, SixtyOBlvl, SixtyOSlvl, EightyOBlvl, EightyOSlvl, OBLevel, OSLevel
 		end
 		
-		TrendlessOSBuffer[index]= C(index) - SMA(index, period)--SMA(index, {Period=period, Metod = "SMA", VType="C", round="off"}, ds)	
+		local sma = SMA(index, period)
+		TrendlessOSBuffer[index]= C(index) - sma --SMA(index, {Period=period, Metod = "SMA", VType="C", round="off"}, ds)	
 		
+		--WriteLog ("top[index-1] "..tostring(top[index-1]))
+		--WriteLog ("sma "..tostring(sma))
+		--WriteLog ("TrendlessOSBuffer[index] "..tostring(TrendlessOSBuffer[index]))
 		if TrendlessOSBuffer[index] > top[index-1] then
 			top[index] = TrendlessOSBuffer[index];
 		else
@@ -248,9 +253,6 @@ function Init()
 end
 
 function OnCalculate(index)
-	--if index < Settings.period then
-	--	return nil, nil, nil, nil, nil, nil, nil, nil, nil
-	--end
    --WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)).."; T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))," - ").."; C("..index.."): "..isnil(C(index),"-"));
 
 	return myDinapoliSMA(index, Settings.period, Settings.bars, Settings.display_mode, Settings.all_time_max)
@@ -347,7 +349,7 @@ function fSMA()
 			  local sum = 0
 			  local quant = 0
 			  for i = Index-Period+1, Index do
-				 if C(i) ~= nil then
+				 if CandleExist(i) then
 					 sum = sum + C(i) or 0
 					 quant = quant + 1
 				 end
