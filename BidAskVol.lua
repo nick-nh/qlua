@@ -47,7 +47,7 @@ Settings =
      }
  }
 
--- Пользовательcкие функции
+-- ГЏГ®Г«ГјГ§Г®ГўГ ГІГҐГ«ГјcГЄГЁГҐ ГґГіГ­ГЄГ¶ГЁГЁ
 function WriteLog(text)
 
    logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n");
@@ -58,7 +58,7 @@ end;
 
 function toYYYYMMDDHHMMSS(datetime)
    if type(datetime) ~= "table" then
-      --message("в функции toYYYYMMDDHHMMSS неверно задан параметр: datetime="..tostring(datetime))
+      --message("Гў ГґГіГ­ГЄГ¶ГЁГЁ toYYYYMMDDHHMMSS Г­ГҐГўГҐГ°Г­Г® Г§Г Г¤Г Г­ ГЇГ Г°Г Г¬ГҐГІГ°: datetime="..tostring(datetime))
       return ""
    else
       local Res = tostring(datetime.year)
@@ -96,7 +96,7 @@ end;
 	local trade = nil
 	local datetime = nil
 	
-   -- Перебирает все сделки в таблице "Сделки"
+   -- ГЏГҐГ°ГҐГЎГЁГ°Г ГҐГІ ГўГ±ГҐ Г±Г¤ГҐГ«ГЄГЁ Гў ГІГ ГЎГ«ГЁГ¶ГҐ "Г‘Г¤ГҐГ«ГЄГЁ"
 	
 	local all_trades_count = getNumberOf("all_trades")
 	--WriteLog ("all_trades_count "..tostring(all_trades_count))
@@ -132,7 +132,7 @@ end;
 								value = trade.qty
 							end
 							
-							if tostring(trade.flags) == "1" then --продажа
+							if tostring(trade.flags) == "1025" then --ГЇГ°Г®Г¤Г Г¦Г 
 														
 								if inverse == 0 then
 									cache_VolAsk[index] = cache_VolAsk[index] + value
@@ -164,7 +164,7 @@ end
     
 	if alltrade.sec_code == SEC_CODE then
 	
-		if tostring(alltrade.flags) == "1" then --продажа
+		if tostring(alltrade.flags) == "1" then --ГЇГ°Г®Г¤Г Г¦Г 
 			cache_VolAsk[DS:Size()] = cache_VolAsk[DS:Size()] - alltrade.value
 		else
 			cache_VolBid[DS:Size()] = cache_VolBid[DS:Size()] + alltrade.value
