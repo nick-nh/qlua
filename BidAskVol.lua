@@ -2,6 +2,7 @@
 
 SEC_CODE = ""; 
 DSInfo = nil;
+Vol_Coeff = 1;
 --cache_VolBid={}
 --cache_VolAsk={}
 
@@ -13,6 +14,7 @@ Settings =
      Name = "*volume",
 	 showVolume=0,
 	 inverse = 0,
+	 CountQuntOfDeals = 0,
 	 showdelta=0,
 	 sum_quantity=1,	 
 	 showdelta=1,
@@ -47,7 +49,7 @@ Settings =
      }
  }
 
--- Ïîëüçîâàòåëücêèå ôóíêöèè
+-- Пользовательcкие функции
 function WriteLog(text)
 
    logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n");
@@ -58,7 +60,7 @@ end;
 
 function toYYYYMMDDHHMMSS(datetime)
    if type(datetime) ~= "table" then
-      --message("â ôóíêöèè toYYYYMMDDHHMMSS íåâåðíî çàäàí ïàðàìåòð: datetime="..tostring(datetime))
+      --message("в функции toYYYYMMDDHHMMSS неверно задан параметр: datetime="..tostring(datetime))
       return ""
    else
       local Res = tostring(datetime.year)
@@ -91,12 +93,12 @@ end;
 	return #Settings.line
  end
 
- function ReadTrades(index, timeFrom, timeTo, firstindex, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString)
+ function ReadTrades(index, timeFrom, timeTo, firstindex, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString, CountQuntOfDeals)
    
 	local trade = nil
 	local datetime = nil
 	
-   -- Ïåðåáèðàåò âñå ñäåëêè â òàáëèöå "Ñäåëêè"
+   -- Перебирает все сделки в таблице "Сделки"
 	
 	local all_trades_count = getNumberOf("all_trades")
 	--WriteLog ("all_trades_count "..tostring(all_trades_count))
@@ -126,13 +128,15 @@ end;
 						
 						if filterQuantity(trade.qty, filterString) then
 												
-							if sum_quantity == 0 then
+							if CountQuntOfDeals == 1 then
+								value = 1
+							elseif sum_quantity == 0 then
 								value = trade.value
 							else
 								value = trade.qty
 							end
 							
-							if tostring(trade.flags) == "1025" then --ïðîäàæà
+							if tostring(trade.flags) == "1025" then --продажа
 														
 								if inverse == 0 then
 									cache_VolAsk[index] = cache_VolAsk[index] + value
@@ -142,7 +146,7 @@ end;
 							else
 								cache_VolBid[index] = cache_VolBid[index] + value
 							end	
-							--WriteLog ("deal ".."i("..i..")".."SEC_CODE: "..trade.sec_code.."; time deal "..isnil(toYYYYMMDDHHMMSS(datetime)," - ").."; cache_VolAsk: "..tostring(cache_VolAsk[index]).."; cache_VolBid: "..tostring(cache_VolBid[index]));
+							--WriteLog ("deal ".."i("..i..")".."SEC_CODE: "..trade.sec_code.."; time deal "..isnil(toYYYYMMDDHHMMSS(datetime)," - ").."; flag "..tostring(trade.flags).."; cache_VolAsk: "..tostring(cache_VolAsk[index]).."; cache_VolBid: "..tostring(cache_VolBid[index]));
 						
 						end
 					else
@@ -164,7 +168,7 @@ end
     
 	if alltrade.sec_code == SEC_CODE then
 	
-		if tostring(alltrade.flags) == "1" then --ïðîäàæà
+		if tostring(alltrade.flags) == "1" then --продажа
 			cache_VolAsk[DS:Size()] = cache_VolAsk[DS:Size()] - alltrade.value
 		else
 			cache_VolBid[DS:Size()] = cache_VolBid[DS:Size()] + alltrade.value
@@ -179,6 +183,7 @@ end
 	if index == 1 then
 		DSInfo = getDataSourceInfo()     	
 		SEC_CODE = DSInfo.sec_code
+		Vol_Coeff = getLotSizeBySecCode(DSInfo.sec_code)
 	end
           
    --if not InitComplete then return; end;
@@ -186,6 +191,10 @@ end
    return myVol(index, Settings)
  end
  
+ function getLotSizeBySecCode(sec_code)
+   local status = getParamEx("TQBR", sec_code, "lotsize"); -- Беру размер лота для кода класса "TQBR"
+   return math.ceil(status.param_value);                   -- Отбрасываю ноли после запятой
+end;
  --[[
  function getStructureFromString(filterString)
  
@@ -234,6 +243,7 @@ end
 		local showdelta = (Fsettings.showdelta or 0)
 		local showVolume = (Fsettings.showVolume or 0)
 		local inverse = (Fsettings.inverse or 0)
+		local CountQuntOfDeals = (Fsettings.CountQuntOfDeals or 0)
 		local sum_quantity = (Fsettings.sum_quantity or 1)
 		local delta_koeff = (Fsettings.delta_koeff or 0)
 		local filterString = (Fsettings.dealFilter or nil)
@@ -284,7 +294,7 @@ end
 		--WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)).."; T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))," - ").."; LastReadDeals "..tostring(LastReadDeals[index]));
 		--WriteLog ("timeFrom "..isnil(toYYYYMMDDHHMMSS(T(index))," - "))
 		--WriteLog ("timeTo "..isnil(toYYYYMMDDHHMMSS(timeTo)," - "))
-		ReadTrades(index, T(index), timeTo, LastReadDeals[index]+1, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString)	
+		ReadTrades(index, T(index), timeTo, LastReadDeals[index]+1, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString, CountQuntOfDeals)	
 		--WriteLog ("LastReadDeals "..tostring(LastReadDeals[index]))
 		--WriteLog ("cache_VolAsk "..tostring(cache_VolAsk[index]))
 		--WriteLog ("cache_VolBid "..tostring(cache_VolBid[index]))
@@ -298,6 +308,7 @@ end
 		end
 		
 		--WriteLog ("Delta -1 "..tostring(Delta[index-1]))
+		
 		
 		if index > 1 then
 			Delta[index] = localDelta*delta_koeff + Delta[index-1]
