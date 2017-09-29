@@ -1,7 +1,8 @@
 Settings = {
 Name = "*ATR Normalized + DayRange", 
 round = "off",
-Period = 14,
+showATR = 1,
+Period = 64,
 NATR = 0,
 NATR_percent = 20,
 line = {
@@ -40,74 +41,79 @@ function ATR() --Average True Range ("ATR")
 	local ATR = {}
 	
 	return function (I, Fsettings, ds)
-	local Out = nil
-	local Fsettings=(Fsettings or {})
-	local P = (Fsettings.Period or 14)
-	local R = (Fsettings.round or "off")
-	local NATR_percent = (Fsettings.NATR_percent or 0)
-	local NATR = (Fsettings.NATR or 0)
-	local delta = 0
 	
-	local previous = I-1
+		local Out = nil
+		local Fsettings=(Fsettings or {})
+		local P = (Fsettings.Period or 64)
+		local showATR = (Fsettings.showATR or 1)
+		local R = (Fsettings.round or "off")
+		local NATR_percent = (Fsettings.NATR_percent or 0)
+		local NATR = (Fsettings.NATR or 0)
+		local delta = 0
 		
-	if not CandleExist(previous) then
-		previous = FindExistCandle(previous)
-	end
-	if CandleExist(I) and previous ~= 0 then
-		delta=C(I)-C(previous)
-		out_incrementum = math.abs(delta)
-	else
-		out_incrementum = 0
-	end
-		
-	if NATR == 0 then
-	
-		if I<P then
-			ATR[I] = 0
-		elseif not CandleExist(I) then
-			ATR[I] = ATR[I-1]
-		elseif I==P then
-			local sum=0
-			for i = 1, P do
-				sum = sum +f_TR(i,{round="off"},ds)
-			end
-			ATR[I]=sum / P
-		elseif I>P then
-			ATR[I]=(ATR[I-1] * (P-1) + f_TR(I,{round="off"},ds)) / P
+		local previous = I-1
+			
+		if not CandleExist(previous) then
+			previous = FindExistCandle(previous)
+		end
+		if CandleExist(I) and previous ~= 0 then
+			delta=C(I)-C(previous)
+			out_incrementum = math.abs(delta)
+		else
+			out_incrementum = 0
 		end
 		
-		Out = ATR[I]
-		
-	else
-    
-		local myATR = {}
+		if showATR == 1 then	
+			if NATR == 0 then
+			
+				if I<P then
+					ATR[I] = 0
+				elseif not CandleExist(I) then
+					ATR[I] = ATR[I-1]
+				elseif I==P then
+					local sum=0
+					for i = 1, P do
+						sum = sum +f_TR(i,{round="off"},ds)
+					end
+					ATR[I]=sum / P
+				elseif I>P then
+					ATR[I]=(ATR[I-1] * (P-1) + f_TR(I,{round="off"},ds)) / P
+				end
+				
+				Out = ATR[I]
+				
+			else
+			
+				local myATR = {}
 
-		for i = 0, P-1 do
-			myATR[i] = f_TR(I-i,{round="off"},ds)		
+				for i = 0, P-1 do
+					myATR[i] = f_TR(I-i,{round="off"},ds)		
+				end
+				
+				table.sort(myATR)
+				
+				local cut_num = math.ceil((P*NATR_percent)*0.01/2)
+				local sred = 0
+				
+				for i = cut_num, P-cut_num-1 do
+					sred = sred + myATR[i]		
+				end
+				
+				Out=sred/(P-cut_num*2)
+				
+			end
 		end
 		
-		table.sort(myATR)
-		
-		local cut_num = math.ceil((P*NATR_percent)*0.01/2)
-		local sred = 0
-		
-		for i = cut_num, P-cut_num-1 do
-			sred = sred + myATR[i]		
+		if I>=P then
+			if delta>0 then 
+				return out_incrementum, nil, rounding(Out, R)
+			else 
+				return nil, out_incrementum, rounding(Out, R)
+			end
+		else
+			return 0,0,nil
 		end
 		
-		Out=sred/(P-cut_num*2)
-		
-	end
-	
-	if I>=P then
-		if delta>0 then 
-			return out_incrementum, nil, rounding(Out, R)
-		else 
-			return nil, out_incrementum, rounding(Out, R)
-		end
-	else
-		return 0,0,nil
-	end
 	end
 end
 
