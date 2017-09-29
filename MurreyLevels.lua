@@ -6,79 +6,79 @@ usegap = 0,
 line={
 {
 Name = "[-2/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,0, 255)
 },
 {
 Name = "[-1/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,191, 191)
 },
 {
-Name = "[0/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[0/8] Ћкончательное сопротивление",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(0,128, 255)
 },
 {
-Name = "[1/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[1/8] ‘лабый, место для остановки и разворота",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(218,188, 18)
 },
 {
-Name = "[2/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[2/8] ‚ращение, разворот",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,0, 128)
 },
 {
-Name = "[3/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[3/8] „но торгового диапазона",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(120,220, 235)
 },
 {
-Name = "[4/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[4/8] ѓлавный уровень поддержки/сопротивления",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(128,128, 128)--green
 },
 {
-Name = "[5/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[5/8] ‚ерх торгового диапазона",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(120,220, 235)
 },
 {
-Name = "[6/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[6/8] ‚ращение, разворот",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,0, 128)
 },
 {
-Name = "[7/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[7/8] ‘лабый, место для остановки и разворота",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(218,188, 18)
 },
 {
-Name = "[8/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Name = "[8/8] Ћкончательное сопротивление",
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(0,128, 255)
 },
 {
 Name = "[+1/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,191, 191)
 },
 {
 Name = "[+2/8]",
-Type =TYPE_CANDLE,-- = LINE --линии  = DASH -- тире  = POINT -- точки
+Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,0, 255)
 },
@@ -164,7 +164,24 @@ function MurreyMath()
 			
 		end
  		
-       
+ 		Buffer1[index] = Buffer1[index-1] 
+ 		Buffer2[index] = Buffer2[index-1] 
+ 		Buffer3[index] = Buffer3[index-1] 
+ 		Buffer4[index] = Buffer4[index-1] 
+ 		Buffer5[index] = Buffer5[index-1] 
+ 		Buffer6[index] = Buffer6[index-1] 
+ 		Buffer7[index] = Buffer7[index-1] 
+ 		Buffer8[index] = Buffer8[index-1] 
+ 		Buffer9[index] = Buffer9[index-1] 
+ 		Buffer10[index] = Buffer10[index-1] 
+ 		Buffer11[index] = Buffer11[index-1] 
+ 		Buffer12[index] = Buffer12[index-1] 
+ 		Buffer13[index] = Buffer13[index-1] 
+		
+		if not CandleExist(index) then
+			return nil
+		end
+      
 		if index < (Size()-3) then 
 			return nil 
 		end
