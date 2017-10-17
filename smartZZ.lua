@@ -1,8 +1,8 @@
 -- nnh Glukk Inc. nick-h@yandex.ru
 
--- Алгоритм: проверка размера волн и корректировка по следующим от- |
--- ношениям "Идеальных пропорций" ("Золотое сечение" версия 1):     |
---   №    (D-E)/(D-C)   "ЗС версия1" №  (E-D)/(C-D)   "ЗС версия1"  |
+-- РђР»РіРѕСЂРёС‚Рј: РїСЂРѕРІРµСЂРєР° СЂР°Р·РјРµСЂР° РІРѕР»РЅ Рё РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° РїРѕ СЃР»РµРґСѓСЋС‰РёРј РѕС‚- |
+-- РЅРѕС€РµРЅРёСЏРј "РРґРµР°Р»СЊРЅС‹С… РїСЂРѕРїРѕСЂС†РёР№" ("Р—РѕР»РѕС‚РѕРµ СЃРµС‡РµРЅРёРµ" РІРµСЂСЃРёСЏ 1):     |
+--   в„–    (D-E)/(D-C)   "Р—РЎ РІРµСЂСЃРёСЏ1" в„–  (E-D)/(C-D)   "Р—РЎ РІРµСЂСЃРёСЏ1"  |
 --   M1    2             1.618       W1  0.3334        0.3819       |
 --   M2    0.5           0.5         W2  0.6667        0.618        |
 --   M3    1.5           1.2720      W3  1.5           1.2720       |
@@ -29,22 +29,22 @@ AddedLabels = {}
 Settings = 
 {
 	Name = "*SmartZZ",
-	bars = 1000, -- за сколько баров строить зиг заг
-	deviation = 30, -- процент движения от максимума/минимума для смены тренда
-	gapDeviation = 70, -- процент резкого движения от максимума/минимума для смены тренда без всяких условий
-	WaitBars = 4, -- число свечей для смены тренда
-	showCalculatedLevels = 1, -- показывать уровни от прошлого движения
-	showextraCalculatedLevels = 0, -- показывать расширения уровней от прошлого движения
-	regimeOfCalculatedLevels = 2, -- 1- последнее движение, 2 - последний максимальный диапазон
-	deepZZForCalculatedLevels = 10, -- глубина поиска последнего максимального диапазона по вершинам. До 20.
-	showZZLevels = 1, -- показывать уровни от вершин
-	numberZZLevels = 10, -- сколько показывать уровней от вершин до 20
-	showCoG = 1, -- показывать центр движения для вил Эндрюса
-	showTargetZone = 1, -- показывать целевую зону
-	numberOfMovesForTargetZone = 5, --  глубина поиска движений для предсказания
-	spreadOfTargetZone = 10, -- диапазон целевой зоны (%)
-	showLabel = 1, -- показывать метку паттерна
-	LabelShift = 200, -- сдвиг метки от вершины
+	bars = 1000, -- Р·Р° СЃРєРѕР»СЊРєРѕ Р±Р°СЂРѕРІ СЃС‚СЂРѕРёС‚СЊ Р·РёРі Р·Р°Рі
+	deviation = 30, -- РїСЂРѕС†РµРЅС‚ РґРІРёР¶РµРЅРёСЏ РѕС‚ РјР°РєСЃРёРјСѓРјР°/РјРёРЅРёРјСѓРјР° РґР»СЏ СЃРјРµРЅС‹ С‚СЂРµРЅРґР°
+	gapDeviation = 70, -- РїСЂРѕС†РµРЅС‚ СЂРµР·РєРѕРіРѕ РґРІРёР¶РµРЅРёСЏ РѕС‚ РјР°РєСЃРёРјСѓРјР°/РјРёРЅРёРјСѓРјР° РґР»СЏ СЃРјРµРЅС‹ С‚СЂРµРЅРґР° Р±РµР· РІСЃСЏРєРёС… СѓСЃР»РѕРІРёР№
+	WaitBars = 4, -- С‡РёСЃР»Рѕ СЃРІРµС‡РµР№ РґР»СЏ СЃРјРµРЅС‹ С‚СЂРµРЅРґР°
+	showCalculatedLevels = 1, -- РїРѕРєР°Р·С‹РІР°С‚СЊ СѓСЂРѕРІРЅРё РѕС‚ РїСЂРѕС€Р»РѕРіРѕ РґРІРёР¶РµРЅРёСЏ
+	showextraCalculatedLevels = 0, -- РїРѕРєР°Р·С‹РІР°С‚СЊ СЂР°СЃС€РёСЂРµРЅРёСЏ СѓСЂРѕРІРЅРµР№ РѕС‚ РїСЂРѕС€Р»РѕРіРѕ РґРІРёР¶РµРЅРёСЏ
+	regimeOfCalculatedLevels = 2, -- 1- РїРѕСЃР»РµРґРЅРµРµ РґРІРёР¶РµРЅРёРµ, 2 - РїРѕСЃР»РµРґРЅРёР№ РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ РґРёР°РїР°Р·РѕРЅ
+	deepZZForCalculatedLevels = 10, -- РіР»СѓР±РёРЅР° РїРѕРёСЃРєР° РїРѕСЃР»РµРґРЅРµРіРѕ РјР°РєСЃРёРјР°Р»СЊРЅРѕРіРѕ РґРёР°РїР°Р·РѕРЅР° РїРѕ РІРµСЂС€РёРЅР°Рј. Р”Рѕ 20.
+	showZZLevels = 1, -- РїРѕРєР°Р·С‹РІР°С‚СЊ СѓСЂРѕРІРЅРё РѕС‚ РІРµСЂС€РёРЅ
+	numberZZLevels = 10, -- СЃРєРѕР»СЊРєРѕ РїРѕРєР°Р·С‹РІР°С‚СЊ СѓСЂРѕРІРЅРµР№ РѕС‚ РІРµСЂС€РёРЅ РґРѕ 20
+	showCoG = 1, -- РїРѕРєР°Р·С‹РІР°С‚СЊ С†РµРЅС‚СЂ РґРІРёР¶РµРЅРёСЏ РґР»СЏ РІРёР» Р­РЅРґСЂСЋСЃР°
+	showTargetZone = 1, -- РїРѕРєР°Р·С‹РІР°С‚СЊ С†РµР»РµРІСѓСЋ Р·РѕРЅСѓ
+	numberOfMovesForTargetZone = 5, --  РіР»СѓР±РёРЅР° РїРѕРёСЃРєР° РґРІРёР¶РµРЅРёР№ РґР»СЏ РїСЂРµРґСЃРєР°Р·Р°РЅРёСЏ
+	spreadOfTargetZone = 10, -- РґРёР°РїР°Р·РѕРЅ С†РµР»РµРІРѕР№ Р·РѕРЅС‹ (%)
+	showLabel = 1, -- РїРѕРєР°Р·С‹РІР°С‚СЊ РјРµС‚РєСѓ РїР°С‚С‚РµСЂРЅР°
+	LabelShift = 200, -- СЃРґРІРёРі РјРµС‚РєРё РѕС‚ РІРµСЂС€РёРЅС‹
 	ChartId = '',
 	line=
 	{
@@ -73,55 +73,55 @@ Settings =
 			Color = RGB(255,191, 191)
 		},		
 		{
-			Name = "[0/8] Окончательное сопротивление",
+			Name = "[0/8] РћРєРѕРЅС‡Р°С‚РµР»СЊРЅРѕРµ СЃРѕРїСЂРѕС‚РёРІР»РµРЅРёРµ",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(0,128, 255)
 		},
 		{
-			Name = "[1/8] Слабый, место для остановки и разворота",
+			Name = "[1/8] РЎР»Р°Р±С‹Р№, РјРµСЃС‚Рѕ РґР»СЏ РѕСЃС‚Р°РЅРѕРІРєРё Рё СЂР°Р·РІРѕСЂРѕС‚Р°",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(218,188, 18)
 		},
 		{
-			Name = "[2/8] Вращение, разворот",
+			Name = "[2/8] Р’СЂР°С‰РµРЅРёРµ, СЂР°Р·РІРѕСЂРѕС‚",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(255,0, 128)
 		},
 		{
-			Name = "[3/8] Дно торгового диапазона",
+			Name = "[3/8] Р”РЅРѕ С‚РѕСЂРіРѕРІРѕРіРѕ РґРёР°РїР°Р·РѕРЅР°",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(120,220, 235)
 		},
 		{
-			Name = "[4/8] Главный уровень поддержки/сопротивления",
+			Name = "[4/8] Р“Р»Р°РІРЅС‹Р№ СѓСЂРѕРІРµРЅСЊ РїРѕРґРґРµСЂР¶РєРё/СЃРѕРїСЂРѕС‚РёРІР»РµРЅРёСЏ",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(128,128, 128)--green
 		},
 		{
-			Name = "[5/8] Верх торгового диапазона",
+			Name = "[5/8] Р’РµСЂС… С‚РѕСЂРіРѕРІРѕРіРѕ РґРёР°РїР°Р·РѕРЅР°",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(120,220, 235)
 		},
 		{
-			Name = "[6/8] Вращение, разворот",
+			Name = "[6/8] Р’СЂР°С‰РµРЅРёРµ, СЂР°Р·РІРѕСЂРѕС‚",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(255,0, 128)
 		},
 		{
-			Name = "[7/8] Слабый, место для остановки и разворота",
+			Name = "[7/8] РЎР»Р°Р±С‹Р№, РјРµСЃС‚Рѕ РґР»СЏ РѕСЃС‚Р°РЅРѕРІРєРё Рё СЂР°Р·РІРѕСЂРѕС‚Р°",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(218,188, 18)
 		},
 		{
-			Name = "[8/8] Окончательное сопротивление",
+			Name = "[8/8] РћРєРѕРЅС‡Р°С‚РµР»СЊРЅРѕРµ СЃРѕРїСЂРѕС‚РёРІР»РµРЅРёРµ",
 			Type =TYPE_LINE,
 			Width = 2,
 			Color = RGB(0,128, 255)
@@ -153,7 +153,7 @@ Settings =
 	}
 }
 
- -- Пользовательcкие функции
+ -- РџРѕР»СЊР·РѕРІР°С‚РµР»СЊcРєРёРµ С„СѓРЅРєС†РёРё
 function WriteLog(text)
 
    logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n");
@@ -164,7 +164,7 @@ end
 
 function toYYYYMMDDHHMMSS(datetime)
    if type(datetime) ~= "table" then
-      --message("в функции toYYYYMMDDHHMMSS неверно задан параметр: datetime="..tostring(datetime))
+      --message("РІ С„СѓРЅРєС†РёРё toYYYYMMDDHHMMSS РЅРµРІРµСЂРЅРѕ Р·Р°РґР°РЅ РїР°СЂР°РјРµС‚СЂ: datetime="..tostring(datetime))
       return ""
    else
       local Res = tostring(datetime.year)
@@ -215,7 +215,7 @@ function OnCalculate(index)
 		AddedLabels = {}
 	end
 	
-	--if #AddedLabels > 0 then -- Удаляет ранее установленные метки
+	--if #AddedLabels > 0 then -- РЈРґР°Р»СЏРµС‚ СЂР°РЅРµРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹Рµ РјРµС‚РєРё
 	--	for i=1,#AddedLabels,1 do
 	--		DelLabel(Settings.ChartId, AddedLabels[i]);
 	--	end
@@ -244,26 +244,26 @@ end
 ---------------------------------------------------------------------------------------
 function cached_ZZ()
 	
-	local cache_ST={} -- тренд
-	local CC={} -- значения закрытия свечей
+	local cache_ST={} -- С‚СЂРµРЅРґ
+	local CC={} -- Р·РЅР°С‡РµРЅРёСЏ Р·Р°РєСЂС‹С‚РёСЏ СЃРІРµС‡РµР№
 	
-	local cache_H={} -- значения максимумов
-	local cache_L={} -- значения минимумов
-	local H_index={} -- индексы максимумов
-	local L_index={} -- индексы минимумов
+	local cache_H={} -- Р·РЅР°С‡РµРЅРёСЏ РјР°РєСЃРёРјСѓРјРѕРІ
+	local cache_L={} -- Р·РЅР°С‡РµРЅРёСЏ РјРёРЅРёРјСѓРјРѕРІ
+	local H_index={} -- РёРЅРґРµРєСЃС‹ РјР°РєСЃРёРјСѓРјРѕРІ
+	local L_index={} -- РёРЅРґРµРєСЃС‹ РјРёРЅРёРјСѓРјРѕРІ
 	
-	local HiBuffer={} -- знечения максимов предшествующего движения
-	local LowBuffer={} -- знечения минимумов предшествующего движения
+	local HiBuffer={} -- Р·РЅРµС‡РµРЅРёСЏ РјР°РєСЃРёРјРѕРІ РїСЂРµРґС€РµСЃС‚РІСѓСЋС‰РµРіРѕ РґРІРёР¶РµРЅРёСЏ
+	local LowBuffer={} -- Р·РЅРµС‡РµРЅРёСЏ РјРёРЅРёРјСѓРјРѕРІ РїСЂРµРґС€РµСЃС‚РІСѓСЋС‰РµРіРѕ РґРІРёР¶РµРЅРёСЏ
 		
-	local UpThrust={} -- значения количества свечей смены движения
-	local breakBars={} -- значения экстремума свечей пробития уровня
-	local breakIndex={} -- индексы свечей пробития уровня
+	local UpThrust={} -- Р·РЅР°С‡РµРЅРёСЏ РєРѕР»РёС‡РµСЃС‚РІР° СЃРІРµС‡РµР№ СЃРјРµРЅС‹ РґРІРёР¶РµРЅРёСЏ
+	local breakBars={} -- Р·РЅР°С‡РµРЅРёСЏ СЌРєСЃС‚СЂРµРјСѓРјР° СЃРІРµС‡РµР№ РїСЂРѕР±РёС‚РёСЏ СѓСЂРѕРІРЅСЏ
+	local breakIndex={} -- РёРЅРґРµРєСЃС‹ СЃРІРµС‡РµР№ РїСЂРѕР±РёС‚РёСЏ СѓСЂРѕРІРЅСЏ
 	
-	local ZZLevels={{},{}} -- матрица вершины. 1 - значение, 2 - индекс
+	local ZZLevels={{},{}} -- РјР°С‚СЂРёС†Р° РІРµСЂС€РёРЅС‹. 1 - Р·РЅР°С‡РµРЅРёРµ, 2 - РёРЅРґРµРєСЃ
 	
-	local Ranges={} -- знечения предшествующих движений для предсказания
+	local Ranges={} -- Р·РЅРµС‡РµРЅРёСЏ РїСЂРµРґС€РµСЃС‚РІСѓСЋС‰РёС… РґРІРёР¶РµРЅРёР№ РґР»СЏ РїСЂРµРґСЃРєР°Р·Р°РЅРёСЏ
 	
-	local lineIndex={{}, {}} --индексы и значения точек для отрисовки линий. 1 - значение, 2 - индекс
+	local lineIndex={{}, {}} --РёРЅРґРµРєСЃС‹ Рё Р·РЅР°С‡РµРЅРёСЏ С‚РѕС‡РµРє РґР»СЏ РѕС‚СЂРёСЃРѕРІРєРё Р»РёРЅРёР№. 1 - Р·РЅР°С‡РµРЅРёРµ, 2 - РёРЅРґРµРєСЃ
 		
 	return function(ind, Fsettings, numberOfLiines)
 		
@@ -389,16 +389,16 @@ function cached_ZZ()
 		------------------------------
 		local isBreak=0
 				
-		-- ставим возвращаемые значения в nil
+		-- СЃС‚Р°РІРёРј РІРѕР·РІСЂР°С‰Р°РµРјС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РІ nil
 		for nn = 1, numberOfLiines do
 			lineIndex[1][nn] = nil
 		end				
 		
-		--обнуляем линии на предыдущих свечках
-		--2 линия
+		--РѕР±РЅСѓР»СЏРµРј Р»РёРЅРёРё РЅР° РїСЂРµРґС‹РґСѓС‰РёС… СЃРІРµС‡РєР°С…
+		--2 Р»РёРЅРёСЏ
 		SetValue(lineIndex[2][2], 2, nil)
 		
-		--3-15 линии
+		--3-15 Р»РёРЅРёРё
 		if showCalculatedLevels == 1 then
 			for nn = 3, 15 do
 				SetValue(lineIndex[2][nn], nn, nil)
@@ -406,7 +406,7 @@ function cached_ZZ()
 			end
 		end
 		
-		--16, 17 линии
+		--16, 17 Р»РёРЅРёРё
 		if showTargetZone == 1 then
 			SetValue(lineIndex[2][16], 16, nil)				
 			SetValue(lineIndex[2][17], 17, nil)				
@@ -414,7 +414,7 @@ function cached_ZZ()
 			SetValue(index-1, 17, nil)				
 		end
 		
-		--18-37 линии
+		--18-37 Р»РёРЅРёРё
 		if showZZLevels == 1 then
 			for nn = 1, sizeOfZZLevels do
 				SetValue(lineIndex[2][numberOfLiines-nn+1], numberOfLiines-nn+1, nil)
@@ -428,20 +428,20 @@ function cached_ZZ()
 				
 		----------------------------------------------------------------------		
 		
-		-- расчет
+		-- СЂР°СЃС‡РµС‚
 		currentRange = math.abs(cache_H[index] - cache_L[index])
 		
-		if cache_ST[index]==1 then --растущий тренд
+		if cache_ST[index]==1 then --СЂР°СЃС‚СѓС‰РёР№ С‚СЂРµРЅРґ
 				
 			--WriteLog ("set")
 			--WriteLog ("cache_H[index] "..tostring(cache_H[index]))
 			--WriteLog ("H_index[index] "..tostring(H_index[index]))
 			
-			if cache_H[index] ~= 0 then -- для первой расчетной свечи
+			if cache_H[index] ~= 0 then -- РґР»СЏ РїРµСЂРІРѕР№ СЂР°СЃС‡РµС‚РЅРѕР№ СЃРІРµС‡Рё
 				SetValue(H_index[index], 1, cache_H[index])
 			end
 			
-			if cache_H[index] <= H(index) then -- новый максимум
+			if cache_H[index] <= H(index) then -- РЅРѕРІС‹Р№ РјР°РєСЃРёРјСѓРј
 				
 				cache_H[index]=H(index)					
 				SetValue(H_index[index], 1, nil)
@@ -450,7 +450,7 @@ function cached_ZZ()
 				--WriteLog ("new cache_H[index] "..tostring(cache_H[index]))
 				--WriteLog ("new H_index[index] "..tostring(H_index[index]))
 				
-				if cache_L[index] == 0 then -- для первой расчетной свечи
+				if cache_L[index] == 0 then -- РґР»СЏ РїРµСЂРІРѕР№ СЂР°СЃС‡РµС‚РЅРѕР№ СЃРІРµС‡Рё
 					cache_L[index] = L(index)
 					L_index[index] = index
 					LowBuffer[index] = L(index)
@@ -463,7 +463,7 @@ function cached_ZZ()
 					UpThrust[index] = 0
 				end
 				
-			elseif (currentRange*deviation/100) < math.abs(CC[index] - cache_H[index]) then --прошли больше чем отклонение от движения				
+			elseif (currentRange*deviation/100) < math.abs(CC[index] - cache_H[index]) then --РїСЂРѕС€Р»Рё Р±РѕР»СЊС€Рµ С‡РµРј РѕС‚РєР»РѕРЅРµРЅРёРµ РѕС‚ РґРІРёР¶РµРЅРёСЏ				
 
 				if UpThrust[index] == 0 then
 					UpThrust[index] = index										
@@ -483,9 +483,9 @@ function cached_ZZ()
 					--WriteLog ("new breakIndex[index] "..tostring(breakIndex[index]));
 				end
 				
-				if ((index - UpThrust[index]) > WaitBars and UpThrust[index] ~= 0) or (currentRange*gapDeviation/100) < math.abs(CC[index] - cache_H[index]) then -- ждем закрепления пробоя
+				if ((index - UpThrust[index]) > WaitBars and UpThrust[index] ~= 0) or (currentRange*gapDeviation/100) < math.abs(CC[index] - cache_H[index]) then -- Р¶РґРµРј Р·Р°РєСЂРµРїР»РµРЅРёСЏ РїСЂРѕР±РѕСЏ
 					
-					--меняем тренд						
+					--РјРµРЅСЏРµРј С‚СЂРµРЅРґ						
 					
 					cache_ST[index]=0 
 					
@@ -534,17 +534,17 @@ function cached_ZZ()
 			end
 									
 		
-		elseif cache_ST[index]==0 then --падающий тренд
+		elseif cache_ST[index]==0 then --РїР°РґР°СЋС‰РёР№ С‚СЂРµРЅРґ
 									
 			--WriteLog ("set");
 			--WriteLog ("cache_L[index] "..tostring(cache_L[index]));
 			--WriteLog ("L_index[index] "..tostring(L_index[index]));
 			
-			if cache_L[index] ~= 0 then -- для первой расчетной свечи
+			if cache_L[index] ~= 0 then -- РґР»СЏ РїРµСЂРІРѕР№ СЂР°СЃС‡РµС‚РЅРѕР№ СЃРІРµС‡Рё
 				SetValue(L_index[index], 1, cache_L[index])
 			end
 			
-			if cache_L[index] >= L(index) then -- новый минимум
+			if cache_L[index] >= L(index) then -- РЅРѕРІС‹Р№ РјРёРЅРёРјСѓРј
 				
 				cache_L[index]=L(index)
 				SetValue(L_index[index], 1, nil)
@@ -560,7 +560,7 @@ function cached_ZZ()
 					UpThrust[index] = 0
 				end
 				
-			elseif (currentRange*deviation/100) < math.abs(CC[index] - cache_L[index]) then --прошли больше чем отклонение от движения
+			elseif (currentRange*deviation/100) < math.abs(CC[index] - cache_L[index]) then --РїСЂРѕС€Р»Рё Р±РѕР»СЊС€Рµ С‡РµРј РѕС‚РєР»РѕРЅРµРЅРёРµ РѕС‚ РґРІРёР¶РµРЅРёСЏ
 				
 				if UpThrust[index] == 0 then
 					UpThrust[index] = index										
@@ -580,8 +580,8 @@ function cached_ZZ()
 					--WriteLog ("new breakIndex[index] "..tostring(breakIndex[index]));
 				end
 					
-				if ((index - UpThrust[index]) > WaitBars and UpThrust[index] ~= 0) or (currentRange*gapDeviation/100) < math.abs(CC[index] - cache_H[index]) then -- ждем закрепления пробоя
-				--меняем тренд			
+				if ((index - UpThrust[index]) > WaitBars and UpThrust[index] ~= 0) or (currentRange*gapDeviation/100) < math.abs(CC[index] - cache_H[index]) then -- Р¶РґРµРј Р·Р°РєСЂРµРїР»РµРЅРёСЏ РїСЂРѕР±РѕСЏ
+				--РјРµРЅСЏРµРј С‚СЂРµРЅРґ			
 				
 					cache_ST[index]=1 
 					if breakBars[index] > L(index) then
@@ -630,7 +630,7 @@ function cached_ZZ()
 		end
 
 		
-		-- вывод данных
+		-- РІС‹РІРѕРґ РґР°РЅРЅС‹С…
 		if  index == Size() then
 					
 			local lastRange = 0
@@ -789,7 +789,7 @@ function cached_ZZ()
 			--	end					
 			--end		
 			
-			-- выводим метку паттерна
+			-- РІС‹РІРѕРґРёРј РјРµС‚РєСѓ РїР°С‚С‚РµСЂРЅР°
 			if showLabel == 1 and ZZLevels[2][sizeOfZZLevels-deepZZForCalculatedLevels] ~= nil and Settings.ChartId ~= '' then
 			
 				label.DATE, label.TIME = getCandleProp(index-LabelShift) --ZZLevels[2][sizeOfZZLevels]
@@ -814,7 +814,7 @@ function cached_ZZ()
 				label.FONT_HEIGHT = 10  
 				label.HINT = ''								
 				
-				--первая метка
+				--РїРµСЂРІР°СЏ РјРµС‚РєР°
 				
 				local text = "now "..tostring(currentDeviation).."%, ".."XA "..tostring(XA)..", AB "..tostring(AB)..", BC "..tostring(BC)..", CD "..tostring(CD)
 				label.TEXT = text
@@ -829,7 +829,7 @@ function cached_ZZ()
 					end	
 				end
 				
-				--вторая метка
+				--РІС‚РѕСЂР°СЏ РјРµС‚РєР°
 				label.YVALUE = secondY
 				text = "AB/XA "..tostring(ABtoXA)..", XC/XA "..tostring(XCtoXA)..", CD/AB "..tostring(CDtoAB)..", AD/XA "..tostring(ADtoXA)
 				label.TEXT = text
@@ -849,7 +849,7 @@ function cached_ZZ()
 			
 		end
 		
-		-- выводим центр движения
+		-- РІС‹РІРѕРґРёРј С†РµРЅС‚СЂ РґРІРёР¶РµРЅРёСЏ
 		if showCoG == 1 then
 			if ZZLevels[2][sizeOfZZLevels-1] ~= nil  then
 				SetValue(math.floor((ZZLevels[2][sizeOfZZLevels] + ZZLevels[2][sizeOfZZLevels-1])/2), 2, (ZZLevels[1][sizeOfZZLevels] + ZZLevels[1][sizeOfZZLevels-1])/2)
@@ -880,7 +880,7 @@ function cached_ZZ()
 end
 
 ------------------------------------------------------------------
---Вспомогательные функции
+--Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ С„СѓРЅРєС†РёРё
 ------------------------------------------------------------------
 
 function round(num, idp)
