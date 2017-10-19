@@ -874,7 +874,12 @@ function cached_ZZ()
 			end
 		end
 				
-		return	unpack(lineIndex[1])
+		--return	unpack(lineIndex[1])
+		return	lineIndex[1][1], lineIndex[1][2], lineIndex[1][3], lineIndex[1][4], lineIndex[1][5], lineIndex[1][6], lineIndex[1][7], lineIndex[1][8], lineIndex[1][9], lineIndex[1][10], 
+				lineIndex[1][11], lineIndex[1][12], lineIndex[1][13], lineIndex[1][14], lineIndex[1][15], lineIndex[1][16], lineIndex[1][17], lineIndex[1][18], lineIndex[1][19], lineIndex[1][20],
+				lineIndex[1][21], lineIndex[1][22], lineIndex[1][23], lineIndex[1][24], lineIndex[1][25], lineIndex[1][26], lineIndex[1][27], lineIndex[1][28], lineIndex[1][29], lineIndex[1][30],
+				lineIndex[1][31], lineIndex[1][32], lineIndex[1][33], lineIndex[1][34], lineIndex[1][35], lineIndex[1][36], lineIndex[1][37]
+		
 		
 	end
 end
