@@ -2,6 +2,7 @@ Settings={
 Name = "*Murrey Levels",
 period=64,
 stepback = 0,
+showOldLevels = 0,
 usegap = 0,
 line={
 {
@@ -17,55 +18,55 @@ Width = 2,
 Color = RGB(255,191, 191)
 },
 {
-Name = "[0/8] Ћкончательное сопротивление",
+Name = "[0/8] Окончательное сопротивление",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(0,128, 255)
 },
 {
-Name = "[1/8] ‘лабый, место для остановки и разворота",
+Name = "[1/8] Слабый, место для остановки и разворота",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(218,188, 18)
 },
 {
-Name = "[2/8] ‚ращение, разворот",
+Name = "[2/8] Вращение, разворот",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,0, 128)
 },
 {
-Name = "[3/8] „но торгового диапазона",
+Name = "[3/8] Дно торгового диапазона",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(120,220, 235)
 },
 {
-Name = "[4/8] ѓлавный уровень поддержки/сопротивления",
+Name = "[4/8] Главный уровень поддержки/сопротивления",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(128,128, 128)--green
 },
 {
-Name = "[5/8] ‚ерх торгового диапазона",
+Name = "[5/8] Верх торгового диапазона",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(120,220, 235)
 },
 {
-Name = "[6/8] ‚ращение, разворот",
+Name = "[6/8] Вращение, разворот",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(255,0, 128)
 },
 {
-Name = "[7/8] ‘лабый, место для остановки и разворота",
+Name = "[7/8] Слабый, место для остановки и разворота",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(218,188, 18)
 },
 {
-Name = "[8/8] Ћкончательное сопротивление",
+Name = "[8/8] Окончательное сопротивление",
 Type =TYPE_CANDLE,
 Width = 2,
 Color = RGB(0,128, 255)
@@ -93,7 +94,7 @@ end
 
 function OnCalculate(index)
 
-	return myMurreyMath(index, Settings.period, Settings.stepback, Settings.usegap)
+	return myMurreyMath(index, Settings.period, Settings.stepback, Settings.usegap, Settings.showOldLevels)
 
 end
 
@@ -113,11 +114,12 @@ function MurreyMath()
 	local Buffer12={}
 	local Buffer13={}
 		
-	return function(ind, _p, _s, _g)
+	return function(ind, _p, _s, _g, _sl)
 		local index = ind
 		local period = _p
 		local stepback = _s
 		local usegap = _g
+		local showOldLevels = _sl
 		
 		local m = 0		
 		local h = 0
@@ -182,7 +184,7 @@ function MurreyMath()
 			return nil
 		end
       
-		if index < (Size()-3) then 
+		if index < (Size()-3) and showOldLevels == 0 then 
 			return nil 
 		end
 		
