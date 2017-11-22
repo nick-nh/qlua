@@ -11,6 +11,7 @@ Settings=
 	StepSize = 0,
 	Percentage = 0,
 	Switch = 1, --1 - HighLow, 2 - CloseClose
+	ShowLine = 1,
 	line =
 	{		
 		{
@@ -122,10 +123,12 @@ function cached_NRTR()
 		local StepSize = Fsettings.StepSize or 0		
 		local Percentage = Fsettings.Percentage or 0
 		local Switch = Fsettings.Switch or 1
+		local ShowLine = Fsettings.ShowLine or 0
 		
 		local ratio=Percentage/100.0*min_price_step	
 		local out1 = nil
 		local out2 = nil
+		local out3 = nil
 				
 		if index == 1 then
 			cache_NRTR = {}
@@ -223,7 +226,11 @@ function cached_NRTR()
 			out2 = O(index)
 		end
 		
-		return out1, out2, cache_NRTR[index]
+		if ShowLine == 1 then
+			out3 = cache_NRTR[index]
+		end
+		
+		return out1, out2, out3 
 		
 	end
 end
