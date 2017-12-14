@@ -1,6 +1,9 @@
 --logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
 
 min_price_step = 0
+sec_code = ""
+timescale = ""
+local w32 = require("w32")
 
 Settings=
 {
@@ -12,6 +15,7 @@ Settings=
 	Percentage = 0,
 	Switch = 1, --1 - HighLow, 2 - CloseClose
 	ShowLine = 1,
+	PlaySound = 1,
 	line =
 	{		
 		{
@@ -29,8 +33,8 @@ Settings=
 		{
 		Name = "NRTR",
 		Color = RGB(0, 64, 0),
-		Type = TYPE_DASHDOT,
-		Width = 1
+		Type = TYPE_LINE, --TYPE_DASHDOT,
+		Width = 2
 		}
 	}
 }
@@ -46,6 +50,8 @@ function OnCalculate(index)
 	
 	if index == 1 then
 		DSInfo = getDataSourceInfo()     	
+		sec_code = DSInfo.sec_code
+		timescale = DSInfo.interval
 		min_price_step = getParamEx(DSInfo.class_code, DSInfo.sec_code, "SEC_PRICE_STEP").param_value
 		--WriteLog ("min_price_step "..tostring(min_price_step))
 	end
@@ -110,6 +116,8 @@ function cached_NRTR()
 	local smin1={}
 	local trend={}
 	
+	local isMessage={}
+	
 	return function(ind, Fsettings, ds)
 	
 		local Fsettings=(Fsettings or {})
@@ -124,11 +132,15 @@ function cached_NRTR()
 		local Percentage = Fsettings.Percentage or 0
 		local Switch = Fsettings.Switch or 1
 		local ShowLine = Fsettings.ShowLine or 0
+		local PlaySound = Fsettings.PlaySound or 0
 		
 		local ratio=Percentage/100.0*min_price_step	
 		local out1 = nil
 		local out2 = nil
 		local out3 = nil
+		
+		SetValue(index-11, 3, nil)			
+		SetValue(index-1, 3, nil)			
 				
 		if index == 1 then
 			cache_NRTR = {}
@@ -139,6 +151,7 @@ function cached_NRTR()
 			smax1[index] = L(index)
 			smin1[index] = H(index)
 			trend[index] = 1
+			isMessage = {}
 			return nil
 		end
 		
@@ -225,8 +238,27 @@ function cached_NRTR()
 			out1 = nil
 			out2 = O(index)
 		end
+				
+		--сообщения
+		if index == Size() and trend[index-1]>0 and trend[index-2]<0 and isMessage[index] == nil then
+			message("Buy "..tostring(sec_code).." timescale "..tostring(timescale))
+			if PlaySound == 1 then
+				PaySoundFile("c:\\windows\\media\\Alarm03.wav")
+			end
+			isMessage[index] = 1
+		end
+
+		if index == Size() and trend[index-1]<0 and trend[index-2]>0 and isMessage[index] == nil then
+			message("Sell "..tostring(sec_code).." timescale "..tostring(timescale))
+			if PlaySound == 1 then
+				PaySoundFile("c:\\windows\\media\\Alarm03.wav")
+			end
+			isMessage[index] = 1
+		end
+		
 		
 		if ShowLine == 1 then
+			SetValue(index-10, 3, cache_NRTR[index])			
 			out3 = cache_NRTR[index]
 		end
 		
@@ -243,6 +275,11 @@ function WriteLog(text)
 
 end;
 
+function PaySoundFile(file_name)
+  w32.mciSendString("CLOSE QUIK_MP3") 
+  w32.mciSendString("OPEN \"" .. file_name .. "\" TYPE MpegVideo ALIAS QUIK_MP3")
+  w32.mciSendString("PLAY QUIK_MP3")
+end
 
 function StepSizeCalc(Len, Km, Size, index)
 
