@@ -13,10 +13,10 @@ Settings=
 	koef_thv = 1,
 	vType_awg = "C",	
 	showSar = 1,
-	SarPeriod = 32,
+	SarPeriod = 64,
 	SarPeriod2 = 256,
 	SarDeviation = 2,
-	show_regime = 1, --0 all, 1 NRTR, 2 Sar
+	show_regime = 3, --0 all, 1 NRTR, 2 Sar, 3 only Sar
 	line =
 	{		
 		{
@@ -268,70 +268,72 @@ function cached_NRTR()
 			return nil
 		end
 		
-		p = cache_NRTR[index-1] or C(index)
-		
-		if C(index) <= p then
-			trend = 1
-		end
-		if C(index) >= p then
-			trend = -1
-		end
-		
-		cache_HPrice[index] = highestHigh(index, period)
-		cache_LPrice[index] = lowestLow(index, period)
-		
-		if trend >= 0 then
+		if show_regime ~= 3 then
+			p = cache_NRTR[index-1] or C(index)
 			
-			cache_HPrice[index] = math.max( C(index), cache_HPrice[index])
+			if C(index) <= p then
+				trend = 1
+			end
+			if C(index) >= p then
+				trend = -1
+			end
 			
-			if use_awg == 1 and C(index)<= cache_awgEMA[index] then 
-				trend = -1;
-				cache_LPrice[index] = C(index)
-				cache_NRTR[index] = C(index) + ATR*multiple
-			else
-				cache_NRTR[index] = cache_HPrice[index] - ATR*multiple
-
-				if C(index) <= cache_NRTR[index]  then -- and 
+			cache_HPrice[index] = highestHigh(index, period)
+			cache_LPrice[index] = lowestLow(index, period)
+			
+			if trend >= 0 then
+				
+				cache_HPrice[index] = math.max( C(index), cache_HPrice[index])
+				
+				if use_awg == 1 and C(index)<= cache_awgEMA[index] then 
 					trend = -1;
 					cache_LPrice[index] = C(index)
 					cache_NRTR[index] = C(index) + ATR*multiple
+				else
+					cache_NRTR[index] = cache_HPrice[index] - ATR*multiple
+
+					if C(index) <= cache_NRTR[index]  then -- and 
+						trend = -1;
+						cache_LPrice[index] = C(index)
+						cache_NRTR[index] = C(index) + ATR*multiple
+					end
 				end
 			end
-		end
-			
-		if trend <= 0 then
-			
-			cache_LPrice[index] = math.min( C(index), cache_LPrice[index] )
-			
-			if use_awg == 1 and C(index)>= cache_awgEMA[index] then 
-				trend = 1;
-				cache_HPrice[index] = C(index)
-				cache_NRTR[index] = C(index) - ATR*multiple
-			else
-				cache_NRTR[index] = cache_LPrice[index] + ATR*multiple
 				
-				if C(index) >= cache_NRTR[index] then
-					trend = 1
+			if trend <= 0 then
+				
+				cache_LPrice[index] = math.min( C(index), cache_LPrice[index] )
+				
+				if use_awg == 1 and C(index)>= cache_awgEMA[index] then 
+					trend = 1;
 					cache_HPrice[index] = C(index)
 					cache_NRTR[index] = C(index) - ATR*multiple
+				else
+					cache_NRTR[index] = cache_LPrice[index] + ATR*multiple
+					
+					if C(index) >= cache_NRTR[index] then
+						trend = 1
+						cache_HPrice[index] = C(index)
+						cache_NRTR[index] = C(index) - ATR*multiple
+					end
 				end
+					
 			end
-				
-		end
-		
-		local previous = math.max(index-1, 1)
 			
-		if CandleExist(previous) then
-			previous = FindExistCandle(previous)
-		
-			if (C(index) > cache_NRTR[index] and C(previous) < cache_NRTR[index-1]) then
-				out1 = O(index)
-				out2 = nil
-			end
+			local previous = math.max(index-1, 1)
+				
+			if CandleExist(previous) and show_regime <= 1 then
+				previous = FindExistCandle(previous)
+			
+				if (C(index) > cache_NRTR[index] and C(previous) < cache_NRTR[index-1]) then
+					out1 = cache_NRTR[index]
+					out2 = nil
+				end
 
-			if C(index) < cache_NRTR[index] and C(previous) > cache_NRTR[index-1] then
-				out1 = nil
-				out2 = O(index)
+				if C(index) < cache_NRTR[index] and C(previous) > cache_NRTR[index-1] then
+					out1 = nil
+					out2 = cache_NRTR[index]
+				end
 			end
 		end
 
@@ -352,7 +354,7 @@ function cached_NRTR()
 				cache_SAR[index]=math.max((EMA[index]-sigma*SarDeviation),cache_SAR[index-1])
 							
 				if (cache_SAR[index] > C(index)) then 
-					cache_ST[index]=0
+					cache_ST[index] = 0
 					cache_SAR[index]=EMA[index]+sigma*SarDeviation
 				end
 			elseif cache_ST[index]==0 then
@@ -360,22 +362,22 @@ function cached_NRTR()
 				cache_SAR[index]=math.min((EMA[index]+sigma*SarDeviation),cache_SAR[index-1])
 			
 				if (cache_SAR[index] < C(index)) then 
-					cache_ST[index]=1
+					cache_ST[index] = 1
 					cache_SAR[index]=EMA[index]-sigma*SarDeviation*1
 				end
 			end
 			
+			previous = FindExistCandle(index-1)
 			if CandleExist(previous) and (show_regime == 0 or show_regime == 2) then
-				previous = FindExistCandle(previous)
 			
 				if (C(index) > cache_SAR[index] and C(previous) < cache_SAR[index-1]) then
-					out3 = O(index)
+					out3 = cache_SAR[index-1]
 					out4 = nil
 				end
 
 				if C(index) < cache_SAR[index] and C(previous) > cache_SAR[index-1] then
 					out3 = nil
-					out4 = O(index)
+					out4 = cache_SAR[index-1]
 				end
 			end
 			
