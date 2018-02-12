@@ -1,6 +1,7 @@
 --logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
 
-SEC_CODE = ""; 
+SEC_CODE = "";
+CLASS_CODE = ""; 
 DSInfo = nil;
 Vol_Coeff = 1;
 --cache_VolBid={}
@@ -49,7 +50,7 @@ Settings =
      }
  }
 
--- Пользовательcкие функции
+-- ѕользовательcкие функции
 function WriteLog(text)
 
    logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n");
@@ -57,6 +58,10 @@ function WriteLog(text)
    LASTLOGSTRING = text;
 
 end;
+
+function OnDestroy()
+  --logfile:close() -- Закрывает файл 
+end
 
 function toYYYYMMDDHHMMSS(datetime)
    if type(datetime) ~= "table" then
@@ -93,12 +98,40 @@ end;
 	return #Settings.line
  end
 
- function ReadTrades(index, timeFrom, timeTo, firstindex, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString, CountQuntOfDeals)
+-- SelectItems
+-- Возвращает таблицу с номерами элементов в 'tables', удовлетворяющих 
+-- набору критериев вида p = { par1=val1, par2=val2, ... }
+-- s - start, e - end
+--
+
+function SelectItems(tables,s,e,p)
+
+	local t,fields={},""
+
+		for key,val in pairs(p) do
+			fields = fields .. "," .. tostring(key)                    
+			t[#t+1] = val
+		end
+
+	local function fn(...)
+
+		local args = {...}
+			for key,val in ipairs(args) do
+				if t[key] ~= val then
+					return false
+				end
+			end
+			return true
+	end
+    return SearchItems(tables,s,e,fn,fields)
+end
+
+ 
+ function ReadTrades(index, timeFrom, timeTo, firstindex, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString, CountQuntOfDeals, lastIndex)
    
 	local trade = nil
 	local datetime = nil
-	
-   -- Перебирает все сделки в таблице "Сделки"
+   -- ѕеребирает все сделки в таблице "—делки"
 	
 	local all_trades_count = getNumberOf("all_trades")
 	--WriteLog ("all_trades_count "..tostring(all_trades_count))
@@ -112,55 +145,87 @@ end;
 			return
 		end
 	end
- 
-    for i=firstindex,all_trades_count-1,1 do      
-		
-		trade = getItem ("all_trades", i)
-		if trade ~= nil then
-			if trade.sec_code == SEC_CODE then
-			
-				datetime = os.time(trade.datetime)
-				
-				if datetime >= os.time(timeFrom) then			
-					if timeTo == nil or datetime < os.time(timeTo) then			
-						
-						local value = 0
-						
-						if filterQuantity(trade.qty, filterString) then
-												
-							if CountQuntOfDeals == 1 then
-								value = 1
-							elseif sum_quantity == 0 then
-								value = trade.value
-							else
-								value = trade.qty
-							end
-							
-							if tostring(trade.flags) == "1025" then --продажа
-														
-								if inverse == 0 then
-									cache_VolAsk[index] = cache_VolAsk[index] + value
-								else
-									cache_VolAsk[index] = cache_VolAsk[index] - value
-								end
-							else
-								cache_VolBid[index] = cache_VolBid[index] + value
-							end	
-							--WriteLog ("deal ".."i("..i..")".."SEC_CODE: "..trade.sec_code.."; time deal "..isnil(toYYYYMMDDHHMMSS(datetime)," - ").."; flag "..tostring(trade.flags).."; cache_VolAsk: "..tostring(cache_VolAsk[index]).."; cache_VolBid: "..tostring(cache_VolBid[index]));
-						
-						end
-					else
-						LastReadDeals[index] = i-1
-						break	
-					end				
-				end
-				
-			end
-		end
-		
-   end
-			
+    
+	--WriteLog("firstindex "..firstindex)
+    --_start = os.clock()
 	
+	local endIndex = all_trades_count-1
+	local beginIndex = firstindex
+	
+	-- если текущая сессия то ищем строки, если прошлая, то перебираем
+	if lastIndex == true then 
+		params = {sec_code=SEC_CODE,class_code=CLASS_CODE}
+		t1 = SelectItems("all_trades", firstindex, all_trades_count-1, params)
+		endIndex = #t1
+		beginIndex = 1
+	else
+		t1 = 'table'
+	end
+
+    --_end = os.clock()
+
+    --time = _end - _start
+    --WriteLog("Found: "..#t1..",time: "..string.format("%.1f",time),1)
+
+	if (t1 ~= nil) and (endIndex > 0) then
+ 
+		for i = beginIndex, endIndex, 1 do      
+			
+			if lastIndex == true then 
+				trade = getItem ("all_trades", t1[i])
+			else
+				trade = getItem ("all_trades", i)
+			end
+			
+			if trade ~= nil then
+				if trade.sec_code == SEC_CODE then
+				
+					datetime = os.time(trade.datetime)
+					
+					if datetime >= os.time(timeFrom) then			
+						if timeTo == nil or datetime < os.time(timeTo) then			
+							
+							local value = 0
+							
+							if filterQuantity(trade.qty, filterString) then
+													
+								if CountQuntOfDeals == 1 then
+									value = 1
+								elseif sum_quantity == 0 then
+									value = trade.value
+								else
+									value = trade.qty
+								end
+								
+								if tostring(trade.flags) == "1025" then --продажа
+															
+									if inverse == 0 then
+										cache_VolAsk[index] = cache_VolAsk[index] + value
+									else
+										cache_VolAsk[index] = cache_VolAsk[index] - value
+									end
+								else
+									cache_VolBid[index] = cache_VolBid[index] + value
+								end	
+								--WriteLog ("deal ".."i("..i..")".."SEC_CODE: "..trade.sec_code.."; time deal "..isnil(toYYYYMMDDHHMMSS(datetime)," - ").."; flag "..tostring(trade.flags).."; cache_VolAsk: "..tostring(cache_VolAsk[index]).."; cache_VolBid: "..tostring(cache_VolBid[index]));
+							
+							end
+						else
+							if lastIndex == true then 
+								LastReadDeals[index] = t1[i-1] or 0
+							else
+								LastReadDeals[index] = i-1
+							end
+							break	
+						end				
+					end
+					
+				end
+			end
+			
+	   end
+			
+	end
 end
 
 --[[
@@ -183,6 +248,7 @@ end
 	if index == 1 then
 		DSInfo = getDataSourceInfo()     	
 		SEC_CODE = DSInfo.sec_code
+		CLASS_CODE = DSInfo.class_code
 		Vol_Coeff = getLotSizeBySecCode(DSInfo.sec_code)
 	end
           
@@ -192,8 +258,8 @@ end
  end
  
  function getLotSizeBySecCode(sec_code)
-   local status = getParamEx("TQBR", sec_code, "lotsize"); -- Беру размер лота для кода класса "TQBR"
-   return math.ceil(status.param_value);                   -- Отбрасываю ноли после запятой
+   local status = getParamEx("TQBR", sec_code, "lotsize"); -- Ѕеру размер лота дл¤ кода класса "TQBR"
+   return math.ceil(status.param_value);                   -- ќтбрасываю ноли после зап¤той
 end;
  --[[
  function getStructureFromString(filterString)
@@ -294,7 +360,7 @@ end;
 		--WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)).."; T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))," - ").."; LastReadDeals "..tostring(LastReadDeals[index]));
 		--WriteLog ("timeFrom "..isnil(toYYYYMMDDHHMMSS(T(index))," - "))
 		--WriteLog ("timeTo "..isnil(toYYYYMMDDHHMMSS(timeTo)," - "))
-		ReadTrades(index, T(index), timeTo, LastReadDeals[index]+1, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString, CountQuntOfDeals)	
+		ReadTrades(index, T(index), timeTo, LastReadDeals[index]+1, LastReadDeals, cache_VolAsk, cache_VolBid, inverse, sum_quantity, filterString, CountQuntOfDeals, index == Size())	
 		--WriteLog ("LastReadDeals "..tostring(LastReadDeals[index]))
 		--WriteLog ("cache_VolAsk "..tostring(cache_VolAsk[index]))
 		--WriteLog ("cache_VolBid "..tostring(cache_VolBid[index]))
