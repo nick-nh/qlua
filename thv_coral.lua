@@ -4,12 +4,25 @@ Settings =
 	Name = "*THV Coral",
 	period = 14,
 	koef = 1,
+	color = 0,
 	line=
 	{
 		{
 			Name = "THV MA",
 			Color = RGB(0, 128, 128),
 			Type = TYPE_LINE,
+			Width = 2
+		},	
+		{
+			Name = "g_ibuf_96",
+			Color = RGB(0, 255, 0),
+			Type = TYPE_POINT,
+			Width = 2
+		},
+		{
+			Name = "g_ibuf_100",
+			Color = RGB(255, 0, 0),
+			Type = TYPE_POINT,
 			Width = 2
 		}
 	}
@@ -29,10 +42,11 @@ function cached_THV()
 	local gda_124={}
 	local gda_128={}
 	
-	return function(ind, _p, _k)
+	return function(ind, _p, _k, _c)
 		local period = _p
 		local index = ind
 		local koef = _k
+		local color = _c
 
 		local ild_0
 		local ld_8
@@ -73,7 +87,7 @@ function cached_THV()
 			gda_124[index]=0
 			gda_128[index]=0
 			
-			return nil,nil,nil
+			return nil
 		end
 		  
 		if not CandleExist(index) then
@@ -90,41 +104,36 @@ function cached_THV()
 			return nil
 		end
 			
-		  gda_108[index] = gd_172 * C(index) + gd_180 * (gda_108[index - 1])
-		  gda_112[index] = gd_172 * (gda_108[index]) + gd_180 * (gda_112[index - 1])
-		  gda_116[index] = gd_172 * (gda_112[index]) + gd_180 * (gda_116[index - 1])
-		  gda_120[index] = gd_172 * (gda_116[index]) + gd_180 * (gda_120[index - 1])
-		  gda_124[index] = gd_172 * (gda_120[index]) + gd_180 * (gda_124[index - 1])
-		  gda_128[index] = gd_172 * (gda_124[index]) + gd_180 * (gda_128[index - 1])
-		  g_ibuf_104[index] = gd_132 * (gda_128[index]) + gd_140 * (gda_124[index]) + gd_148 * (gda_120[index]) + gd_156 * (gda_116[index])
-		  ld_0 = g_ibuf_104[index]
-		  ld_8 = g_ibuf_104[index-1]
-		  g_ibuf_92[index] = ld_0
-		  g_ibuf_96[index] = ld_0
-		  g_ibuf_100[index] = ld_0
+		gda_108[index] = gd_172 * C(index) + gd_180 * (gda_108[index - 1])
+		gda_112[index] = gd_172 * (gda_108[index]) + gd_180 * (gda_112[index - 1])
+		gda_116[index] = gd_172 * (gda_112[index]) + gd_180 * (gda_116[index - 1])
+		gda_120[index] = gd_172 * (gda_116[index]) + gd_180 * (gda_120[index - 1])
+		gda_124[index] = gd_172 * (gda_120[index]) + gd_180 * (gda_124[index - 1])
+		gda_128[index] = gd_172 * (gda_124[index]) + gd_180 * (gda_128[index - 1])
+		g_ibuf_104[index] = gd_132 * (gda_128[index]) + gd_140 * (gda_124[index]) + gd_148 * (gda_120[index]) + gd_156 * (gda_116[index])
+		ld_0 = g_ibuf_104[index]
+		ld_8 = g_ibuf_104[index-1]
+		g_ibuf_92[index] = ld_0
+		g_ibuf_96[index] = ld_0
+		g_ibuf_100[index] = ld_0
 		  
-		local out = nil
-		
-		--[[
-		  if ld_8 > ld_0 then 
-			--g_ibuf_96[index] = nil 
-		  else 
-			if ld_8 < ld_0 then 
-				--g_ibuf_100[index] = nil 
-			else 
-				--g_ibuf_92[index] = nil 
+		local out1, out2, out3  = nil
+				  
+		if ld_8 > ld_0 then 
+			if color == 1 then
+				out3 = g_ibuf_100[index]
+			else
+				out1 = g_ibuf_100[index]
 			end
-		  end
-		  ]]--
-		  
-		  if ld_8 > ld_0 then 
-			out = g_ibuf_100[index]
-		  else 
-			out = g_ibuf_96[index]
-		  end
+		else 
+			if color == 1 then
+				out2 = g_ibuf_96[index]
+			else
+				out1 = g_ibuf_96[index]
+			end
+		end
 			
-		--return g_ibuf_96[index], g_ibuf_100[index]	
-		return out
+		return out1, out2, out3
 	end	
 	
 end
@@ -133,10 +142,10 @@ end
 function Init()
 	
 	myTHV = cached_THV()
-	return 2
+	return 3
 end
 
 function OnCalculate(index)
-	return myTHV(index, Settings.period, Settings.koef)
+	return myTHV(index, Settings.period, Settings.koef, Settings.color)
 end
 
