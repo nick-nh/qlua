@@ -1,8 +1,19 @@
-local w32 = require("w32")
+-- nick-h@yandex.ru
+-- Glukk Inc ©
 
-ACCOUNT           = 'Ваш номер счета'        -- Идентификатор счета
---ACCOUNT           = 'NL0011100043'        -- Идентификатор счета для примера
-CLIENT_CODE = 'Ваш клиентский код'
+local w32 = require("w32")
+dofile (getScriptPath().."\\monitorStepNRTR.lua") --stepNRTR алгоритм. Инициализация - initstepNRTR, расчет - stepNRTR
+dofile (getScriptPath().."\\monitorEMA.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA
+dofile (getScriptPath().."\\monitorRSI.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA
+dofile (getScriptPath().."\\monitorReg.lua") --Регрессия алгоритм. Инициализация - initReg, расчет - Reg
+dofile (getScriptPath().."\\monitorVolume.lua") --контроль повышенного объема
+
+soundFileName = "c:\\windows\\media\\Alarm03.wav"
+showTradeCommands = true
+
+ACCOUNT           = 'L01-00000F00'        -- Идентификатор счета
+--ACCOUNT           = 'NL0011100043'        -- Идентификатор счета
+CLIENT_CODE = 'S2KWB'
 
 CLASS_CODE        = '' --класс в файле настроек
 --CLASS_CODE        = 'TQBR'              -- Код класса
@@ -11,20 +22,63 @@ CLASS_CODE        = '' --класс в файле настроек
 SEC_CODE = '' -- бумаги в файле настроек
 SEC_CODES = {}
 
-INTERVAL = 15
-INTERVALS={{"M15", "H1", "H4", "D"}, {INTERVAL_M15, INTERVAL_H1, INTERVAL_H4, INTERVAL_D1}} -- интервалы
+INTERVAL = 15 -- --текущий интервал
 
--- настройки алгоритма
-Length    = 29                   -- ПЕРИОД        
-Kv = 1                    -- коэффициент
-StepSize = 0                  -- шаг
-Percentage = 0
-Switch = 1 --1 - HighLow, 2 - CloseClose
-cache_NRTR={}
-ATR = {}
-smax1={}
-smin1={}
-trend={} 
+-- настройки алгоритмов
+
+NRTRSettings = {
+    Length    = 29,            -- ПЕРИОД        
+    Kv = 1.4,                  -- коэффициент
+    StepSize = 0,              -- шаг
+    Percentage = 0,
+    Switch = 1,                --1 - HighLow, 2 - CloseClose
+    Size = 500,
+    testZone = 10
+}
+RegSettings = {
+    bars    = 182,
+    degree = 1, -- 1 -линейная, 2 - параболическая, - 3 степени
+    kstd = 3, --отклонение сигма
+    testZone = 4
+}
+allEMASettings = {
+    periods = {64,182},
+    Size = 1000,
+    testZone = 10
+}
+EMA182Settings = {
+    period    = 182,
+    Size = 1000,
+    testZone = 10
+}
+EMA64Settings = {
+    period    = 64,
+    Size = 1000,
+    testZone = 10
+}
+RSISettings = {
+    period    = 29,
+    Size = 1000
+}
+
+INTERVALS = {
+    ["names"] = {"H1", "H4", "D", "W", "dEMA64", "dEMA182", "D Reg", "D RSI 29"},
+    ["visible"] = {true, true, true, true, true, true, true, true}, --признак видимости, если невидима, то просто идет расчет и вывод сигналов
+    ["width"] = {12, 12, 12, 12, 12, 12, 12, 12}, --ширина колонки
+    ["values"] = {INTERVAL_H1, INTERVAL_H4, INTERVAL_D1, INTERVAL_W1, INTERVAL_D1, INTERVAL_D1, INTERVAL_D1, INTERVAL_D1},
+    ["initAlgorithms"] = {initstepNRTR, initstepNRTR, initstepNRTR, initstepNRTR, initEMA, noSignal, initReg, initRSI},   --функции инициализации алгоритма
+    ["algorithms"] = {stepNRTR, stepNRTR, stepNRTR, stepNRTR, allEMA, noSignal, Reg, RSI},                                --функции алгоритма, определены в подключаемых файлах
+    ["signalAlgorithms"] = {up_downTest, up_downTest, up_downTest, up_downTest, signalAllEMA, noSignal, signalReg, signalRSI},                                --функции алгоритма, определены в подключаемых файлах
+    ["settings"] = {NRTRSettings, NRTRSettings, NRTRSettings, NRTRSettings, allEMASettings, {}, RegSettings, RSISettings},   --настройки алгоритмов, параметры функции алгоритма
+    ["recalculatePeriod"] = {0, 0, 60, 60, 60, 60, 60, 0}   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
+}
+
+realtimeAlgorithms = {
+    ["initAlgorithms"] = {initVolume},   --функции инициализации алгоритма
+    ["functions"] = {Volume},
+    ["recalculatePeriod"] = {5}
+}
+
 --------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------
     
@@ -36,18 +90,52 @@ PARAMS_FILE_NAME = getWorkingFolder().."\\RobotParams\\scriptMonitor.csv" -- И�
 trans_id          = os.time()            -- Задает начальный номер ID транзакций
 trans_Status      = nil                  -- Статус текущей транзакции из функции OnTransPeply
 trans_result_msg  = ''                   -- Сообщение по текущей транзакции из функции OnTransPeply
+numberOfFixedColumns = 0                 -- Число фиксированных колонок до периодов
+numberOfVisibleColumns = 0               -- Число видимых колонок периодов
+tableIndex = {}                          -- Индексы колонок созданной таблицы   
+openedDS = {}
+
+SeaGreen=12713921		--	RGB(193, 255, 193) нежно-зеленый
+RosyBrown=12698111	--	RGB(255, 193, 193) нежно-розовый
+
 
 SEC_PRICE_STEP    = 0                    -- ШАГ ЦЕНЫ ИНСТРУМЕНТА
 DS                = nil                  -- Источник данных графика (DataSource)
 g_previous_time = os.time() -- помещение в переменную времени сервера в формате HHMMSS 
 
 SEC_CODE_INDEX = {} -- last interval index
-SEC_CODE_NRTR = {} -- last NRTR value
-SEC_CODE_ATR = {} -- last ATR value
+
+isDayInterval = false -- есть дневной интервал
+dayIntervalIndex = nil
+
  -----------------------------
  -- Основные функции --
  -----------------------------
--- Функция первичной инициализации скрипта (ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK в самом начале)
+function DataSource(i,cell)
+    local seccode = SEC_CODES['sec_codes'][i]          
+    local classcode = SEC_CODES['class_codes'][i]          
+    local interval = INTERVALS['values'][cell]          
+    
+    if openedDS[i][interval] ~= nil then
+        return openedDS[i][interval]
+    end
+    local ds = CreateDataSource(classcode,seccode,interval)
+    if ds == nil then
+        message('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
+        myLog('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
+        -- Завершает выполнение скрипта
+        IsRun = false
+        return
+    end
+    if ds:Size() == 0 then 
+        ds:SetEmptyCallback()
+        SEC_CODES['isEmpty'][i] = true
+    end
+    openedDS[i][interval] = ds
+    return ds
+end
+
+ -- Функция первичной инициализации скрипта (ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK в самом начале)
 function OnInit()
 
     logFile = io.open(FILE_LOG_NAME, "w") -- открывает файл 
@@ -59,14 +147,31 @@ function OnInit()
         return false
     end
 
-    SEC_CODES[1] = {} -- имена бумаг
-    SEC_CODES[2] = {} -- коды бцмаг
-    SEC_CODES[3] = {} -- выводить сообщения
-    SEC_CODES[4] = {} -- проигрывать звук
-    SEC_CODES[5] = {} -- рабочий объем
-    SEC_CODES[6] = {} -- CLASS_CODE
-    SEC_CODES[7] = {} -- признак заказа данных
-    --SEC_CODES[8] = {} -- признак произведенного расчета
+    SEC_CODES['class_codes'] =              {} -- CLASS_CODE
+    SEC_CODES['names'] =                    {} -- имена бумаг
+    SEC_CODES['sec_codes'] =                {} -- коды бумаг
+    SEC_CODES['isMessage'] =                {} -- выводить сообщения
+    SEC_CODES['isPlaySound'] =              {} -- проигрывать звук
+    SEC_CODES['volume'] =                   {} -- рабочий объем
+    SEC_CODES['isEmpty'] =                  {} -- признак заказа данных
+    SEC_CODES['DS'] =                       {} -- данные по инструменту
+    SEC_CODES['calcAlgoValues'] =           {} -- рассчитанные данные
+    SEC_CODES['dayATR'] =                   {} -- рассчитанные данные ATR
+    SEC_CODES['dayDS'] =                    {} -- данные для ATR
+    SEC_CODES['dayATR_Period'] =            {} -- период данных ATR
+    SEC_CODES['D_minus5'] =                 {} -- цена 5 дней назад
+    SEC_CODES['lastTimeCalculated'] =       {} -- время последнего рассчета
+    SEC_CODES['lastrealTimeCalculated'] =   {} -- время последнего рассчета realtime алгоритма
+    
+    ss = getInfoParam("SERVERTIME")
+    if ss == "" then
+        ss = os.date("%H:%M")
+    end
+    if string.len(ss) >= 5 then
+        hh = mysplit(ss,":")
+        str=hh[1]..hh[2]
+        h = tonumber(str)
+    end
 
     myLog("Читаем файл параметров")
     local lineCount = 0
@@ -74,103 +179,150 @@ function OnInit()
         myLog("Строка параметров "..line)
         lineCount = lineCount + 1
         if lineCount > 1 and line ~= "" then
-            local per1, per2, per3, per4, per5, per6 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
-            SEC_CODES[1][lineCount-1] = per2
-            SEC_CODES[2][lineCount-1] = per3
-            SEC_CODES[3][lineCount-1] = tonumber(per4) 
-            SEC_CODES[4][lineCount-1] = tonumber(per5) 
-            SEC_CODES[5][lineCount-1] = tonumber(per6) 
-            SEC_CODES[6][lineCount-1] = per1 
-            SEC_CODES[7][lineCount-1] = false 
-            --SEC_CODES[8][lineCount-1] = {} 
+            local per1, per2, per3, per4, per5, per6, per7 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
+            SEC_CODES['class_codes'][lineCount-1] = per1 
+            SEC_CODES['names'][lineCount-1] = per2
+            SEC_CODES['sec_codes'][lineCount-1] = per3
+            SEC_CODES['isMessage'][lineCount-1] = tonumber(per4) 
+            SEC_CODES['isPlaySound'][lineCount-1] = tonumber(per5) 
+            SEC_CODES['volume'][lineCount-1] = tonumber(per6) 
+            SEC_CODES['isEmpty'][lineCount-1] = false 
+            SEC_CODES['DS'][lineCount-1] = {} 
+            SEC_CODES['calcAlgoValues'][lineCount-1] = {} 
+            SEC_CODES['dayATR'][lineCount-1] = 0 
+            SEC_CODES['dayDS'][lineCount-1] = nil 
+            SEC_CODES['dayATR_Period'][lineCount-1] = tonumber(per7) 
+            SEC_CODES['D_minus5'][lineCount-1] = 0 
+            SEC_CODES['lastTimeCalculated'][lineCount-1] = {} 
+            SEC_CODES['lastrealTimeCalculated'][lineCount-1] = {} 
         end
     end
 
     ParamsFile:close()
 
-    myLog("Intervals "..tostring(#INTERVALS[1]))
-    myLog("Sec codes "..tostring(#SEC_CODES[2]))
+    myLog("Intervals "..tostring(#INTERVALS["names"]))
+    myLog("Sec codes "..tostring(#SEC_CODES['sec_codes']))
     CreateTable() -- Создает таблицу
+    
+    myLog("realTime functions "..tostring(#realtimeAlgorithms["functions"]))
 
-    for i,SEC_CODE in ipairs(SEC_CODES[2]) do      
+    for i,v in ipairs(SEC_CODES['sec_codes']) do      
                    
         SEC_CODE_INDEX[i] = {}
-        SEC_CODE_NRTR[i] = {}
-        SEC_CODE_ATR[i] = {}
-        
-        CLASS_CODE =SEC_CODES[6][i]
+        SEC_CODE = v
+        CLASS_CODE =SEC_CODES['class_codes'][i]
+        openedDS[i] = {}
 
-        myLog("================================================")
         SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
+        local status = getParamEx(CLASS_CODE,  SEC_CODE, "last").param_value
         local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
-        SetCell(t_id, i, 1, tostring(last_price), last_price)  --i строка, 1 - колонка, v - значение
-        local lastchange = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lastchange").param_value)
-        Str(i, 2, lastchange, 0, 0)  --i строка, 1 - колонка, v - значение
         local open_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"prevprice").param_value)
-        SetCell(t_id, i, 3, tostring(open_price), open_price)  --i строка, 1 - колонка, v - значение
-        local delta = round(last_price-open_price,5)
-        SetCell(t_id, i, 4, tostring(delta), delta)  --i строка, 1 - колонка, v - значение
-        local openCount = GetTotalnet()        
-        SetCell(t_id, i, 6, tostring(openCount), openCount)  --i строка, 1 - колонка, v - значение
-        --Команды
-        SetCell(t_id, i, #INTERVALS[1]+8, "-")  --i строка, 1 - колонка, v - значение
-        SetCell(t_id, i, #INTERVALS[1]+9, tostring(SEC_CODES[5][i]), SEC_CODES[5][i])  --i строка, 1 - колонка, v - значение
-        SetCell(t_id, i, #INTERVALS[1]+10, "+")  --i строка, 1 - колонка, v - значение
-        SetCell(t_id, i, #INTERVALS[1]+11, "BUY")  --i строка, 1 - колонка, v - значение
-        Green(i, #INTERVALS[1]+11)
-        SetCell(t_id, i, #INTERVALS[1]+12, "SELL")  --i строка, 1 - колонка, v - значение
-        Red(i, #INTERVALS[1]+12)
-        if openCount~=0 then 
-            command = ""
-            Red(i, #INTERVALS[1]+12)
-            SetCell(t_id, i, #INTERVALS[1]+13, "CLOSE")  --i строка, 0 - колонка, v - значение 
+        local highest_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"high").param_value)
+        local lowest_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"low").param_value)
+        if last_price == 0 or last_price == nil then
+            last_price = open_price
         end
-        myLog("lastchange ".. SEC_CODE.." "..tostring(lastchange))
-        myLog("open_price ".. SEC_CODE.." "..tostring(open_price))
-        myLog("delta ".. SEC_CODE.." "..tostring(delta))
-        myLog("openCount ".. SEC_CODE.." "..tostring(openCount))
-
-        for cell,INTERVAL in pairs(INTERVALS[2]) do                    
-            local Error = ''
-            DS,Error = CreateDataSource(CLASS_CODE, SEC_CODE, INTERVAL)
-            -- Проверка
-            if DS == nil then
-                message('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-                myLog('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-                -- Завершает выполнение скрипта
-                IsRun = false
-                return
+        SetCell(t_id, i, tableIndex["Текущая цена"], tostring(last_price), last_price)  --i строка, 1 - колонка, v - значение
+        local lastchange = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lastchange").param_value)
+        Str(i, tableIndex["%"], lastchange, 0, 0)  --i строка, 1 - колонка, v - значение
+        SetCell(t_id, i, tableIndex["Цена открытия"], tostring(open_price), open_price)  --i строка, 1 - колонка, v - значение
+        local delta = round(last_price-open_price,5)
+        SetCell(t_id, i, tableIndex["Дельта"], tostring(delta), delta)  --i строка, 1 - колонка, v - значение
+        local openCount, awg_price = GetTotalnet(CLASS_CODE, SEC_CODE)        
+        SetCell(t_id, i, tableIndex["Позиция"], tostring(openCount), openCount)  --i строка, 1 - колонка, v - значение
+        if tonumber(awg_price)==0 then
+            SetCell(t_id, i, tableIndex["Средняя"], '', 0)  --i строка, 1 - колонка, v - значение
+            White(i, tableIndex["Средняя"])
+        else
+            Str(i, tableIndex["Средняя"], tonumber(awg_price), last_price)  --i строка, 1 - колонка, v - значение
+        end    
+        --Команды
+        if showTradeCommands == true then
+            SetCell(t_id, i,  tableIndex["<"], "-")  --i строка, 1 - колонка, v - значение
+            SetCell(t_id, i, tableIndex["Объем сделки"], tostring(SEC_CODES['volume'][i]), SEC_CODES['volume'][i])  --i строка, 1 - колонка, v - значение
+            SetCell(t_id, i, tableIndex[">"], "+")  --i строка, 1 - колонка, v - значение
+            SetCell(t_id, i, tableIndex["Команда BUY"], "BUY")  --i строка, 1 - колонка, v - значение
+            Green(i, tableIndex["Команда BUY"])
+            SetCell(t_id, i, tableIndex["Команда SELL"], "SELL")  --i строка, 1 - колонка, v - значение
+            Red(i, tableIndex["Команда SELL"])
+            if openCount~=0 then 
+                Red(i, tableIndex["Команда CLOSE"])
+                SetCell(t_id, i, tableIndex["Команда CLOSE"], "CLOSE")  --i строка, 0 - колонка, v - значение 
+            else
+                White(i, tableIndex["Команда CLOSE"])
+                SetCell(t_id, i, tableIndex["Команда CLOSE"], "")  --i строка, 0 - колонка, v - значение 
             end
-            if DS:Size() == 0 then 
-                DS:SetEmptyCallback()
-                sleep(200)
-                SEC_CODES[7][i] = true
-                --DS = CreateDataSource(CLASS_CODE, SEC_CODE, INTERVAL)
-            end
+        end
+        
+        for kk,algo in pairs(realtimeAlgorithms["functions"]) do                    
+            local initrf = realtimeAlgorithms["initAlgorithms"][kk]
+            if initrf~=nil then
+                initrf()
+            end    
+            SEC_CODES['lastrealTimeCalculated'][i][kk] = h            
+        end
 
-            SEC_CODE_INDEX[i][cell] = DS:Size()
-            --SEC_CODES[8][i][cell] = false
+        for cell,INTERVAL in pairs(INTERVALS["values"]) do                    
             
-            --NRTR
-            myLog("Всего свечей ".. SEC_CODE..", интервала "..INTERVALS[1][cell].." "..SEC_CODE_INDEX[i][cell])
-            -- расчет параметров для каждого интервала
-            for ind = DS:Size()-1000, DS:Size() do
-                cached_NRTR(ind)
+            DS = DataSource(i,cell)
+            SEC_CODES['DS'][i][cell] = DS            
+            SEC_CODES['lastTimeCalculated'][i][cell] = h            
+            
+            SEC_CODE_INDEX[i][cell] = DS:Size()
+            --myLog("Всего свечей ".. SEC_CODE..", интервала "..INTERVALS["names"][cell].." "..tostring(SEC_CODE_INDEX[i][cell]))
+            
+            if status ~= nil and status ~= 0 then
+                    --interval algorithms
+                local initf = INTERVALS["initAlgorithms"][cell]
+                local calcf = INTERVALS["algorithms"][cell]
+                local signalf = INTERVALS["signalAlgorithms"][cell]
+                local settings = INTERVALS["settings"][cell]
+                
+                if initf~=nil then
+                    initf()
+                else calcAlgoValue = {}
+                end
+                if calcf~=nil then
+                    -- расчет параметров для каждого интервала
+                    calcAlgoValue = calcf(DS:Size(), settings, DS)
+                end
+    
+                SEC_CODES['calcAlgoValues'][i][cell] = calcAlgoValue[DS:Size()] or 0
+    
+                if signalf~=nil then
+                    signalf(i, cell, settings, DS, false)                    
+                elseif calcf~=nil then
+                    up_downTest(i, cell, settings, DS, false)                    
+                end
             end
-
-            SEC_CODE_NRTR[i][cell] = cache_NRTR[DS:Size()]
-            myLog("NRTR ".. SEC_CODE..", интервала "..INTERVALS[1][cell].." "..SEC_CODE_NRTR[i][cell])
-
-            Str(i, cell+6, cache_NRTR[DS:Size()], last_price)
             
             --ATR
-            if INTERVAL == INTERVAL_D1 then
-                SEC_CODE_ATR[i][cell] = round(ATR[DS:Size()], 5)
-                myLog("Day ATR ".. SEC_CODE.." "..SEC_CODE_ATR[i][cell])
-                SetCell(t_id, i, 5, tostring(SEC_CODE_ATR[i][cell]), SEC_CODE_ATR[i][cell])  --i строка, 1 - колонка, v - значение
+            if INTERVAL == INTERVAL_D1 and isDayInterval == false then
+                isDayInterval = true
+                dayIntervalIndex = cell
             end
 
         end
+
+        --ATR
+        getATR(i, dayIntervalIndex)
+
+        local lastATR = round(SEC_CODES['dayATR'][i], 5)
+        if highest_price ==0 then highest_price = open_price end
+        if lowest_price ==0 then lowest_price = open_price end
+        local atrDelta = math.max(math.abs(highest_price - open_price), math.abs(open_price-lowest_price))
+        if lastATR<math.abs(atrDelta) then
+            Red(i, tableIndex["D ATR"])
+        else
+            White(i, tableIndex["D ATR"])    
+        end
+        --ATR
+            
+        --W%
+        local changeW = round((last_price - SEC_CODES['D_minus5'][i])*100/SEC_CODES['D_minus5'][i], 2)
+        Str(i, tableIndex["%W"], changeW, 0, 0)                   
+        --W%
+
     end
 
     myLog("================================================")
@@ -182,119 +334,136 @@ function main() -- Функция, реализующая основной по�
     
     SetTableNotificationCallback(t_id, event_callback)
     SetTableNotificationCallback(tv_id, volume_event_callback)
-    
+
     while IsRun do -- Цикл будет выполнятся, пока IsRun == true 
         
-        for i,v in ipairs(SEC_CODES[2]) do      
+        for i,v in ipairs(SEC_CODES['sec_codes']) do      
             
+            if IsRun == false then break end
+
             SEC_CODE = v
-            CLASS_CODE =SEC_CODES[6][i]
+            CLASS_CODE =SEC_CODES['class_codes'][i]
 
             -- Получает ШАГ ЦЕНЫ ИНСТРУМЕНТА, последнюю цену, открытые позиции
             SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
+            local status = getParamEx(CLASS_CODE,  SEC_CODE, "last").param_value
             local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
-            SetCell(t_id, i, 1, tostring(last_price), last_price)  --i строка, 1 - колонка, v - значение
-            local lastchange = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lastchange").param_value)
-            Str(i, 2, lastchange, 0, 0)  --i строка, 1 - колонка, v - значение
             local open_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"prevprice").param_value)
-            SetCell(t_id, i, 3, tostring(open_price), open_price)  --i строка, 1 - колонка, v - значение
-            local delta = round(last_price-open_price,5)
-            SetCell(t_id, i, 4, tostring(delta), delta)  --i строка, 1 - колонка, v - значение
-            local openCount = GetTotalnet()        
-            --local openCount = 0        
-            SetCell(t_id, i, 6, tostring(openCount), openCount)  --i строка, 1 - колонка, v - значение
-            if openCount~=0 then
-                command = ""
-                Red(i, #INTERVALS[1]+13)
-                SetCell(t_id, i, #INTERVALS[1]+13, "CLOSE")  --i строка, 0 - колонка, v - значение 
+            local highest_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"high").param_value)
+            local lowest_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"low").param_value)
+            if last_price == 0 or last_price == nil then
+                last_price = open_price
             end
-                   
-            ss = getInfoParam("SERVERTIME")
-            for cell,INTERVAL in pairs(INTERVALS[2]) do                    
-                
-                Str(i, cell+6, SEC_CODE_NRTR[i][cell], last_price)
-                if INTERVAL == INTERVAL_D1 then
-                    SetCell(t_id, i, 5, tostring(SEC_CODE_ATR[i][cell]), SEC_CODE_ATR[i][cell])  --i строка, 1 - колонка, v - значение
-                    if SEC_CODE_ATR[i][cell]<math.abs(delta) then
-                        Red(i, 5)
-                    end
-                end
-                
-                --проверим, что заказанные данные пришли
-                if SEC_CODES[7][i] == true then 
-                    myLog("Нет данных по "..SEC_CODE.." за интервал "..INTERVALS[1][cell]..". Заказываем на сервере")
-                    DS,Error = CreateDataSource(CLASS_CODE, SEC_CODE, INTERVAL)
-                    -- Проверка
-                    if DS == nil then
-                        message('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-                        myLog('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-                        -- Завершает выполнение скрипта
-                        IsRun = false
-                        return
-                    end
-
-                    SEC_CODES[7][i] = DS:Size() == 0                               
+            local lp = GetCell(t_id, i, tableIndex["Текущая цена"]).value or last_price
+            if lp > last_price then
+                Highlight(t_id, i, tableIndex["Текущая цена"], SeaGreen, QTABLE_DEFAULT_COLOR,1000)		-- подсветка мягкий, зеленый
+            elseif lp < last_price then
+                Highlight(t_id, i, tableIndex["Текущая цена"], RosyBrown, QTABLE_DEFAULT_COLOR,1000)		-- подсветка мягкий розовый
+            end   
+            SetCell(t_id, i, tableIndex["Текущая цена"], tostring(last_price), last_price)  --i строка, 1 - колонка, v - значение
+            local lastchange = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lastchange").param_value)
+            Str(i, tableIndex["%"], lastchange, 0, 0)  --i строка, 1 - колонка, v - значение
+            SetCell(t_id, i, tableIndex["Цена открытия"], tostring(open_price), open_price)  --i строка, 1 - колонка, v - значение
+            local delta = round(last_price-open_price,5)
+            SetCell(t_id, i, tableIndex["Дельта"], tostring(delta), delta)  --i строка, 1 - колонка, v - значение
+            if IsWindowClosed(t_id) == false then
+                local awg_price = GetCell(t_id, i, tableIndex["Средняя"]).value or 0
+                if tonumber(awg_price)==0 then
+                    White(i, tableIndex["Средняя"])
+                else
+                    Str(i, tableIndex["Средняя"], tonumber(awg_price), last_price)  --i строка, 1 - колонка, v - значение
                 end    
-
+            end
+            
+            ss = getInfoParam("SERVERTIME")
+            --myLog(tostring(status))
+            if status ~= nil and status ~= "0.000000" and ss ~= "" then
                 if string.len(ss) >= 5 then
                     hh = mysplit(ss,":")
-                    str=hh[1]..hh[2] 
-                    if (hh[2] == "00" or hh[2] == "15" or hh[2] == "30" or hh[2] == "45") then -- every 15 minutes SEC_CODES[8][i][cell] == false and
-                        
-                        local Error = ''
-                        DS,Error = CreateDataSource(CLASS_CODE, SEC_CODE, INTERVAL)
-                        -- Проверка
-                        if DS == nil then
-                            message('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-                            myLog('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-                            -- Завершает выполнение скрипта
-                            IsRun = false
-                            return
+                    str=hh[1]..hh[2]
+                    h = tonumber(str) or 0
+                end
+                
+                for kk,algo in pairs(realtimeAlgorithms["functions"]) do                    
+                    local realf = realtimeAlgorithms["functions"][kk]
+                    if realf~=nil then
+                        local lastrealTimeCalculated = SEC_CODES['lastrealTimeCalculated'][i][kk] or h 
+                        local newrealTimeToCalculate = h
+                        local realperiod = realtimeAlgorithms["recalculatePeriod"][kk] or 0
+                        --myLog(SEC_CODE.." realperiod "..tostring(realperiod).." lastrealTimeCalculated "..tostring(lastrealTimeCalculated))
+                        if realperiod ~= 0 then
+                            newrealTimeToCalculate = lastrealTimeCalculated + 100*math.floor(realperiod/60) + realperiod%60
+                            --myLog("newrealTimeToCalculate "..tostring(newrealTimeToCalculate))
                         end
-
-                        if DS:Size() == 0 then 
-                            DS:SetEmptyCallback()
-                            sleep(200)
-                            --DS = CreateDataSource(CLASS_CODE, SEC_CODE, INTERVAL)
-                        end
-                                    
-                        if SEC_CODE_INDEX[i][cell]<DS:Size() then --new candle
-                            
-                            myLog(SEC_CODE.." - Перерасчет данных за интервал "..INTERVALS[1][cell])
-                            SEC_CODE_INDEX[i][cell] = DS:Size() --last candle               
-                            --NRTR
-                            -- расчет параметров для каждого интервала
-                            for ind = DS:Size()-1000, DS:Size() do
-                                cached_NRTR(ind)
-                            end
-                            SEC_CODE_NRTR[i][cell] = cache_NRTR[DS:Size()]
-                            Str(i, cell+6, cache_NRTR[DS:Size()], last_price)
-                            --ATR
-                            if INTERVAL == INTERVAL_D1 then
-                                SEC_CODE_ATR[i][cell] = round(ATR[DS:Size()], 5)
-                                SetCell(t_id, i, 5, tostring(SEC_CODE_ATR[i][cell]), SEC_CODE_ATR[i][cell])  --i строка, 1 - колонка, v - значение
-                            end
-                            
-                            local isMessage = SEC_CODES[3][i]
-                            local isPlaySound = SEC_CODES[4][i]
-                            
-                            if cache_NRTR[DS:Size()-1] < DS:C(DS:Size()-1) and cache_NRTR[DS:Size()-2] > DS:C(DS:Size()-2) and isMessage == true then
-                                myLog("Сигнал Buy "..tostring(SEC_CODES[1][i]).." timescale "..INTERVALS[1][cell])
-                                if isMessage == true then message("Сигнал Buy "..tostring(SEC_CODES[1][i]).." timescale "..INTERVALS[1][cell]) end
-                                if isPlaySound == 1 then PaySoundFile("c:\\windows\\media\\Alarm03.wav") end
-                            end
-                    
-                            if cache_NRTR[DS:Size()-1] > DS:C(DS:Size()-1) and cache_NRTR[DS:Size()-2] < DS:C(DS:Size()-2) and isMessage == true then
-                                myLog("Сигнал Sell "..tostring(SEC_CODE).." timescale "..INTERVALS[1][cell])
-                                if isMessage == true then message("Сигнал Sell "..tostring(SEC_CODE).." timescale "..INTERVALS[1][cell]) end
-                                if isPlaySound == 1 then PaySoundFile("c:\\windows\\media\\Alarm03.wav") end
-                            end
-                                                
+                        if h>newrealTimeToCalculate then
+                            SEC_CODES['lastrealTimeCalculated'][i][kk] = h            
+                            realf(i)
                         end
                     end
                 end
-            end  
-         end      
+                
+                for cell,INTERVAL in pairs(INTERVALS["values"]) do                    
+                                    
+                    DS = SEC_CODES['DS'][i][cell]
+                    
+                    local lastTimeCalculated = SEC_CODES['lastTimeCalculated'][i][cell] 
+                    local newTimeToCalculate = h
+                    local period = INTERVALS["recalculatePeriod"][cell] or 0
+                    if period ~= 0 then
+                        newTimeToCalculate = lastTimeCalculated + 100*math.floor(period/60) + period%60
+                    end
+
+                    if SEC_CODE_INDEX[i][cell]<DS:Size() or h>newTimeToCalculate then --new candle 
+                        
+                        --myLog(SEC_CODE.." - Перерасчет данных за интервал "..INTERVALS["names"][cell])
+                        SEC_CODE_INDEX[i][cell] = DS:Size() --last candle               
+                        SEC_CODES['lastTimeCalculated'][i][cell] = h            
+                                            
+                        --interval algorithms
+                        local initf = INTERVALS["initAlgorithms"][cell]
+                        local calcf = INTERVALS["algorithms"][cell]
+                        local signalf = INTERVALS["signalAlgorithms"][cell]
+                        local settings = INTERVALS["settings"][cell]
+                        
+                        if initf~=nil then
+                            initf()
+                        else calcAlgoValue = {}
+                        end
+                        if calcf~=nil then
+                            calcAlgoValue = calcf(DS:Size(), settings, DS)
+                        end
+                        SEC_CODES['calcAlgoValues'][i][cell] = calcAlgoValue[DS:Size()] or 0 
+                        
+                        if signalf~=nil then
+                            signalf(i, cell, settings, DS, true)                    
+                        elseif calcf~=nil then
+                            up_downTest(i, cell, settings, DS, true)                    
+                        end
+                    end
+
+                end  
+            end
+
+            --ATR
+            if SEC_CODES['D_minus5'][i]==0 or SEC_CODES['D_minus5'][i]==nil or SEC_CODES['dayATR'][i]==0 or SEC_CODES['dayATR'][i]==nil then
+            getATR(i, dayIntervalIndex)
+            end
+            local lastATR = round(SEC_CODES['dayATR'][i], 5)
+            if highest_price ==0 then highest_price = open_price end
+            if lowest_price ==0 then lowest_price = open_price end
+            local atrDelta = math.max(math.abs(highest_price - open_price), math.abs(open_price-lowest_price))
+            if lastATR<math.abs(atrDelta) then
+                Red(i, tableIndex["D ATR"])
+            else
+                White(i, tableIndex["D ATR"])    
+            end
+            --ATR
+            
+            --W%
+            local changeW = round((last_price - SEC_CODES['D_minus5'][i])*100/SEC_CODES['D_minus5'][i], 2)
+            Str(i, tableIndex["%W"], changeW, 0, 0)                   
+            --W%
+        end      
         sleep(100)
    end
 end
@@ -309,41 +478,72 @@ function OnStop()
     if tv_id~= nil then
         DestroyTable(tv_id)
     end
-   if logFile~=nil then logFile:close() end    -- Закрывает файл 
- end
-
+    calcAlgoValue = nil
+    if logFile~=nil then logFile:close() end    -- Закрывает файл 
+end
  -----------------------------
  -- РАБОТА С ТАБЛИЦЕЙ --
  -----------------------------
 
  function CreateTable() -- Функция создает таблицу
     t_id = AllocTable() -- Получает доступный id для создания
+    
     -- Добавляет колонки
-    AddColumn(t_id, 0, "Инструмент", true, QTABLE_STRING_TYPE, 25)
-    AddColumn(t_id, 1, "Цена", true, QTABLE_DOUBLE_TYPE, 15)
-    AddColumn(t_id, 2, "%", true, QTABLE_DOUBLE_TYPE, 15)
-    AddColumn(t_id, 3, "Открытие", true, QTABLE_DOUBLE_TYPE, 15)
-    AddColumn(t_id, 4, "Дельта", true, QTABLE_DOUBLE_TYPE, 15)
-    AddColumn(t_id, 5, "D ATR", true, QTABLE_DOUBLE_TYPE, 15)
-    AddColumn(t_id, 6, "Позиция", true, QTABLE_INT_TYPE, 15)
-    for i,v in ipairs(INTERVALS[1]) do
-        AddColumn(t_id, i+6, v, true, QTABLE_DOUBLE_TYPE, 20)
+    AddColumn(t_id, 0, "Инструмент", true, QTABLE_STRING_TYPE, 22)
+    tableIndex["Инструмент"] = 0
+    AddColumn(t_id, 1, "Цена", true, QTABLE_DOUBLE_TYPE, 13)
+    tableIndex["Текущая цена"] = 1
+    AddColumn(t_id, 2, "%", true, QTABLE_DOUBLE_TYPE, 9)
+    tableIndex["%"] = 2
+    AddColumn(t_id, 3, "%W", true, QTABLE_DOUBLE_TYPE, 9)
+    tableIndex["%W"] = 3
+    AddColumn(t_id, 4, "Открытие", true, QTABLE_DOUBLE_TYPE, 13)
+    tableIndex["Цена открытия"] = 4
+    AddColumn(t_id, 5, "Дельта", true, QTABLE_DOUBLE_TYPE, 13)
+    tableIndex["Дельта"] = 5
+    AddColumn(t_id, 6, "D ATR", true, QTABLE_DOUBLE_TYPE, 13)
+    tableIndex["D ATR"] = 6
+    AddColumn(t_id, 7, "Поз.", true, QTABLE_INT_TYPE, 7)
+    tableIndex["Позиция"] = 7
+    AddColumn(t_id, 8, "Средняя", true, QTABLE_DOUBLE_TYPE, 13)
+    tableIndex["Средняя"] = 8
+    numberOfFixedColumns = 8
+    numberOfVisibleColumns = 0
+    local width = 0
+    for i,v in ipairs(INTERVALS["names"]) do
+        if INTERVALS["visible"][i] then
+            numberOfVisibleColumns = numberOfVisibleColumns + 1
+            AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns, v, true, QTABLE_DOUBLE_TYPE, INTERVALS["width"][i])
+            tableIndex[i] = numberOfVisibleColumns+numberOfFixedColumns
+            width = width + INTERVALS["width"][i]
+        end
     end
-    AddColumn(t_id, #INTERVALS[1]+7, "Цена", true, QTABLE_STRING_TYPE, 15) --Price
-    AddColumn(t_id, #INTERVALS[1]+8, "<", true, QTABLE_STRING_TYPE, 5) --Decrease volume
-    AddColumn(t_id, #INTERVALS[1]+9, "Vol", true, QTABLE_INT_TYPE, 10) --Increase volume
-    AddColumn(t_id, #INTERVALS[1]+10, ">", true, QTABLE_STRING_TYPE, 5) --Volume
-    AddColumn(t_id, #INTERVALS[1]+11, "Команда", true, QTABLE_STRING_TYPE, 15) --BUY
-    AddColumn(t_id, #INTERVALS[1]+12, "Команда", true, QTABLE_STRING_TYPE, 15) --SELL
-    AddColumn(t_id, #INTERVALS[1]+13, "Команда", true, QTABLE_STRING_TYPE, 20) --CLOSE ALL
+    local columns = numberOfFixedColumns
+    if showTradeCommands == true then
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+1, "Цена", true, QTABLE_DOUBLE_TYPE, 15) --Price
+        tableIndex["Цена сделки"] = numberOfVisibleColumns+numberOfFixedColumns+1
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+2, "<", true, QTABLE_STRING_TYPE, 5) --Decrease volume
+        tableIndex["<"] = numberOfVisibleColumns+numberOfFixedColumns+2
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+3, "Vol", true, QTABLE_INT_TYPE, 7) --Volume
+        tableIndex["Объем сделки"] = numberOfVisibleColumns+numberOfFixedColumns+3
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+4, ">", true, QTABLE_STRING_TYPE, 5) --Increase volume
+        tableIndex[">"] = numberOfVisibleColumns+numberOfFixedColumns+4
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+5, "BUY", true, QTABLE_STRING_TYPE, 10) --BUY
+        tableIndex["Команда BUY"] = numberOfVisibleColumns+numberOfFixedColumns+5
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+6, "SELL", true, QTABLE_STRING_TYPE, 10) --SELL
+        tableIndex["Команда SELL"] = numberOfVisibleColumns+numberOfFixedColumns+6
+        AddColumn(t_id, numberOfVisibleColumns+numberOfFixedColumns+7, "CLOSE", true, QTABLE_STRING_TYPE, 10) --CLOSE ALL
+        tableIndex["Команда CLOSE"] = numberOfVisibleColumns+numberOfFixedColumns+7
+        columns = columns + 2.3
+    end
     t = CreateWindow(t_id) -- Создает таблицу
-    SetWindowCaption(t_id, "NRTR Monitor") -- Устанавливает заголовок
-    SetWindowPos(t_id, 190, 160, 1450, 800) -- Задает положение и размеры окна таблицы
+    SetWindowCaption(t_id, "Monitor") -- Устанавливает заголовок
+    SetWindowPos(t_id, 90, 60, 86*columns + width*5.7, 800) -- Задает положение и размеры окна таблицы
     
     -- Добавляет строки
-    for i,v in ipairs(SEC_CODES[1]) do
+    for i,v in ipairs(SEC_CODES['names']) do
         InsertRow(t_id, i)
-        SetCell(t_id, i, 0, v)  --i строка, 0 - колонка, v - значение 
+        SetCell(t_id, i, tableIndex["Инструмент"], v)  --i строка, 0 - колонка, v - значение 
     end
 
     tv_id = AllocTable() -- таблица ввода значения
@@ -372,7 +572,16 @@ function Red(Line, Col) -- Красный
    if Col == nil then Col = QTABLE_NO_INDEX end -- Если индекс столбца не указан, окрашивает всю строку
    SetColor(t_id, Line, Col, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
 end
- 
+function White(Line, Col) -- Белый
+   if Col == nil then Col = QTABLE_NO_INDEX end -- Если индекс столбца не указан, окрашивает всю строку
+   SetColor(t_id, Line, Col, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
+end 
+function cellSetColor(Line, Col, Color, textColor)
+   if Col == nil then Col = QTABLE_NO_INDEX end -- Если индекс столбца не указан, окрашивает всю строку
+   if Color == nil then Color =  RGB(255,255,255) end -- Если цвет не указан, окрашивает в белый
+   if textColor == nil then textColor = RGB(0,0,0) end -- Если цвет не указан, цвет черный
+   SetColor(t_id, Line, Col, Color, textColor, Color, textColor)
+end 
  -----------------------------
  -- Обработка команд таблицы --
  ----------------------------- 
@@ -382,9 +591,10 @@ function volume_event_callback(tv_id, msg, par1, par2)
     end
     if msg == QTABLE_CHAR then
         if tostring(par2) == "8" then
-           SetCell(tv_id, par1, 0, "")
-           SetCell(t_id, tstr, tcell, GetCell(tv_id, par1, 0).image, 0)
-       else
+            local newPrice = string.sub(GetCell(tv_id, par1, 0).image, 1, string.len(GetCell(tv_id, par1, 0).image)-1)
+            SetCell(tv_id, par1, 0, tostring(newPrice))
+            SetCell(t_id, tstr, tcell, GetCell(tv_id, par1, 0).image, tonumber(GetCell(tv_id, par1, 0).image))
+        else
            local inpChar = string.char(par2)
            local newPrice = GetCell(tv_id, par1, 0).image..string.char(par2)            
            SetCell(tv_id, par1, 0, tostring(newPrice))
@@ -395,73 +605,110 @@ end
 
 function event_callback(t_id, msg, par1, par2)
 
-    if msg == QTABLE_LBUTTONDBLCLK then
+    if msg == QTABLE_LBUTTONDBLCLK and showTradeCommands == true then
 
-        if par2 == 1 or par2 == 3 or (par2 > 6 and par2 <= #INTERVALS[1]+6) then --Берем цену
-            local newPrice = GetCell(t_id, par1, par2).value
-            SetCell(t_id, par1, #INTERVALS[1]+7, tostring(newPrice), newPrice)  --i строка, 1 - колонка, v - значение            
+        if par2 == tableIndex["Текущая цена"] or par2 == tableIndex["Цена открытия"] or par2 == tableIndex["Средняя"] or (par2 > numberOfFixedColumns and par2 <= numberOfVisibleColumns+numberOfFixedColumns) then --Берем цену
+            local TRADE_SEC_CODE = SEC_CODES['sec_codes'][par1]
+            local TRADE_CLASS_CODE = SEC_CODES['class_codes'][par1]
+            local newPrice = GetCorrectPrice(GetCell(t_id, par1, par2).value, TRADE_CLASS_CODE, TRADE_SEC_CODE)
+            local stringPrice = string.gsub(tostring(newPrice),',', '.')
+            local numberPrice = tonumber(stringPrice)
+             if numberPrice~=nil and numberPrice~=0 then
+                SetCell(t_id, par1, tableIndex["Цена сделки"], stringPrice, numberPrice)  --i строка, 1 - колонка, v - значение            
+            end
         end
-        if par2 == #INTERVALS[1]+7 and IsWindowClosed(tv_id) then --Вводим цену
+        if par2 == tableIndex["Цена сделки"] and IsWindowClosed(tv_id) then --Вводим цену
             tstr = par1
             tcell = par2
-            AddColumn(tv_id, 0, "Значение", true, QTABLE_STRING_TYPE, 25)
+            AddColumn(tv_id, 0, "Значение", true, QTABLE_DOUBLE_TYPE, 25)
             tv = CreateWindow(tv_id) 
             SetWindowCaption(tv_id, "Введите цену") 
             SetWindowPos(tv_id, 290, 260, 250, 100)                                
             InsertRow(tv_id, 1)
-            SetCell(tv_id, 1, 0, GetCell(t_id, par1, #INTERVALS[1]+7).image)  --i строка, 0 - колонка, v - значение 
+            SetCell(tv_id, 1, 0, GetCell(t_id, par1, tableIndex["Цена сделки"]).image, GetCell(t_id, par1, tableIndex["Цена сделки"]).value)  --i строка, 0 - колонка, v - значение 
         end
-        if par2 == #INTERVALS[1]+9 and IsWindowClosed(tv_id) then --Вводим объем
+        if par2 == tableIndex["Объем сделки"] and IsWindowClosed(tv_id) then --Вводим объем
             tstr = par1
             tcell = par2
-            AddColumn(tv_id, 0, "Значение", true, QTABLE_STRING_TYPE, 25)
+            AddColumn(tv_id, 0, "Значение", true, QTABLE_INT_TYPE, 25)
             tv = CreateWindow(tv_id) 
             SetWindowCaption(tv_id, "Введите объем")
             SetWindowPos(tv_id, 290, 260, 250, 100)                                
             InsertRow(tv_id, 1)
-            SetCell(tv_id, 1, 0, GetCell(t_id, par1, #INTERVALS[1]+9).image)  --i строка, 0 - колонка, v - значение 
+            SetCell(tv_id, 1, 0, GetCell(t_id, par1, tableIndex["Объем сделки"]).image, GetCell(t_id, par1, tableIndex["Объем сделки"]).value)  --i строка, 0 - колонка, v - значение 
         end
-        if par2 == #INTERVALS[1]+13 then -- All Close
-            local TRADE_SEC_CODE = SEC_CODES[2][par1]
-            local TRADE_CLASS_CODE = SEC_CODES[6][par1]
-            opencount = GetCell(t_id, par1, 6).value
-            if opencount ~=0 then 
-                local CurrentDirect = 'Sell'
-                local QTY_LOTS = opencount
-                message(TRADE_SEC_CODE.." "..CurrentDirect.." count "..tostring(QTY_LOTS))
+        if par2 == tableIndex["Команда CLOSE"] then -- All Close
+            local TRADE_SEC_NAME = SEC_CODES['names'][par1]
+            local TRADE_SEC_CODE = SEC_CODES['sec_codes'][par1]
+            local TRADE_CLASS_CODE = SEC_CODES['class_codes'][par1]
+            local QTY_LOTS = GetCell(t_id, par1, tableIndex["Позиция"]).value
+            if QTY_LOTS == 0 or QTY_LOTS==nil then
+                message("Некорректно указан объем!!!")
+                return
+            end            
+            if QTY_LOTS ~=0 then 
+                local CurrentDirect = 'SELL'
+                message(TRADE_SEC_NAME.." Закрытие всей позиции, Объем: "..tostring(QTY_LOTS)..", по рынку")
                 MakeTransaction(CurrentDirect, QTY_LOTS, 0, TRADE_CLASS_CODE, TRADE_SEC_CODE)
             end
         end
-        if par2 == #INTERVALS[1]+11 then --BUY volume
-            local TRADE_SEC_CODE = SEC_CODES[2][par1]
-            local TRADE_CLASS_CODE = SEC_CODES[6][par1]
+        if par2 == tableIndex["Команда BUY"] then --BUY volume
+            local TRADE_SEC_NAME = SEC_CODES['names'][par1]
+            local TRADE_SEC_CODE = SEC_CODES['sec_codes'][par1]
+            local TRADE_CLASS_CODE = SEC_CODES['class_codes'][par1]
             local CurrentDirect = 'BUY'
-            local QTY_LOTS = GetCell(t_id, par1, #INTERVALS[1]+9).value
-            local TRADE_PRICE = tonumber(GetCell(t_id, par1, #INTERVALS[1]+7).image)
-            message(TRADE_SEC_CODE.." "..CurrentDirect.." count "..tostring(QTY_LOTS))
+            local QTY_LOTS = GetCell(t_id, par1, tableIndex["Объем сделки"]).value
+            if QTY_LOTS == 0 or QTY_LOTS==nil then
+                message("Некорректно указан объем!!!")
+                return
+            end
+            local TRADE_PRICE = GetCell(t_id, par1, tableIndex["Цена сделки"]).value
+            local checkString = GetCell(t_id, par1, tableIndex["Цена сделки"]).image
+            if (TRADE_PRICE==nil or TRADE_PRICE==0) and string.len(checkString) ~= 0 then
+                message("Некорректно указана цена: "..tostring(TRADE_PRICE))
+                return
+            end
+            message(TRADE_SEC_NAME.." Покупка, Объем: "..tostring(QTY_LOTS)..", Цена: "..tostring(TRADE_PRICE))
             MakeTransaction(CurrentDirect, QTY_LOTS, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
         end
-        if par2 == #INTERVALS[1]+12 then --SELL volume
-            local TRADE_SEC_CODE = SEC_CODES[2][par1]
-            local TRADE_CLASS_CODE = SEC_CODES[6][par1]
+        if par2 == tableIndex["Команда SELL"] then --SELL volume
+            local TRADE_SEC_NAME = SEC_CODES['names'][par1]
+            local TRADE_SEC_CODE = SEC_CODES['sec_codes'][par1]
+            local TRADE_CLASS_CODE = SEC_CODES['class_codes'][par1]
             local CurrentDirect = 'SELL'
-            local QTY_LOTS = GetCell(t_id, par1, #INTERVALS[1]+9).value
-            local TRADE_PRICE = tonumber(GetCell(t_id, par1, #INTERVALS[1]+7).image)
-            message(TRADE_SEC_CODE.." "..CurrentDirect.." count "..tostring(QTY_LOTS))
+            local QTY_LOTS = GetCell(t_id, par1, tableIndex["Объем сделки"]).value
+            if QTY_LOTS == 0 or QTY_LOTS==nil then
+                message("Некорректно указан объем!!!")
+                return
+            end
+            local TRADE_PRICE = GetCell(t_id, par1, tableIndex["Цена сделки"]).value
+            local checkString = GetCell(t_id, par1, tableIndex["Цена сделки"]).image
+            if (TRADE_PRICE==nil or TRADE_PRICE==0) and string.len(checkString) ~= 0 then
+                message("Некорректно указана цена: "..tostring(TRADE_PRICE))
+                return
+            end
+            message(TRADE_SEC_NAME.." Продажа, Объем: "..tostring(QTY_LOTS)..", Цена: "..tostring(TRADE_PRICE))
             MakeTransaction(CurrentDirect, QTY_LOTS, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
         end
-        if par2 == #INTERVALS[1]+8 then
-            local newVolume = GetCell(t_id, par1, #INTERVALS[1]+9).value - SEC_CODES[5][par1]
-            SetCell(t_id, par1, #INTERVALS[1]+9, tostring(newVolume), newVolume)  --i строка, 1 - колонка, v - значение            
+        if par2 ==  tableIndex["<"] then
+            local newVolume = GetCell(t_id, par1, tableIndex["Объем сделки"]).value - SEC_CODES['volume'][par1]
+            SetCell(t_id, par1, tableIndex["Объем сделки"], tostring(newVolume), newVolume)  --i строка, 1 - колонка, v - значение            
         end
-        if par2 == #INTERVALS[1]+10 then
-            local newVolume = GetCell(t_id, par1, #INTERVALS[1]+9).value + SEC_CODES[5][par1]
-            SetCell(t_id, par1, #INTERVALS[1]+9, tostring(newVolume), newVolume)  --i строка, 1 - колонка, v - значение            
+        if par2 == tableIndex[">"] then
+            local newVolume = GetCell(t_id, par1, tableIndex["Объем сделки"]).value + SEC_CODES['volume'][par1]
+            SetCell(t_id, par1, tableIndex["Объем сделки"], tostring(newVolume), newVolume)  --i строка, 1 - колонка, v - значение            
         end
     end
-    if msg == QTABLE_CHAR then
+    if msg == QTABLE_CHAR and showTradeCommands == true then
         if tostring(par2) == "8" then
-           SetCell(t_id, par1, #INTERVALS[1]+7, "")
+           SetCell(t_id, par1, tableIndex["Цена сделки"], "")
+        end
+        if tostring(par2) == "68" or tostring(par2) == "194" then
+            local TRADE_SEC_CODE = SEC_CODES['sec_codes'][par1]
+            local TRADE_SEC_NAME = SEC_CODES['names'][par1]
+            local TRADE_CLASS_CODE = SEC_CODES['class_codes'][par1]
+            message("Удаляем все заявки "..TRADE_SEC_NAME)
+            KillAllOrders("orders", TRADE_CLASS_CODE, TRADE_SEC_CODE)
         end
     end
     if (msg==QTABLE_CLOSE) then --закрытие окна
@@ -472,36 +719,35 @@ end
 -- Функция вызывается терминалом QUIK при получении ответа на транзакцию пользователя
 function OnTransReply(trans_reply)
     -- Если поступила информация по текущей транзакции
-   if trans_reply.trans_id == trans_id then
-       -- Передает статус в глобальную переменную
-       trans_Status = trans_reply.status
-       -- Передает сообщение в глобальную переменную
-       trans_result_msg  = trans_reply.result_msg
-       myLog("OnTransReply "..tostring(trans_id).." "..trans_result_msg)
-  end
+    if trans_reply.trans_id == trans_id then
+        -- Передает статус в глобальную переменную
+        trans_Status = trans_reply.status
+        -- Передает сообщение в глобальную переменную
+        trans_result_msg  = trans_reply.result_msg
+        
+        if Status == 2 then
+            message("Ошибка при передаче транзакции в торговую систему. Так как отсутствует подключение шлюза Московской Биржи, повторно транзакция не отправляется")
+            myLog("Ошибка при передаче транзакции в торговую систему. Так как отсутствует подключение шлюза Московской Биржи, повторно транзакция не отправляется")
+        end
+        
+        if trans_Status > 3 then
+            if trans_Status == 4 then messageText = "Транзакция не исполнена" end
+            if trans_Status == 5 then messageText = "Транзакция не прошла проверку сервера QUIK" end
+            if trans_Status == 6 then messageText = "Транзакция не прошла проверку лимитов сервера QUIK" end
+            if trans_Status == 7 then messageText = "Транзакция не поддерживается торговой системой" end
+            message('NRTR monitor: Транзакция вернула ошибку: '..messageText)
+            myLog('NRTR monitor: Транзакция вернула ошибку: '..messageText)
+        end
+
+        myLog("OnTransReply "..tostring(trans_id).." "..trans_result_msg)
+    end
 end
 
-function MakeTransaction(CurrentDirect, QTY_LOTS, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
-    
+function MakeTransaction(CurrentDirect, QTY_LOTS, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)   
     return Trade(CurrentDirect, QTY_LOTS, TRADE_PRICE, TRADE_CLASS_CODE ,TRADE_SEC_CODE)
-    --Пока без попыток. Ошибки при медленном ответе сервера.
-    --[[local Price = false -- Переменная для получения результата открытия позиции (цена, либо ошибка(false))
-    for i=1,10 do
-       if not IsRun then return end -- Если скрипт останавливается, не затягивает процесс
-        -- Совершает СДЕЛКУ указанного типа ["BUY", или "SELL"] по рыночной(текущей) цене размером в QTY_LOTS лот,
-       --- возвращает цену открытой сделки, либо FALSE, если невозможно открыть сделку
-       Price = Trade(CurrentDirect, QTY_LOTS, TRADE_SEC_CODE)
-       -- Если сделка открылась
-       if Price ~= false then
-          -- Прерывает цикл FOR
-          break
-       end
-       sleep(100) -- Пауза в 100 мс между попытками открыть сделку
-    end]]--
-
 end
--- Совершает СДЕЛКУ указанного типа (Type) ["BUY", или "SELL"] по рыночной(текущей) цене размером в 1 лот,
---- возвращает цену открытой сделки, либо FALSE, если невозможно открыть сделку
+
+-- Совершает СДЕЛКУ указанного типа (Type) ["BUY", или "SELL"]
 function Trade(Type, qnt, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
     --Получает ID транзакции
     trans_id = trans_id + 1
@@ -529,8 +775,8 @@ function Trade(Type, qnt, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
         end -- по цене, заниженной на 10 мин. шагов цены
     end
     -- Заполняет структуру для отправки транзакции
-    TRADE_PRICE = GetCorrectPrice(TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
-    myLog("NRTR robot: "..TRADE_TYPE.." Transaction "..Type..' '..TRADE_PRICE)
+    --TRADE_PRICE = GetCorrectPrice(TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
+    myLog("script Monitor: "..TRADE_TYPE.." Transaction "..Type..' '..TRADE_PRICE)
  
     local Transaction={
        ['TRANS_ID']   = tostring(trans_id),
@@ -553,210 +799,204 @@ function Trade(Type, qnt, TRADE_PRICE, TRADE_CLASS_CODE, TRADE_SEC_CODE)
         return false
      end
   
-    -- Ждет, пока получит статус текущей транзакции (переменные "trans_Status" и "trans_result_msg" заполняются в функции OnTransReply())
-    --while IsRun and (trans_Status == nil or trans_Status < 2) do sleep(1) end
-    sleep(100)
-
-    -- Запоминает значение
-    local Status = trans_Status or 3
-    --myLog("Tran status "..tostring(trans_Status))
-    -- Очищает глобальную переменную
-    trans_Status = nil
-
-    if Status == 2 then
-        message("Ошибка при передаче транзакции в торговую систему. Так как отсутствует подключение шлюза Московской Биржи, повторно транзакция не отправляется")
-        myLog("Ошибка при передаче транзакции в торговую систему. Так как отсутствует подключение шлюза Московской Биржи, повторно транзакция не отправляется")
-        return false
-    end
-
-    if Status > 3 then
-        if Status == 4 then messageText = "Транзакция не исполнена" end
-        if Status == 5 then messageText = "Транзакция не прошла проверку сервера QUIK" end
-        if Status == 6 then messageText = "Транзакция не прошла проверку лимитов сервера QUIK" end
-        if Status == 7 then messageText = "Транзакция не поддерживается торговой системой" end
-        message('NRTR monitor: Транзакция вернула ошибку: '..messageText)
-        myLog('NRTR monitor: Транзакция вернула ошибку: '..messageText)
-        return false
-    end
-
      return true
 
-    --[[
-    -- Если транзакция не выполнена по какой-то причине
-    if Status ~= 3 then
-       -- Если данный инструмент запрещен для операции шорт
-       if Status == 6 then
-          -- Выводит сообщение
-          myLog("NRTR monitor: Данный инструмент запрещен для операции шорт!")
-       else
-          -- Выводит сообщение с ошибкой
-          message('NRTR monitor: Транзакция не прошла!\nОШИБКА: '..trans_result_msg)
-          myLog("NRTR monitor: Транзакция не прошла!\nОШИБКА: "..trans_result_msg)
-       end
-       -- Возвращает FALSE
-       return false
-    else --Транзакция отправлена
-       local OrderNum = nil
-       --ЖДЕТ пока ЗАЯВКА на ОТКРЫТИЕ сделки будет ИСПОЛНЕНА полностью
-       --Запоминает время начала в секундах
-       local BeginTime = os.time()
-       while IsRun and OrderNum == nil do
-          --Перебирает ТАБЛИЦУ ЗАЯВОК
-          for i=0,getNumberOf('orders')-1 do
-             local order = getItem('orders', i)
-             --Если заявка по отправленной транзакции ИСПОЛНЕНА ПОЛНОСТЬЮ
-             if order.trans_id == trans_id and order.balance == 0 then
-                --Запоминает номер заявки
-                OrderNum  = order.order_num
-                --Прерывает цикл FOR
-                break
-             end
-          end
-          --Если прошло 10 секунд, а заявка не исполнена, значит произошла ошибка
-          if os.time() - BeginTime > 9 then
-             -- Выводит сообщение с ошибкой
-             message('NRTR monitor: Прошло 10 секунд, а заявка не исполнена, значит произошла ошибка')
-             myLog("NRTR monitor: Прошло 10 секунд, а заявка не исполнена, значит произошла ошибка")
-            -- Возвращает FALSE
-             return false
-          end
-          sleep(10) -- Пауза 10 мс, чтобы не перегружать процессор компьютера
-       end
- 
-       --ЖДЕТ пока СДЕЛКА ОТКРЫТИЯ позиции будет СОВЕРШЕНА
-       --Запоминает время начала в секундах
-       BeginTime = os.time()
-       while IsRun do
-          --Перебирает ТАБЛИЦУ СДЕЛОК
-          for i=0,getNumberOf('trades')-1 do
-             local trade = getItem('trades', i)
-             --Если сделка по текущей заявке
-             if trade.order_num == OrderNum then
-                --Возвращает фАКТИЧЕСКУЮ ЦЕНУ открытой сделки
-                return trade.price
-             end
-          end
-          --Если прошло 10 секунд, а сделка не совершена, значит на демо-счете произошла ошибка
-          if os.time() - BeginTime > 9 then
-             -- Выводит сообщение с ошибкой
-             message('NRTR monitor: Прошло 10 секунд, а сделка не совершена, значит на счете произошла ошибка')
-             myLog("NRTR monitor: Прошло 10 секунд, а сделка не совершена, значит на счете произошла ошибка")
-             -- Возвращает FALSE
-             return false
-          end
-          sleep(10) -- Пауза 10 мс, чтобы не перегружать процессор компьютера
-       end
-    end
-    ]]--
- end
+end
 
+--ordtable = "stop_orders"
+--ordtable = "orders"
+function KillAllOrders(ordtable, TRADE_CLASS_CODE, TRADE_SEC_CODE)
+    function myFind(C,S,F)
+       return (C == TRADE_CLASS_CODE) and (S == TRADE_SEC_CODE) and (bit.band(F, 0x1) ~= 0)
+    end
+    local res=1
+    local action = "KILL_ORDER"
+    local order_key = "ORDER_KEY"
+    if ordtable == "stop_orders" then
+        action = "KILL_STOP_ORDER"
+        order_key = "STOP_ORDER_KEY"
+    end
+    local orders = SearchItems(ordtable, 0, getNumberOf(ordtable)-1, myFind, "class_code,sec_code,flags")
+    if (orders ~= nil) and (#orders > 0) then
+       
+        for i=1,#orders do
+         -- Получает ID для следующей транзакции
+        trans_id = trans_id + 1
+        -- Заполняет структуру для отправки транзакции на снятие стоп-заявки
+         local Transaction = {
+             ["ACTION"]              = action, -- Тип заявки
+             ["TRANS_ID"]            = tostring(trans_id),
+             ["CLASSCODE"]           = TRADE_CLASS_CODE,
+             ["SECCODE"]             = TRADE_SEC_CODE,
+             ["ACCOUNT"]             = ACCOUNT,
+             ['CLIENT_CODE'] = CLIENT_CODE, -- Комментарий к транзакции, который будет виден в транзакциях, заявках и сделках 
+             [order_key]      = tostring(getItem(ordtable,orders[i]).order_num) -- Номер заявки, снимаемой из торговой системы
+         }
+            -- Отправляет транзакцию
+            local Res = sendTransaction(Transaction)
+            -- Если при отправке транзакции возникла ошибка
+            if string.len(Res) ~= 0 then
+               -- Выводит ошибку
+               message('Ошибка снятия заявки: '..Res)
+               myLog('Ошибка снятия заявки: '..Res)
+               return false
+            end   
+           
+           local order = getItem(ordtable, orders[i])		  
+           -- Если стоп-заявка не активна
+           myLog('прверка заявки: '..order.sec_code..' number: '..tostring(order.order_num))
+           if not bit.test(order.flags, 0) then
+              -- Если заявка успела исполниться
+              if not bit.test(order.flags, 1) then
+                 return true
+              else
+                 message('Возникла неизвестная ошибка при снятии ЗАЯВКИ '..tostring(order.order_num))
+                 myLog('Возникла неизвестная ошибка при снятии ЗАЯВКИ '..tostring(order.order_num))
+                 return false
+              end
+           end
+        end
+    else
+        message("Не найдены активные заявки "..TRADE_SEC_CODE)
+        myLog("Не найдены активные заявки "..TRADE_SEC_CODE)
+    end
+       
+   return true 
+end
  -----------------------------
  -- Алгоритм --
  -----------------------------
-function cached_NRTR(index)
-									
-    local ratio=Percentage/100.0*SEC_PRICE_STEP	
-    if index == nil then index = DS:Size()-1000 end
-                            
-    if index == DS:Size()-1000 then
-        cache_NRTR = {}
-        cache_NRTR[index] = 0			
-        ATR = {}
-        ATR[index] = 0			
-        smax1 = {}
-        smin1 = {}
-        trend = {}
-        smax1[index] = 0
-        smin1[index] = 0
-        trend[index] = 1
-        return nil
-    end
+function up_downTest(i, cell, settings, DS, signal)
     
-    cache_NRTR[index] = cache_NRTR[index-1] 
-    ATR[index] = ATR[index-1] 
-    smax1[index] = smax1[index-1] 
-    smin1[index] = smin1[index-1] 
-    trend[index] = trend[index-1] 
-    
-    if DS:C(index) == nil then
-        return nil
-    end
+    local testvalue = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value) or 0
+    local price_step = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value) or 0
+    local scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
+    local signaltestvalue1 = calcAlgoValue[DS:Size()-1] or 0
+    local signaltestvalue2 = calcAlgoValue[DS:Size()-2] or 0
+    local testZone = settings.testZone or 10
 
-    if index<Length then
-        ATR[index] = 0
-    elseif index==Length then
-        local sum=0
-        for i = 1, Length do
-            sum = sum + dValue(i)
+    if calcAlgoValue[DS:Size()] == nil or DS:Size() == 0 then return end
+    local calcVal = round(calcAlgoValue[DS:Size()] or 0, scale)
+
+    local testSignalZone = price_step*testZone
+    local downTestZone = calcVal-testSignalZone
+    local upTestZone = calcVal+testSignalZone
+
+    if INTERVALS["visible"][cell] then
+        local Color = RGB(255, 255, 255)
+        if testvalue > downTestZone and testvalue < calcVal then
+            Color = RGB(255, 220, 220)
+        elseif testvalue < upTestZone and testvalue > calcVal then
+            Color = RGB(220, 255, 220)
+        elseif testvalue < downTestZone then
+            Color = RGB(255,168,164)
+        elseif testvalue > upTestZone then
+            Color = RGB(165,227,128)
         end
-        ATR[index]=sum / Length
-    elseif index>Length then
-        ATR[index]=(ATR[index-1] * (Length-1) + dValue(index)) / Length
+        SetCell(t_id, i, tableIndex[cell], tostring(calcVal), calcVal)
+        cellSetColor(i, tableIndex[cell], Color, RGB(0,0,0))
     end
-    
-    if index <= (Length + 3) then
-        return nil
-    end
-    
-    --myLog("---------------------------------")
-    --myLog("index "..tostring(index))
-    --myLog("DS:C(index) "..tostring(DS:C(index)))
-    --myLog("DS:H(index) "..tostring(DS:H(index)))
-    --myLog("DS:L(index) "..tostring(DS:L(index)))
 
-    local Step=StepSizeCalc(Length,Kv,StepSize,Switch,index)
-    --myLog("Step "..tostring(Step))
-    if Step == 0 then Step = 1 end
-    
-    local SizeP=Step*SEC_PRICE_STEP
-    local Size2P=2*SizeP
-    
-    --myLog("Step "..tostring(Step))
-    
-    local result		
-    local previous = index-1
-    
-    if DS:C(index) == nil then
-        previous = FindExistCandle(previous)
-    end
-    
-    if Switch == 1 then     
-        smax0=DS:L(previous)+Size2P
-        smin0=DS:H(previous)-Size2P    
-    else   
-        smax0=DS:C(previous)+Size2P
-        smin0=DS:C(previous)-Size2P
-    end
-    
-    --myLog("smax0 "..tostring(smax0))
-    --myLog("smin0 "..tostring(smin0))
-    --myLog("smax1[index] "..tostring(smax1[index]))
-    --myLog("smin1[index] "..tostring(smin1[index]))
+    if signal then
+        local isMessage = SEC_CODES['isMessage'][i]
+        local isPlaySound = SEC_CODES['isPlaySound'][i]
+        local mes0 = tostring(SEC_CODES['names'][i]).." timescale "..INTERVALS["names"][cell]
+        local mes = ""
+        
+        if signaltestvalue1 < DS:C(DS:Size()-1) and signaltestvalue2 > DS:C(DS:Size()-2) then
+            mes = mes0..": Сигнал Buy"
+            myLog(mes)
+            --myLog("Значение алгоритма -1 "..tostring(signaltestvalue1).." Закрытие свечи-1 "..DS:C(DS:Size()-1))
+            --myLog("Значение алгоритма -2 "..tostring(signaltestvalue2).." Закрытие свечи-2 "..DS:C(DS:Size()-2))
+            if isMessage == 1 then message(mes) end
+            if isPlaySound == 1 then PaySoundFile(soundFileName) end
+        end
+        if signaltestvalue1 > DS:C(DS:Size()-1) and signaltestvalue2 < DS:C(DS:Size()-2) then
+            mes = mes0..": Сигнал Sell"
+            myLog(mes)
+            --myLog("Значение алгоритма -1 "..tostring(signaltestvalue1).." Закрытие свечи-1 "..DS:C(DS:Size()-1))
+            --myLog("Значение алгоритма -2 "..tostring(signaltestvalue2).." Закрытие свечи-2 "..DS:C(DS:Size()-2))
+            if isMessage == 1 then message(mes) end
+            if isPlaySound == 1 then PaySoundFile(soundFileName) end
+        end
 
-    if DS:C(index)>smax1[index] then trend[index] = 1 end
-    if DS:C(index)<smin1[index] then trend[index]= -1 end
+        if testvalue < upTestZone and DS:C(DS:Size()-1) > upTestZone then
+            mes = mes0..": Цена опустилась к зоне "..tostring(upTestZone)
+            myLog(mes)
+            if isMessage == 1 then message(mes) end
+            if isPlaySound == 1 then PaySoundFile(soundFileName) end
+        end
+        if testvalue > downTestZone and DS:C(DS:Size()-1) < downTestZone then
+            mes = mes0..": Цена поднялась к зоне "..tostring(downTestZone)
+            myLog(mes)
+            if isMessage == 1 then message(mes) end
+            if isPlaySound == 1 then PaySoundFile(soundFileName) end
+        end
+        if testvalue > upTestZone and DS:C(DS:Size()-1) < upTestZone then
+            mes = mes0..": Цена оттолкнулась от зоны "..tostring(upTestZone)
+            myLog(mes)
+            if isMessage == 1 then message(mes) end
+            if isPlaySound == 1 then PaySoundFile(soundFileName) end
+        end
+        if testvalue < downTestZone and DS:C(DS:Size()-1) > downTestZone then
+            mes = mes0..": Цена опустилась от зоны "..tostring(downTestZone)
+            myLog(mes)
+            if isMessage == 1 then message(mes) end
+            if isPlaySound == 1 then PaySoundFile(soundFileName) end
+        end
+	end
 
-    if trend[index]>0 then
-        if smin0<smin1[index] then smin0=smin1[index] end
-        result=smin0+SizeP
+end
+
+function noSignal()
+end
+
+function getATR(i, dayIntervalIndex)
+    
+    local dayDS = nil
+    if isDayInterval == false then
+        SEC_CODES['dayDS'][i] = CreateDataSource(SEC_CODES['class_codes'][i],SEC_CODES['sec_codes'][i],INTERVAL_D1)
+        dayDS = SEC_CODES['dayDS'][i]        
     else
-        if smax0>smax1[index] then smax0=smax1[index] end
-        result=smax0-SizeP
+        dayDS = SEC_CODES['DS'][i][dayIntervalIndex]
     end
-         
-    smax1[index] = smax0
-    smin1[index] = smin0
+    local dayATR_Period = SEC_CODES['dayATR_Period'][i]
+    local lastATR = round(calcDayATR(dayATR_Period, DS), 5)
+    SEC_CODES['dayATR'][i] = lastATR
+    --myLog("Day ATR ".. SEC_CODE.." "..tostring(lastATR))
+    SetCell(t_id, i, tableIndex["D ATR"], tostring(lastATR), lastATR)  --i строка, 1 - колонка, v - значение
     
-    if trend[index]>0 then
-        cache_NRTR[index]=(result+ratio/Step)-Step*SEC_PRICE_STEP
-    end
-    if trend[index]<0 then
-        cache_NRTR[index]=(result+ratio/Step)+Step*SEC_PRICE_STEP		
-    end	
+    SEC_CODES['D_minus5'][i] = dayDS:C(dayDS:Size()-5)
+
+end
+
+function calcDayATR(dayATR_Period, DS)
+    
+    local ATR = {}
+    local ind = DS:Size() - 200
+    ATR[1] = 0
+    --myLog("Day ATR ".. SEC_CODE.." DS:Size() ".. tostring(DS:Size()).." ind "..tostring(ind))
+
+    for index = 2, 200 do
+        
+        ATR[index] = ATR[index-1]
+        if DS:C(index+ind) ~= nil then        
             
-    --myLog("cache_NRTR[index] "..tostring(cache_NRTR[index]))
-    return cache_NRTR[index] 
-    
+            if index==dayATR_Period then
+                local sum=0
+                for i = 1, dayATR_Period do
+                    sum = sum + dValue(ind+i)
+                end
+                ATR[index]=sum / dayATR_Period
+            elseif index>dayATR_Period then
+                ATR[index]=(ATR[index-1] * (dayATR_Period-1) + dValue(index+ind)) / dayATR_Period
+            end
+            --myLog("Day ATR ".. SEC_CODE.."index ".. tostring(index+ind)..": "..tostring(lastATR))
+
+        end
+    end 
+
+    return ATR[200] or 0
 end
 
 function dValue(i)
@@ -770,73 +1010,98 @@ function dValue(i)
     return math.max(math.abs(DS:H(i) - DS:L(i)), math.abs(DS:H(i) - DS:C(previous)), math.abs(DS:C(previous) - DS:L(i)))
 end
 
-function StepSizeCalc(Len, Km, Size, Switch, index)
-
-    local result
-
-    if Size == 0 then
-        
-        local Range=0.0
-        local ATRmax=-1000000
-        local ATRmin=1000000
-
-        for iii=1, Len do	
-            --myLog("DS:C(index-iii) "..tostring(DS:C(index-iii)))
-            if DS:C(index-iii) ~= nil then				
-                if Switch == 1 then     
-                    Range=DS:H(index-iii)-DS:L(index-iii)
-                else   
-                    Range=math.abs(DS:O(index-iii)-DS:C(index-iii))
-                end
-                if Range>ATRmax then ATRmax=Range end
-                if Range<ATRmin then ATRmin=Range end
-                --myLog("Range "..tostring(Range))
-                --myLog("ATRmax "..tostring(ATRmax))
-                --myLog("ATRmin "..tostring(ATRmin))
-            end
-        end
-        result = round(0.5*Km*(ATRmax+ATRmin)/SEC_PRICE_STEP, nil)
-        
-    else result=Km*Size
-    end
-
-    return result
-end
-
  -----------------------------
  -- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ --
  -----------------------------
+ function OnDepoLimit(dlimit)
+    
+    if dlimit.limit_kind~=2 then
+        return
+    end
+    myLog("Изменения по счету: Код бумаги "..tostring(dlimit.sec_code))   
+    myLog("Счет депо "..tostring(dlimit.trdaccid))-- STRING    
+    myLog("Код клиента "..tostring(dlimit.client_code))-- STRING    
+    myLog("Входящий остаток по бумагам "..tostring(dlimit.openbal))-- NUMBER    
+    myLog("Входящий лимит по бумагам "..tostring(dlimit.openlimit))-- NUMBER    
+    myLog("Текущий остаток по бумагам "..tostring(dlimit.currentbal))-- NUMBER    
+    myLog("Текущий лимит по бумагам "..tostring(dlimit.currentlimit))-- NUMBER    
+    myLog("Заблокировано на продажу количества лотов "..tostring(dlimit.locked_sell))-- NUMBER    
+    myLog("Заблокированного на покупку количества лотов "..tostring(dlimit.locked_buy))-- NUMBER   
+    myLog("Стоимость ценных бумаг, заблокированных под покупку "..tostring(dlimit.locked_buy_value))-- NUMBER   
+    myLog("Стоимость ценных бумаг, заблокированных под продажу "..tostring(dlimit.locked_sell_value))-- NUMBER    
+    myLog("Цена приобретения "..tostring(dlimit.awg_position_price))-- NUMBER    
+    myLog("Тип лимита "..tostring(dlimit.limit_kind))-- NUMBER  Возможные значения: "0" – обычные лимиты, значение не равное "0" – технологические лимиты  
+    myLog("__________")
  
- function GetTotalnet()
-    -- ФЬЮЧЕРСЫ, ОПЦИОНЫ
+    for i=1,#SEC_CODES['sec_codes'] do
+        if SEC_CODES['sec_codes'][i] == dlimit.sec_code then
+            local class_code = SEC_CODES['class_codes'][i]
+            local lotsize = tonumber(getParamEx(class_code,dlimit.sec_code,"lotsize").param_value)
+            if lotsize == 0 or lotsize == nil then
+                lotsize = 1
+            end       
+            SetCell(t_id, i, tableIndex["Позиция"], tostring(dlimit.currentbal/lotsize), dlimit.currentbal/lotsize)  --i строка, 1 - колонка, v - значение
+            local awg_price = GetCorrectPrice(dlimit.awg_position_price, class_code, dlimit.sec_code)
+            awg_price = string.gsub(tostring(awg_price),',', '.')
+            local last_price = GetCell(t_id, i, tableIndex["Текущая цена"]).value or 0
+            if tonumber(awg_price)==0 then
+                SetCell(t_id, i, tableIndex["Средняя"], '', 0)  --i строка, 1 - колонка, v - значение
+                White(i, tableIndex["Средняя"])
+            else
+                Str(i, tableIndex["Средняя"], tonumber(awg_price), last_price)  --i строка, 1 - колонка, v - значение
+            end    
+            if showTradeCommands == true then
+                if dlimit.currentbal~=0 then
+                    Red(i, tableIndex["Команда CLOSE"])
+                    SetCell(t_id, i, tableIndex["Команда CLOSE"], "CLOSE")  --i строка, 0 - колонка, v - значение 
+                else
+                    White(i, tableIndex["Команда CLOSE"])
+                    SetCell(t_id, i, tableIndex["Команда CLOSE"], "")  --i строка, 0 - колонка, v - значение 
+                end            
+            end            
+            break            
+        end
+    end
 
-    if CLASS_CODE == 'SPBFUT' or CLASS_CODE == 'SPBOPT' then
+ end
+ 
+ function GetTotalnet(class_code, sec_code)
+    -- ФЬЮЧЕРСЫ, ОПЦИОНЫ
+    local opencount = 0
+    local awg_position_price = 0
+
+    if class_code == 'SPBFUT' or class_code == 'SPBOPT' then
        for i = 0,getNumberOf('futures_client_holding') - 1 do
           local futures_client_holding = getItem('futures_client_holding',i)
-          if futures_client_holding.sec_code == SEC_CODE then
-             return futures_client_holding.totalnet
+          if futures_client_holding.sec_code == sec_code then
+             opencount = futures_client_holding.totalnet
+             awg_position_price = GetCorrectPrice(futures_client_holding.avrposnprice, class_code, futures_client_holding.sec_code)
           end
        end
     -- АКЦИИ
-    elseif CLASS_CODE == 'TQBR' or CLASS_CODE == 'QJSIM' then
-        local lotsize = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lotsize").param_value)
+    elseif class_code == 'TQBR' or class_code == 'QJSIM' then
+        local lotsize = tonumber(getParamEx(class_code,sec_code,"lotsize").param_value)
         if lotsize == 0 or lotsize == nil then
             lotsize = 1
         end       
-        --myLog("======================================")
+        --myLog("sec_code "..sec_code.." class_code "..class_code.." lotsize "..tostring(lotsize))
         for i = 0,getNumberOf('depo_limits') - 1 do
           local depo_limit = getItem("depo_limits", i)
-          --myLog("depo_limit.sec_code "..depo_limit.sec_code.." "..tostring(depo_limit.limit_kind).." "..tostring(depo_limit.currentbal))
-          if depo_limit.sec_code == SEC_CODE
+          --myLog("trdaccid "..depo_limit.trdaccid.." sec_code "..depo_limit.sec_code.." limit kind "..tostring(depo_limit.limit_kind).." pos: "..tostring(depo_limit.currentbal))
+          if depo_limit.sec_code == sec_code
           and depo_limit.trdaccid == ACCOUNT
           and depo_limit.limit_kind == 2 then  -- T+2       
-             return depo_limit.currentbal/lotsize
+            opencount = depo_limit.currentbal/lotsize
+            awg_position_price = GetCorrectPrice(depo_limit.awg_position_price, class_code, sec_code)
           end
        end
     end
-  
+    awg_position_price = string.gsub(tostring(awg_position_price),',', '.')
+    --myLog("awg_position_price "..tostring(awg_position_price))
+    --myLog("sec_code "..sec_code.." class_code "..class_code.." pos: "..tostring(opencount))
+
     -- Если позиция по инструменту в таблице не найдена, возвращает 0
-    return 0
+    return opencount, awg_position_price
  end 
  
  function mysplit(inputstr, sep)
@@ -905,14 +1170,16 @@ function GetCorrectPrice(price, TRADE_CLASS_CODE, TRADE_SEC_CODE) -- STRING
             if comma_pos ~= nil then price:gsub(',', '.') end
             -- Округляет число до необходимого количества знаков после запятой
             price = round(tonumber(price), scale)
+            --message(TRADE_SEC_CODE.." price step "..PriceStep.." scale: "..tostring(scale).." price old: "..tostring(price))
             -- Корректирует на соответствие шагу цены
-            price = round(price/PriceStep)*PriceStep
-            price = string.gsub(tostring(price),'[\.]+', ',')
+            price = price - price % PriceStep
+            --message("price new: "..tostring(price))
+            --price = string.gsub(tostring(price),'[\.]+', ',')
             return price
         end
-        else -- После запятой не должно быть цифр
+    else -- После запятой не должно быть цифр
         -- Корректирует на соответствие шагу цены
-        price = round(price/PriceStep)*PriceStep
+        price = price - price % PriceStep
         return tostring(math.floor(price))
     end
 end
