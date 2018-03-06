@@ -1,45 +1,45 @@
-Код класса;Имя;Идентификатор;Выводить сообщения;Рабочий объем;Проигрывать звук
-TQBR;Сбербанк;SBER;1;1;1
-TQBR;ВТБ;VTBR;1;1;10
-TQBR;Мосбиржа;MOEX;1;1;1
-TQBR;БСПБ;BSPB;1;1;1
-TQBR;QIWI;QIWI;1;1;1
-TQBR;ФСК;FEES;1;1;1
-TQBR;Русгидро;HYDR;1;1;1
-TQBR;Мосэнерго;MSNG;1;1;1
-TQBR;ОГК-2;OGKB;1;1;1
-TQBR;Россети;RSTI;1;1;1
-TQBR;ТГК-1;TGKA;1;1;1
-TQBR;МРСК ЦП;MRKP;1;1;1
-TQBR;МРСК Вол.;MRKV;1;1;1
-TQBR;МОЭСК;MSRS;1;1;1
-TQBR;Газпром;GAZP;1;1;1
-TQBR;Лукойл;LKOH;1;1;1
-TQBR;Газпром нефть;SIBN;1;1;1
-TQBR;Сургут пр.;SNGSP;1;1;1
-TQBR;Новатек;NVTK;1;1;1
-TQBR;Роснефть;ROSN;1;1;1
-TQBR;НКНХ ап;NKNCP;1;1;1
-TQBR;Алроса;ALRS;1;1;1
-TQBR;ММК;MAGN;1;1;1
-TQBR;ГМК;GMKN;1;1;1
-TQBR;НЛМК;NLMK;1;1;1
-TQBR;Северсталь;CHMF;1;1;1
-TQBR;Распадская;RASP;1;1;1
-TQBR;Полюс;PLZL;1;1;1
-TQBR;Русал;RUAL;1;1;10
-TQBR;ТМК;TRMK;1;1;5
-TQBR;Полиметал;POLY;1;1;1
-TQBR;Русагро;AGRO;1;1;1
-TQBR;Фосагро;PHOR;1;1;1
-TQBR;ЛСР;LSRG;1;1;1
-TQBR;Мостотрест;MSTT;1;1;1
-TQBR;НКХП;NKHP;1;1;1
-TQBR;Магнит;MGNT;1;1;1
-TQBR;Лента;LNTA;1;1;1
-TQBR;МТС;MTSS;1;1;1
-TQBR;Мегафон;MFON;1;1;1
-TQBR;Ростелеком пр;RTKMP;1;1;1
-TQBR;Аэрофлот;AFLT;1;1;1
-TQBR;Автоваз;AVAZ;1;1;1
-TQBR;Камаз;KMAZ;1;1;1
+Код класса;Имя;Идентификатор;Выводить сообщения;Проигрывать звук;Рабочий объем;ATR период
+TQBR;Сбербанк;SBER;1;1;1;29
+TQBR;ВТБ;VTBR;1;1;1;29
+TQBR;Мосбиржа;MOEX;1;1;1;29
+TQBR;БСПБ;BSPB;1;1;1;29
+TQBR;QIWI;QIWI;1;1;1;29
+TQBR;ФСК;FEES;1;1;1;29
+TQBR;Русгидро;HYDR;1;1;1;29
+TQBR;Мосэнерго;MSNG;1;1;1;29
+TQBR;ОГК-2;OGKB;1;1;1;29
+TQBR;Россети;RSTI;1;1;1;29
+TQBR;ТГК-1;TGKA;1;1;1;29
+TQBR;МРСК ЦП;MRKP;1;1;1;29
+TQBR;МРСК Вол.;MRKV;1;1;1;29
+TQBR;МОЭСК;MSRS;1;1;1;29
+TQBR;Газпром;GAZP;1;1;1;29
+TQBR;Лукойл;LKOH;1;1;1;29
+TQBR;Газпром нефть;SIBN;1;1;1;29
+TQBR;Сургут пр.;SNGSP;1;1;1;29
+TQBR;Новатек;NVTK;1;1;1;29
+TQBR;Роснефть;ROSN;1;1;1;29
+TQBR;НКНХ ап;NKNCP;1;1;1;29
+TQBR;Алроса;ALRS;1;1;1;29
+TQBR;ММК;MAGN;1;1;1;29
+TQBR;ГМК;GMKN;1;1;1;29
+TQBR;НЛМК;NLMK;1;1;1;29
+TQBR;Северсталь;CHMF;1;1;1;29
+TQBR;Распадская;RASP;1;1;1;29
+TQBR;Полюс;PLZL;1;1;1;29
+TQBR;Русал;RUAL;1;1;1;29
+TQBR;ТМК;TRMK;1;1;1;29
+TQBR;Полиметал;POLY;1;1;1;29
+TQBR;Русагро;AGRO;1;1;1;29
+TQBR;Фосагро;PHOR;1;1;1;29
+TQBR;ЛСР;LSRG;1;1;1;29
+TQBR;Мостотрест;MSTT;1;1;1;29
+TQBR;НКХП;NKHP;1;1;1;29
+TQBR;Магнит;MGNT;1;1;1;29
+TQBR;Лента;LNTA;1;1;1;29
+TQBR;МТС;MTSS;1;1;1;29
+TQBR;Мегафон;MFON;1;1;1;29
+TQBR;Ростелеком пр;RTKMP;1;1;1;29
+TQBR;Аэрофлот;AFLT;1;1;1;29
+TQBR;Автоваз;AVAZ;1;1;1;29
+TQBR;Камаз;KMAZ;1;1;1;29
