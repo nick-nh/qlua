@@ -18,10 +18,10 @@ function VSA(iSec, ind, settings, DS)
         SEC_CODES['volEMA'][iSec] = {}
         cache_volEMA = {}     
         
-        --первый расчет
+        --РїРµСЂРІС‹Р№ СЂР°СЃС‡РµС‚
         cache_volEMA[ind-Size-1] = (DS:C(ind)+DS:O(ind))/2			
         
-        -- расчет EMA объема 
+        -- СЂР°СЃС‡РµС‚ EMA РѕР±СЉРµРјР° 
         for index = ind-Size, DS:Size() do
             cache_volEMA[index] = cache_volEMA[index-1] 
             
@@ -140,7 +140,7 @@ function signalVSA(i, cell, settings, DS, signal)
         local isPlaySound = SEC_CODES['isPlaySound'][i]
         local mes0 = tostring(SEC_CODES['names'][i])
         if DS:V(index) > cache_volEMA[index]*overEMAVolumeFactor then
-            local mes = mes0..": прошел повышенный объем"
+            local mes = mes0..": РїСЂРѕС€РµР» РїРѕРІС‹С€РµРЅРЅС‹Р№ РѕР±СЉРµРј"
             myLog(mes)
             --myLog("interval vol: "..tostring(DS:V(index-1)))
             --myLog(SEC_CODES['names'][iSec].." volEMA: "..tostring(cache_volEMA[index]))
@@ -148,25 +148,25 @@ function signalVSA(i, cell, settings, DS, signal)
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if isClimaxHigh then
-            local mes = mes0..": прошел повышенный объем на росте: Climax High"
+            local mes = mes0..": РїСЂРѕС€РµР» РїРѕРІС‹С€РµРЅРЅС‹Р№ РѕР±СЉРµРј РЅР° СЂРѕСЃС‚Рµ: Climax High"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if isClimaxLow then
-            local mes = mes0..": прошел повышенный объем на падении: Climax Low"
+            local mes = mes0..": РїСЂРѕС€РµР» РїРѕРІС‹С€РµРЅРЅС‹Р№ РѕР±СЉРµРј РЅР° РїР°РґРµРЅРёРё: Climax Low"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if isChurn then
-            local mes = mes0..": прошел повышенный объем на малом спреде: Churn"
+            local mes = mes0..": РїСЂРѕС€РµР» РїРѕРІС‹С€РµРЅРЅС‹Р№ РѕР±СЉРµРј РЅР° РјР°Р»РѕРј СЃРїСЂРµРґРµ: Churn"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if isClimaxChurn then
-            local mes = mes0..": прошел повышенный объем на большом спреде: Climax Churn"
+            local mes = mes0..": РїСЂРѕС€РµР» РїРѕРІС‹С€РµРЅРЅС‹Р№ РѕР±СЉРµРј РЅР° Р±РѕР»СЊС€РѕРј СЃРїСЂРµРґРµ: Climax Churn"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
