@@ -3,17 +3,18 @@
 
 local w32 = require("w32")
 dofile (getScriptPath().."\\monitorStepNRTR.lua") --stepNRTR алгоритм. Инициализация - initstepNRTR, расчет - stepNRTR
-dofile (getScriptPath().."\\monitorEMA.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA
-dofile (getScriptPath().."\\monitorRSI.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA
+dofile (getScriptPath().."\\monitorEMA.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA, allEMA
+dofile (getScriptPath().."\\monitorRSI.lua") --EMA алгоритм. Инициализация - initRSI, расчет - RSI
 dofile (getScriptPath().."\\monitorReg.lua") --Регрессия алгоритм. Инициализация - initReg, расчет - Reg
-dofile (getScriptPath().."\\monitorVolume.lua") --контроль повышенного объема
+dofile (getScriptPath().."\\monitorVolume.lua") --RT алгоритм. Инициализация - initVolume, расчет - Volume
+dofile (getScriptPath().."\\monitorVSA.lua") --VSA алгоритм. Инициализация - initVSA, расчет - VSA
 
 soundFileName = "c:\\windows\\media\\Alarm03.wav"
 showTradeCommands = true
 
-ACCOUNT           = 'L01-00000F00'        -- Идентификатор счета
---ACCOUNT           = 'NL0011100043'        -- Идентификатор счета
-CLIENT_CODE = 'S2KWB'
+ACCOUNT           = 'nnnnnnnnnn'        -- Идентификатор счета
+--ACCOUNT           = 'NL0011100043'        -- пример Идентификатора счета
+CLIENT_CODE = 'nnnnnnnnnn'
 
 CLASS_CODE        = '' --класс в файле настроек
 --CLASS_CODE        = 'TQBR'              -- Код класса
@@ -56,21 +57,32 @@ EMA64Settings = {
     Size = 1000,
     testZone = 10
 }
+EMA29Settings = {
+    period    = 29,
+    Size = 1000,
+    testZone = 10
+}
 RSISettings = {
     period    = 29,
     Size = 1000
 }
-
+VSASettings = {
+    period    = 29,
+    volumeFactor = 1,
+    overEMAVolumeFactor = 2,
+    useClosePrice = true, -- по ценам закрытия или по максимумам-минимумам
+    Size = 1000
+}
 INTERVALS = {
-    ["names"] = {"H1", "H4", "D", "W", "dEMA64", "dEMA182", "D Reg", "D RSI 29"},
-    ["visible"] = {true, true, true, true, true, true, true, true}, --признак видимости, если невидима, то просто идет расчет и вывод сигналов
-    ["width"] = {12, 12, 12, 12, 12, 12, 12, 12}, --ширина колонки
-    ["values"] = {INTERVAL_H1, INTERVAL_H4, INTERVAL_D1, INTERVAL_W1, INTERVAL_D1, INTERVAL_D1, INTERVAL_D1, INTERVAL_D1},
-    ["initAlgorithms"] = {initstepNRTR, initstepNRTR, initstepNRTR, initstepNRTR, initEMA, noSignal, initReg, initRSI},   --функции инициализации алгоритма
-    ["algorithms"] = {stepNRTR, stepNRTR, stepNRTR, stepNRTR, allEMA, noSignal, Reg, RSI},                                --функции алгоритма, определены в подключаемых файлах
-    ["signalAlgorithms"] = {up_downTest, up_downTest, up_downTest, up_downTest, signalAllEMA, noSignal, signalReg, signalRSI},                                --функции алгоритма, определены в подключаемых файлах
-    ["settings"] = {NRTRSettings, NRTRSettings, NRTRSettings, NRTRSettings, allEMASettings, {}, RegSettings, RSISettings},   --настройки алгоритмов, параметры функции алгоритма
-    ["recalculatePeriod"] = {0, 0, 60, 60, 60, 60, 60, 0}   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
+    ["names"] =             {"H1VSA",      "H1",         "H4",            "D",            "W",            "hEMA29",        "dEMA64",       "dEMA182",      "D Reg",        "D RSI 29"},
+    ["visible"] =           {false,         true,          true,           true,           true,           true,            true,           true,           true,           true}, --признак видимости, если невидима, то просто идет расчет и вывод сигналов
+    ["width"] =             {0,             12,            12,             12,             12,             12,              12,             12,             12,             12}, --ширина колонки
+    ["values"] =            {INTERVAL_H1,   INTERVAL_H1,   INTERVAL_H4,    INTERVAL_D1,    INTERVAL_W1,    INTERVAL_H1,     INTERVAL_D1,    INTERVAL_D1,    INTERVAL_D1,    INTERVAL_D1},
+    ["initAlgorithms"] =    {initVSA,       initstepNRTR,  initstepNRTR,   initstepNRTR,   initstepNRTR,   initEMA,         initEMA,        noSignal,       initReg,        initRSI},   --функции инициализации алгоритма
+    ["algorithms"] =        {VSA,           stepNRTR,      stepNRTR,       stepNRTR,       stepNRTR,       EMA,             allEMA,         noSignal,       Reg,            RSI},                                --функции алгоритма, определены в подключаемых файлах
+    ["signalAlgorithms"] =  {signalVSA,     up_downTest,   up_downTest,    up_downTest,    up_downTest,    up_downTest,     signalAllEMA,   noSignal,       signalReg,      signalRSI},                                --функции алгоритма, определены в подключаемых файлах
+    ["settings"] =          {VSASettings,   NRTRSettings,  NRTRSettings,   NRTRSettings,   NRTRSettings,   EMA29Settings,   allEMASettings, {},             RegSettings,    RSISettings},   --настройки алгоритмов, параметры функции алгоритма
+    ["recalculatePeriod"] = {0,             0,             0,              60,             60,             60,              60,             60,             60,             0}   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
 }
 
 realtimeAlgorithms = {
@@ -84,6 +96,7 @@ realtimeAlgorithms = {
     
 --/*РАБОЧИЕ ПЕРЕМЕННЫЕ РОБОТА (менять не нужно)*/
 IsRun = true -- Флаг поддержания работы скрипта
+is_Connected = 0
 
 FILE_LOG_NAME = getWorkingFolder().."\\RobotLogs\\scriptMonitorLog.txt" -- ИМЯ ЛОГ-ФАЙЛА
 PARAMS_FILE_NAME = getWorkingFolder().."\\RobotParams\\scriptMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
@@ -147,6 +160,14 @@ function OnInit()
         return false
     end
 
+    is_Connected = isConnected()
+
+    if is_Connected ~= 1 then
+        IsRun = false
+        message("Нет подключения к серверу!!!")
+        return false
+    end
+
     SEC_CODES['class_codes'] =              {} -- CLASS_CODE
     SEC_CODES['names'] =                    {} -- имена бумаг
     SEC_CODES['sec_codes'] =                {} -- коды бумаг
@@ -164,6 +185,7 @@ function OnInit()
     SEC_CODES['lastrealTimeCalculated'] =   {} -- время последнего рассчета realtime алгоритма
     
     ss = getInfoParam("SERVERTIME")
+    h = 0
     if ss == "" then
         ss = os.date("%H:%M")
     end
@@ -284,7 +306,7 @@ function OnInit()
                 end
                 if calcf~=nil then
                     -- расчет параметров для каждого интервала
-                    calcAlgoValue = calcf(DS:Size(), settings, DS)
+                    calcAlgoValue = calcf(i, DS:Size(), settings, DS)
                 end
     
                 SEC_CODES['calcAlgoValues'][i][cell] = calcAlgoValue[DS:Size()] or 0
@@ -376,13 +398,17 @@ function main() -- Функция, реализующая основной по�
             end
             
             ss = getInfoParam("SERVERTIME")
-            --myLog(tostring(status))
-            if status ~= nil and status ~= "0.000000" and ss ~= "" then
-                if string.len(ss) >= 5 then
-                    hh = mysplit(ss,":")
-                    str=hh[1]..hh[2]
-                    h = tonumber(str) or 0
-                end
+            h = 0
+            if ss == "" then
+                ss = os.date("%H:%M")
+            end
+            if string.len(ss) >= 5 then
+                hh = mysplit(ss,":")
+                str=hh[1]..hh[2]
+                h = tonumber(str)
+            end
+                    --myLog(tostring(status))
+            if status ~= nil and status ~= "0.000000" and ss ~= ""  and h > 959 then
                 
                 for kk,algo in pairs(realtimeAlgorithms["functions"]) do                    
                     local realf = realtimeAlgorithms["functions"][kk]
@@ -430,7 +456,7 @@ function main() -- Функция, реализующая основной по�
                         else calcAlgoValue = {}
                         end
                         if calcf~=nil then
-                            calcAlgoValue = calcf(DS:Size(), settings, DS)
+                            calcAlgoValue = calcf(i, DS:Size(), settings, DS)
                         end
                         SEC_CODES['calcAlgoValues'][i][cell] = calcAlgoValue[DS:Size()] or 0 
                         
@@ -710,6 +736,13 @@ function event_callback(t_id, msg, par1, par2)
             message("Удаляем все заявки "..TRADE_SEC_NAME)
             KillAllOrders("orders", TRADE_CLASS_CODE, TRADE_SEC_CODE)
         end
+        if tostring(par2) == "251" or tostring(par2) == "219" then
+            local TRADE_SEC_CODE = SEC_CODES['sec_codes'][par1]
+            local TRADE_SEC_NAME = SEC_CODES['names'][par1]
+            local TRADE_CLASS_CODE = SEC_CODES['class_codes'][par1]
+            message("Удаляем все стоп заявки "..TRADE_SEC_NAME)
+            KillAllOrders("stop_orders", TRADE_CLASS_CODE, TRADE_SEC_CODE)
+        end
     end
     if (msg==QTABLE_CLOSE) then --закрытие окна
         IsRun = false
@@ -868,7 +901,8 @@ end
  -----------------------------
 function up_downTest(i, cell, settings, DS, signal)
     
-    local testvalue = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value) or 0
+    --local testvalue = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value) or 0
+	local testvalue = GetCell(t_id, i, tableIndex["Текущая цена"]).value
     local price_step = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value) or 0
     local scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
     local signaltestvalue1 = calcAlgoValue[DS:Size()-1] or 0
