@@ -9,7 +9,7 @@ function initstepNRTR()
     trend=nil
 end
 
-function stepNRTR(ind, settings, DS)
+function stepNRTR(iSec, ind, settings, DS)
 
     local Length = settings.Length or 29            -- perios        
     local Kv = settings.Kv or 1                     -- miltiply
