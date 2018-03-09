@@ -2,7 +2,7 @@ function initEMA()
     calcAlgoValue=nil
 end
 
-function EMA(ind, settings, DS)
+function EMA(iSec, ind, settings, DS)
 
     local period = settings.period or 29            -- period        
     local Size = settings.Size or 1000 
@@ -25,14 +25,14 @@ function EMA(ind, settings, DS)
     
 end
 
-function allEMA(ind, settings, DS)
+function allEMA(iSec, ind, settings, DS)
 
     local periods = settings.periods or {29}            -- period        
     local Size = settings.Size or 1000 
     if ind == nil then ind = DS:Size() end
     Size = math.min(Size, DS:Size()) - 2
     
-    --подготавливаем массив данных по периодам
+    --РїРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РјР°СЃСЃРёРІ РґР°РЅРЅС‹С… РїРѕ РїРµСЂРёРѕРґР°Рј
     calcAlgoValue = {}
     for i,period in pairs(periods) do                    
         calcAlgoValue[i] = {}
@@ -60,7 +60,8 @@ end
 
 function signalAllEMA(i, cell, settings, DS, signal)
     
-    local testvalue = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value) or 0
+    --local testvalue = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value) or 0
+	local testvalue = GetCell(t_id, i, tableIndex["РўРµРєСѓС‰Р°СЏ С†РµРЅР°"]).value
     local price_step = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value) or 0
     local scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
     local periods = settings.periods or {29}  -- period        
@@ -101,70 +102,70 @@ function signalAllEMA(i, cell, settings, DS, signal)
             local mes = ""
             
             if signaltestvalue1 < DS:C(DS:Size()-1) and signaltestvalue2 > DS:C(DS:Size()-2) then
-                mes = mes0..": Сигнал Buy"
+                mes = mes0..": РЎРёРіРЅР°Р» Buy"
                 myLog(mes)
-                --myLog("Значение алгоритма -1 "..tostring(signaltestvalue1).." Закрытие свечи-1 "..DS:C(DS:Size()-1))
-                --myLog("Значение алгоритма -2 "..tostring(signaltestvalue2).." Закрытие свечи-2 "..DS:C(DS:Size()-2))
+                --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -1 "..tostring(signaltestvalue1).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-1 "..DS:C(DS:Size()-1))
+                --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -2 "..tostring(signaltestvalue2).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-2 "..DS:C(DS:Size()-2))
                 if isMessage == 1 then message(mes) end
                 if isPlaySound == 1 then PaySoundFile(soundFileName) end
             end
             if signaltestvalue1 > DS:C(DS:Size()-1) and signaltestvalue2 < DS:C(DS:Size()-2) then
-                mes = mes0..": Сигнал Sell"
+                mes = mes0..": РЎРёРіРЅР°Р» Sell"
                 myLog(mes)
-                --myLog("Значение алгоритма -1 "..tostring(signaltestvalue1).." Закрытие свечи-1 "..DS:C(DS:Size()-1))
-                --myLog("Значение алгоритма -2 "..tostring(signaltestvalue2).." Закрытие свечи-2 "..DS:C(DS:Size()-2))
+                --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -1 "..tostring(signaltestvalue1).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-1 "..DS:C(DS:Size()-1))
+                --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -2 "..tostring(signaltestvalue2).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-2 "..DS:C(DS:Size()-2))
                 if isMessage == 1 then message(mes) end
                 if isPlaySound == 1 then PaySoundFile(soundFileName) end
             end
 
             if testvalue < upTestZone and DS:C(DS:Size()-1) > upTestZone then
-                mes = mes0..": Цена опустилась к зоне "..tostring(upTestZone)
+                mes = mes0..": Р¦РµРЅР° РѕРїСѓСЃС‚РёР»Р°СЃСЊ Рє Р·РѕРЅРµ "..tostring(upTestZone)
                 myLog(mes)
                 if isMessage == 1 then message(mes) end
                 if isPlaySound == 1 then PaySoundFile(soundFileName) end
             end
             if testvalue > downTestZone and DS:C(DS:Size()-1) < downTestZone then
-                mes = mes0..": Цена поднялась к зоне "..tostring(downTestZone)
+                mes = mes0..": Р¦РµРЅР° РїРѕРґРЅСЏР»Р°СЃСЊ Рє Р·РѕРЅРµ "..tostring(downTestZone)
                 myLog(mes)
                 if isMessage == 1 then message(mes) end
                 if isPlaySound == 1 then PaySoundFile(soundFileName) end
             end
             if testvalue > upTestZone and DS:C(DS:Size()-1) < upTestZone then
-                mes = mes0..": Цена оттолкнулась от зоны "..tostring(upTestZone)
+                mes = mes0..": Р¦РµРЅР° РѕС‚С‚РѕР»РєРЅСѓР»Р°СЃСЊ РѕС‚ Р·РѕРЅС‹ "..tostring(upTestZone)
                 myLog(mes)
                 if isMessage == 1 then message(mes) end
                 if isPlaySound == 1 then PaySoundFile(soundFileName) end
             end
             if testvalue < downTestZone and DS:C(DS:Size()-1) > downTestZone then
-                mes = mes0..": Цена опустилась от зоны "..tostring(downTestZone)
+                mes = mes0..": Р¦РµРЅР° РѕРїСѓСЃС‚РёР»Р°СЃСЊ РѕС‚ Р·РѕРЅС‹ "..tostring(downTestZone)
                 myLog(mes)
                 if isMessage == 1 then message(mes) end
                 if isPlaySound == 1 then PaySoundFile(soundFileName) end
             end
         end
 
-        ip = ip + 1 --следующая колонка
+        ip = ip + 1 --СЃР»РµРґСѓСЋС‰Р°СЏ РєРѕР»РѕРЅРєР°
 
     end                
 
-    --сигналы пересечения линий
+    --СЃРёРіРЅР°Р»С‹ РїРµСЂРµСЃРµС‡РµРЅРёСЏ Р»РёРЅРёР№
     if signal and #periods > 1 then
 
         local mes0 = tostring(SEC_CODES['names'][i]).." timescale "..INTERVALS["names"][cell+ip]
         local mes = ""
         if calcAlgoValue[1][DS:Size()-1] < calcAlgoValue[2][DS:Size()-1] and calcAlgoValue[1][DS:Size()-2] > calcAlgoValue[2][DS:Size()-2] then
-            mes = mes0..": линия "..INTERVALS["names"][cell].." пересекла вверх линию "..INTERVALS["names"][cell+1]
+            mes = mes0..": Р»РёРЅРёСЏ "..INTERVALS["names"][cell].." РїРµСЂРµСЃРµРєР»Р° РІРІРµСЂС… Р»РёРЅРёСЋ "..INTERVALS["names"][cell+1]
             myLog(mes)
-            --myLog("Значение алгоритма -1 "..tostring(signaltestvalue1).." Закрытие свечи-1 "..DS:C(DS:Size()-1))
-            --myLog("Значение алгоритма -2 "..tostring(signaltestvalue2).." Закрытие свечи-2 "..DS:C(DS:Size()-2))
+            --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -1 "..tostring(signaltestvalue1).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-1 "..DS:C(DS:Size()-1))
+            --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -2 "..tostring(signaltestvalue2).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-2 "..DS:C(DS:Size()-2))
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if calcAlgoValue[1][DS:Size()-1] > calcAlgoValue[2][DS:Size()-1] and calcAlgoValue[1][DS:Size()-2] < calcAlgoValue[2][DS:Size()-2] then
-            mes = mes0..": линия "..INTERVALS["names"][cell].." пересекла вниз линию "..INTERVALS["names"][cell+1]
+            mes = mes0..": Р»РёРЅРёСЏ "..INTERVALS["names"][cell].." РїРµСЂРµСЃРµРєР»Р° РІРЅРёР· Р»РёРЅРёСЋ "..INTERVALS["names"][cell+1]
             myLog(mes)
-            --myLog("Значение алгоритма -1 "..tostring(signaltestvalue1).." Закрытие свечи-1 "..DS:C(DS:Size()-1))
-            --myLog("Значение алгоритма -2 "..tostring(signaltestvalue2).." Закрытие свечи-2 "..DS:C(DS:Size()-2))
+            --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -1 "..tostring(signaltestvalue1).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-1 "..DS:C(DS:Size()-1))
+            --myLog("Р—РЅР°С‡РµРЅРёРµ Р°Р»РіРѕСЂРёС‚РјР° -2 "..tostring(signaltestvalue2).." Р—Р°РєСЂС‹С‚РёРµ СЃРІРµС‡Рё-2 "..DS:C(DS:Size()-2))
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
