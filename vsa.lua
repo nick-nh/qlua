@@ -183,7 +183,7 @@ function CalculateVolume()
 		local v_L = 0
 		local priceMinLocal = L(n)
 		local priceMaxLocal = H(n)
-		local min_index = index
+		local min_index = 0
 		
 		for n=index-lookBack + 1,index do
            
@@ -239,16 +239,18 @@ function CalculateVolume()
 			outDeltaEMA = nil
 		end
 		
-		if (index == n)
+        -- When volume is higher than all previous and price is going down - start or end of the down trend
+        
+        if (volClimaxCurrent == volClimaxLocal and C(index) < (priceMax + priceMin) / 2)
         then
-			return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil --Low
+			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, out, nil --Climax Low
 		end
+		       
+        -- When volume is extra high and price is not changing - absolute consolidation or fast accummulation / distribution
         
-        -- When volume is equal to one seen before mark it as accummulation / distribution - profit is taken
-        
-        if (volChurnCurrent == volChurnLocal)
+        if (volClimaxCurrent == volClimaxLocal and volChurnCurrent == volChurnLocal)
         then
-			return outVolEMA, outDeltaEMA, nil, nil, nil, out, nil, nil --Churn
+ 			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, out --Climax Churn
 		end
         
         -- When volume is higher than all previous and price is going up - start or end of the up trend
@@ -257,20 +259,19 @@ function CalculateVolume()
         then
  			return outVolEMA, outDeltaEMA, nil, out, nil, nil, nil, nil --Climax High
        end
+
+        -- When volume is equal to one seen before mark it as accummulation / distribution - profit is taken
         
-        -- When volume is extra high and price is not changing - absolute consolidation or fast accummulation / distribution
-        
-        if (volClimaxCurrent == volClimaxLocal and volChurnCurrent == volChurnLocal)
+        if (volChurnCurrent == volChurnLocal)
         then
- 			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, out --Climax Churn
+			return outVolEMA, outDeltaEMA, nil, nil, nil, out, nil, nil --Churn
 		end
         
-        -- When volume is higher than all previous and price is going down - start or end of the down trend
-        
-        if (volClimaxCurrent == volClimaxLocal and C(index) < (priceMax + priceMin) / 2)
+		if (index == min_index)
         then
-			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, out, nil --Climax Low
+			return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil --Low
 		end
+        
 			
 		return outVolEMA, outDeltaEMA, out, nil, nil, nil, nil, nil --neutral
 			
