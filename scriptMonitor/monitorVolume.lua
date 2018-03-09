@@ -3,12 +3,12 @@ function initVolume()
     volumeEMA = {}
 end
 
-function Volume(i)
+function Volume(iSec)
 
-    local seccode = SEC_CODES['sec_codes'][i]
-    local classcode = SEC_CODES['class_codes'][i]
-    local period = 10                             -- период усреднения объема        
-    local volumeFactor = 4                        -- превышение раз, чтоюы считать объем повышенным        
+    local seccode = SEC_CODES['sec_codes'][iSec]
+    local classcode = SEC_CODES['class_codes'][iSec]
+    local period = 10                             -- РїРµСЂРёРѕРґ СѓСЃСЂРµРґРЅРµРЅРёСЏ РѕР±СЉРµРјР°        
+    local volumeFactor = 4                        -- РїСЂРµРІС‹С€РµРЅРёРµ СЂР°Р·, С‡С‚РѕСЋС‹ СЃС‡РёС‚Р°С‚СЊ РѕР±СЉРµРј РїРѕРІС‹С€РµРЅРЅС‹Рј        
     local k = 2/(period+1)
     
     if volumeEMA[seccode] == nil then
@@ -36,14 +36,14 @@ function Volume(i)
     elseif ind>period then
         volumeEMA[seccode][ind]=round(k*volumeEMA[seccode][ind]+(1-k)*volumeEMA[seccode][ind-1], 5)
         
-        local isMessage = SEC_CODES['isMessage'][i]
-        local isPlaySound = SEC_CODES['isPlaySound'][i]
-        local mes0 = tostring(SEC_CODES['names'][i])
+        local isMessage = SEC_CODES['isMessage'][iSec]
+        local isPlaySound = SEC_CODES['isPlaySound'][iSec]
+        local mes0 = tostring(SEC_CODES['names'][iSec])
         if intervalVolume > volumeEMA[seccode][ind]*volumeFactor then
-            local mes = mes0..": прошел повышеннй объем"
+            local mes = mes0..": РїСЂРѕС€РµР» РїРѕРІС‹С€РµРЅРЅС‹Р№ С‚РёРєРѕРІС‹Р№ РѕР±СЉРµРј"
             myLog(mes)
             myLog("interval vol: "..tostring(intervalVolume))
-            myLog(SEC_CODES['names'][i].." volEMA: "..tostring(volumeEMA[seccode][ind]))
+            myLog(SEC_CODES['names'][iSec].." volEMA: "..tostring(volumeEMA[seccode][ind]))
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
