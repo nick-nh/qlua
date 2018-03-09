@@ -4,7 +4,7 @@ function initRSI()
     RSI_L = nil
 end
 
-function RSI(ind, settings, DS)
+function RSI(iSec, ind, settings, DS)
 
     local period = settings.period or 29 -- period        
     local Size = settings.Size or 1000 
@@ -44,7 +44,7 @@ end
 
 function signalRSI(i, cell, settings, DS, signal)
     
-    local testvalue = 50 -- сравниваемое значение 
+    local testvalue = 50 -- СЃСЂР°РІРЅРёРІР°РµРјРѕРµ Р·РЅР°С‡РµРЅРёРµ 
     local signaltestvalue1 = calcAlgoValue[DS:Size()-1]
     local signaltestvalue2 = calcAlgoValue[DS:Size()-2]
     
@@ -55,9 +55,9 @@ function signalRSI(i, cell, settings, DS, signal)
         local colorGradation = math.floor((math.abs(calcVal- 50)/50)*(255-200))
         local Color = RGB(255, 255, 255)
         if calcVal<=50 then
-            Color = RGB(math.max(255 - 0.5*colorGradation, 255), 255 - 3*colorGradation, 255 - 3*colorGradation) -- оттенки красного
+            Color = RGB(math.max(255 - 0.5*colorGradation, 255), 255 - 3*colorGradation, 255 - 3*colorGradation) -- РѕС‚С‚РµРЅРєРё РєСЂР°СЃРЅРѕРіРѕ
         else
-            Color = RGB(255 - 3*colorGradation, math.max(255 - 0.7*colorGradation, 255), 255 - 3.4*colorGradation) --оттенки зеленого
+            Color = RGB(255 - 3*colorGradation, math.max(255 - 0.7*colorGradation, 255), 255 - 3.4*colorGradation) --РѕС‚С‚РµРЅРєРё Р·РµР»РµРЅРѕРіРѕ
         end
 
         SetCell(t_id, i, tableIndex[cell], tostring(calcVal), calcVal)
@@ -71,46 +71,46 @@ function signalRSI(i, cell, settings, DS, signal)
         local mes = ""
 
         if signaltestvalue1 < 50 and signaltestvalue2 > 50 then
-            mes = mes0..": Сигнал Sell"
+            mes = mes0..": РЎРёРіРЅР°Р» Sell"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if signaltestvalue1 > 50 and signaltestvalue2 < 50 then
-            mes = mes0..": Сигнал Buy"
+            mes = mes0..": РЎРёРіРЅР°Р» Buy"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
-        --Теперь смотрим за текущей ситуацией
+        --РўРµРїРµСЂСЊ СЃРјРѕС‚СЂРёРј Р·Р° С‚РµРєСѓС‰РµР№ СЃРёС‚СѓР°С†РёРµР№
         signaltestvalue1 = calcAlgoValue[DS:Size()]
         signaltestvalue2 = calcAlgoValue[DS:Size()-1]
         if signaltestvalue1 > 70 and signaltestvalue2 < 70 then
-            mes = mes0..": RSI превысил 70"
+            mes = mes0..": RSI РїСЂРµРІС‹СЃРёР» 70"
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if signaltestvalue1 > 53 and signaltestvalue2 < 53 then
-            mes = mes0..": RSI оттолкнулся от 50 "
+            mes = mes0..": RSI РѕС‚С‚РѕР»РєРЅСѓР»СЃСЏ РѕС‚ 50 "
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if signaltestvalue1 < 47 and signaltestvalue2 > 47 then
-            mes = mes0..": RSI отскочил от 50 "
+            mes = mes0..": RSI РѕС‚СЃРєРѕС‡РёР» РѕС‚ 50 "
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end    
         if signaltestvalue1 > 30 and signaltestvalue2 < 30 then
-            mes = mes0..": RSI оттолкнулся от 30 "
+            mes = mes0..": RSI РѕС‚С‚РѕР»РєРЅСѓР»СЃСЏ РѕС‚ 30 "
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         if signaltestvalue1 < 70 and signaltestvalue2 > 70 then
-            mes = mes0..": RSI отскочил от 70 "
+            mes = mes0..": RSI РѕС‚СЃРєРѕС‡РёР» РѕС‚ 70 "
             myLog(mes)
             if isMessage == 1 then message(mes) end
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
