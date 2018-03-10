@@ -6,15 +6,18 @@ dofile (getScriptPath().."\\monitorStepNRTR.lua") --stepNRTR алгоритм. �
 dofile (getScriptPath().."\\monitorEMA.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA, allEMA
 dofile (getScriptPath().."\\monitorRSI.lua") --EMA алгоритм. Инициализация - initRSI, расчет - RSI
 dofile (getScriptPath().."\\monitorReg.lua") --Регрессия алгоритм. Инициализация - initReg, расчет - Reg
-dofile (getScriptPath().."\\monitorVolume.lua") --RT алгоритм. Инициализация - initVolume, расчет - Volume
+dofile (getScriptPath().."\\monitorVolume.lua") --RT алгоритм контроль повышенного объема. Инициализация - initVolume, расчет - Volume
 dofile (getScriptPath().."\\monitorVSA.lua") --VSA алгоритм. Инициализация - initVSA, расчет - VSA
+
+FILE_LOG_NAME = getWorkingFolder().."\\RobotLogs\\scriptMonitorLog.txt" -- ИМЯ ЛОГ-ФАЙЛА
+PARAMS_FILE_NAME = getWorkingFolder().."\\RobotParams\\scriptMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
 
 soundFileName = "c:\\windows\\media\\Alarm03.wav"
 showTradeCommands = true
 
-ACCOUNT           = 'nnnnnnnnnn'        -- Идентификатор счета
+ACCOUNT           = 'ваш номер счета'        -- Идентификатор счета
 --ACCOUNT           = 'NL0011100043'        -- пример Идентификатора счета
-CLIENT_CODE = 'nnnnnnnnnn'
+CLIENT_CODE = 'клиентский код'
 
 CLASS_CODE        = '' --класс в файле настроек
 --CLASS_CODE        = 'TQBR'              -- Код класса
@@ -86,9 +89,9 @@ INTERVALS = {
 }
 
 realtimeAlgorithms = {
-    ["initAlgorithms"] = {initVolume},   --функции инициализации алгоритма
-    ["functions"] = {Volume},
-    ["recalculatePeriod"] = {5}
+    ["initAlgorithms"] =    {initVolume},   --функции инициализации алгоритма
+    ["functions"] =         {Volume},
+    ["recalculatePeriod"] = {300}
 }
 
 --------------------------------------------------------------------------------------
@@ -98,8 +101,6 @@ realtimeAlgorithms = {
 IsRun = true -- Флаг поддержания работы скрипта
 is_Connected = 0
 
-FILE_LOG_NAME = getWorkingFolder().."\\RobotLogs\\scriptMonitorLog.txt" -- ИМЯ ЛОГ-ФАЙЛА
-PARAMS_FILE_NAME = getWorkingFolder().."\\RobotParams\\scriptMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
 trans_id          = os.time()            -- Задает начальный номер ID транзакций
 trans_Status      = nil                  -- Статус текущей транзакции из функции OnTransPeply
 trans_result_msg  = ''                   -- Сообщение по текущей транзакции из функции OnTransPeply
@@ -281,7 +282,7 @@ function OnInit()
             if initrf~=nil then
                 initrf()
             end    
-            SEC_CODES['lastrealTimeCalculated'][i][kk] = h            
+            SEC_CODES['lastrealTimeCalculated'][i][kk] = g_previous_time            
         end
 
         for cell,INTERVAL in pairs(INTERVALS["values"]) do                    
@@ -413,17 +414,18 @@ function main() -- Функция, реализующая основной по�
                 for kk,algo in pairs(realtimeAlgorithms["functions"]) do                    
                     local realf = realtimeAlgorithms["functions"][kk]
                     if realf~=nil then
-                        local lastrealTimeCalculated = SEC_CODES['lastrealTimeCalculated'][i][kk] or h 
-                        local newrealTimeToCalculate = h
+                        local current_time=os.time()
+                        local lastrealTimeCalculated = SEC_CODES['lastrealTimeCalculated'][i][kk] or current_time 
+                        local newrealTimeToCalculate = current_time
                         local realperiod = realtimeAlgorithms["recalculatePeriod"][kk] or 0
                         --myLog(SEC_CODE.." realperiod "..tostring(realperiod).." lastrealTimeCalculated "..tostring(lastrealTimeCalculated))
                         if realperiod ~= 0 then
-                            newrealTimeToCalculate = lastrealTimeCalculated + 100*math.floor(realperiod/60) + realperiod%60
+                            newrealTimeToCalculate = lastrealTimeCalculated + realperiod
                             --myLog("newrealTimeToCalculate "..tostring(newrealTimeToCalculate))
-                        end
-                        if h>newrealTimeToCalculate then
-                            SEC_CODES['lastrealTimeCalculated'][i][kk] = h            
-                            realf(i)
+                            if current_time>newrealTimeToCalculate then
+                                SEC_CODES['lastrealTimeCalculated'][i][kk] = current_time            
+                                realf(i)
+                            end
                         end
                     end
                 end
