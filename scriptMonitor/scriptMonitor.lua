@@ -152,7 +152,7 @@ end
  -- Функция первичной инициализации скрипта (ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK в самом начале)
 function OnInit()
 
-    logFile = io.open(FILE_LOG_NAME, "w") -- открывает файл 
+    logFile = io.open(FILE_LOG_NAME, "w+") -- открывает файл 
     
     local ParamsFile = io.open(PARAMS_FILE_NAME,"r")
     if ParamsFile == nil then
