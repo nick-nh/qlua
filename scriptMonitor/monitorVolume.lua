@@ -16,7 +16,7 @@ function Volume(iSec)
     end
     
     local lastSECVolume = tonumber(getParamEx(classcode,seccode,"valtoday").param_value)
-    --myLog(SEC_CODES['names'][i].." lastSECVolume: "..tostring(lastSECVolume))
+    --myLog(SEC_CODES['names'][iSec].." lastSECVolume: "..tostring(lastSECVolume))
     
     if lastVolume[seccode] == nil then
         lastVolume[seccode] = lastSECVolume
