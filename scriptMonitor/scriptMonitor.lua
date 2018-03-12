@@ -15,9 +15,9 @@ PARAMS_FILE_NAME = getWorkingFolder().."\\RobotParams\\scriptMonitor.csv" -- И�
 soundFileName = "c:\\windows\\media\\Alarm03.wav"
 showTradeCommands = true
 
-ACCOUNT           = 'L01-00000F00'        -- Идентификатор счета
+ACCOUNT           = 'Ваш номер счета'        -- Идентификатор счета
 --ACCOUNT           = 'NL0011100043'        -- пример Идентификатора счета
-CLIENT_CODE = 'S2KWB'
+CLIENT_CODE = 'Код клиента'
 
 CLASS_CODE        = '' --класс в файле настроек
 --CLASS_CODE        = 'TQBR'              -- Код класса
