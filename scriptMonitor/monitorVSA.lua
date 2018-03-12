@@ -17,19 +17,6 @@ function VSA(iSec, ind, settings, DS)
     if SEC_CODES['volEMA'][iSec] == nil then   
         SEC_CODES['volEMA'][iSec] = {}
         cache_volEMA = {}     
-        
-        --первый расчет
-        cache_volEMA[ind-Size-1] = (DS:C(ind)+DS:O(ind))/2			
-        
-        -- расчет EMA объема 
-        for index = ind-Size, DS:Size() do
-            cache_volEMA[index] = cache_volEMA[index-1] 
-            
-            if DS:C(index) ~= nil then
-                cache_volEMA[index]=round(k*math.pow(DS:V(index), volumeFactor)+(1-k)*cache_volEMA[index-1], 5)
-            end        
-        end
-
     else
         cache_volEMA = SEC_CODES['volEMA'][iSec]     
     end    
@@ -37,6 +24,20 @@ function VSA(iSec, ind, settings, DS)
     if ind ==0 then
         return cache_volEMA
     elseif ind == DS:Size() then
+
+        if cache_volEMA[ind-1] == nil then            
+            --первый расчет
+            cache_volEMA[ind-Size-1] = (DS:C(ind)+DS:O(ind))/2			
+            
+            -- расчет EMA объема 
+            for index = ind-Size, DS:Size() do
+                cache_volEMA[index] = cache_volEMA[index-1] 
+                
+                if DS:C(index) ~= nil then
+                    cache_volEMA[index]=round(k*math.pow(DS:V(index), volumeFactor)+(1-k)*cache_volEMA[index-1], 5)
+                end        
+            end
+        end
 
         if DS:C(ind) ~= nil then
             --myLog(SEC_CODES['names'][iSec].." ind "..tostring(ind).." cache_volEMA: "..tostring(cache_volEMA[ind-1]))
