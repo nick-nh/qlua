@@ -15,9 +15,9 @@ PARAMS_FILE_NAME = getWorkingFolder().."\\RobotParams\\scriptMonitor.csv" -- И�
 soundFileName = "c:\\windows\\media\\Alarm03.wav"
 showTradeCommands = true
 
-ACCOUNT           = 'ваш номер счета'        -- Идентификатор счета
+ACCOUNT           = 'Ваш номер счета'        -- Идентификатор счета
 --ACCOUNT           = 'NL0011100043'        -- пример Идентификатора счета
-CLIENT_CODE = 'клиентский код'
+CLIENT_CODE = 'Код клиента'
 
 CLASS_CODE        = '' --класс в файле настроек
 --CLASS_CODE        = 'TQBR'              -- Код класса
@@ -91,7 +91,7 @@ INTERVALS = {
 realtimeAlgorithms = {
     ["initAlgorithms"] =    {initVolume},   --функции инициализации алгоритма
     ["functions"] =         {Volume},
-    ["recalculatePeriod"] = {300}
+    ["recalculatePeriod"] = {180}
 }
 
 --------------------------------------------------------------------------------------
@@ -152,7 +152,7 @@ end
  -- Функция первичной инициализации скрипта (ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK в самом начале)
 function OnInit()
 
-    logFile = io.open(FILE_LOG_NAME, "w+") -- открывает файл 
+    logFile = io.open(FILE_LOG_NAME, "a+") -- открывает файл 
     
     local ParamsFile = io.open(PARAMS_FILE_NAME,"r")
     if ParamsFile == nil then
@@ -199,7 +199,7 @@ function OnInit()
     myLog("Читаем файл параметров")
     local lineCount = 0
     for line in ParamsFile:lines() do
-        myLog("Строка параметров "..line)
+        --myLog("Строка параметров "..line)
         lineCount = lineCount + 1
         if lineCount > 1 and line ~= "" then
             local per1, per2, per3, per4, per5, per6, per7 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
@@ -408,21 +408,24 @@ function main() -- Функция, реализующая основной по�
                 str=hh[1]..hh[2]
                 h = tonumber(str)
             end
-                    --myLog(tostring(status))
+                        
+            local current_time=os.time()
+
+            --myLog(tostring(status))
             if status ~= nil and status ~= "0.000000" and ss ~= ""  and h > 959 then
                 
                 for kk,algo in pairs(realtimeAlgorithms["functions"]) do                    
                     local realf = realtimeAlgorithms["functions"][kk]
                     if realf~=nil then
-                        local current_time=os.time()
                         local lastrealTimeCalculated = SEC_CODES['lastrealTimeCalculated'][i][kk] or current_time 
                         local newrealTimeToCalculate = current_time
                         local realperiod = realtimeAlgorithms["recalculatePeriod"][kk] or 0
-                        --myLog(SEC_CODE.." realperiod "..tostring(realperiod).." lastrealTimeCalculated "..tostring(lastrealTimeCalculated))
-                        if realperiod ~= 0 then
+                         if realperiod ~= 0 then
                             newrealTimeToCalculate = lastrealTimeCalculated + realperiod
-                            --myLog("newrealTimeToCalculate "..tostring(newrealTimeToCalculate))
                             if current_time>newrealTimeToCalculate then
+                                --myLog(SEC_CODE.." realperiod "..tostring(realperiod).." lastrealTimeCalculated "..tostring(lastrealTimeCalculated))
+                                --myLog("newrealTimeToCalculate "..tostring(newrealTimeToCalculate))
+                                --myLog("current_time "..tostring(current_time))
                                 SEC_CODES['lastrealTimeCalculated'][i][kk] = current_time            
                                 realf(i)
                             end
@@ -441,7 +444,14 @@ function main() -- Функция, реализующая основной по�
                         newTimeToCalculate = lastTimeCalculated + 100*math.floor(period/60) + period%60
                     end
 
-                    if SEC_CODE_INDEX[i][cell]<DS:Size() or h>newTimeToCalculate then --new candle 
+                    local timeCandle = DS:T(DS:Size())
+                    
+                    --myLog(SEC_CODE.." - timeCandle "..tostring(os.time(timeCandle)))
+                    --myLog(SEC_CODE.." - INTERVAL "..tostring(INTERVAL))
+                    --myLog(SEC_CODE.." - current_time "..tostring(current_time))
+                    --myLog(SEC_CODE.." - newtimeCandle "..tostring(os.time(timeCandle) + INTERVAL*60))
+                    --WriteLog ("deal 0".."; SEC_CODE: "..trade.sec_code.."; time deal "..isnil(toYYYYMMDDHHMMSS(datetime)," - "));            
+                    if SEC_CODE_INDEX[i][cell]<DS:Size() or h>newTimeToCalculate and current_time < (os.time(timeCandle) + INTERVAL*60) then --new candle 
                         
                         --myLog(SEC_CODE.." - Перерасчет данных за интервал "..INTERVALS["names"][cell])
                         SEC_CODE_INDEX[i][cell] = DS:Size() --last candle               
@@ -1054,20 +1064,6 @@ end
     if dlimit.limit_kind~=2 then
         return
     end
-    myLog("Изменения по счету: Код бумаги "..tostring(dlimit.sec_code))   
-    myLog("Счет депо "..tostring(dlimit.trdaccid))-- STRING    
-    myLog("Код клиента "..tostring(dlimit.client_code))-- STRING    
-    myLog("Входящий остаток по бумагам "..tostring(dlimit.openbal))-- NUMBER    
-    myLog("Входящий лимит по бумагам "..tostring(dlimit.openlimit))-- NUMBER    
-    myLog("Текущий остаток по бумагам "..tostring(dlimit.currentbal))-- NUMBER    
-    myLog("Текущий лимит по бумагам "..tostring(dlimit.currentlimit))-- NUMBER    
-    myLog("Заблокировано на продажу количества лотов "..tostring(dlimit.locked_sell))-- NUMBER    
-    myLog("Заблокированного на покупку количества лотов "..tostring(dlimit.locked_buy))-- NUMBER   
-    myLog("Стоимость ценных бумаг, заблокированных под покупку "..tostring(dlimit.locked_buy_value))-- NUMBER   
-    myLog("Стоимость ценных бумаг, заблокированных под продажу "..tostring(dlimit.locked_sell_value))-- NUMBER    
-    myLog("Цена приобретения "..tostring(dlimit.awg_position_price))-- NUMBER    
-    myLog("Тип лимита "..tostring(dlimit.limit_kind))-- NUMBER  Возможные значения: "0" – обычные лимиты, значение не равное "0" – технологические лимиты  
-    myLog("__________")
  
     for i=1,#SEC_CODES['sec_codes'] do
         if SEC_CODES['sec_codes'][i] == dlimit.sec_code then
