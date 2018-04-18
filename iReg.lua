@@ -4,8 +4,8 @@ Settings =
 	{
 		Name = "*iReg",
 		bars = 182,
-		kstd=2,
-		degree = 3, -- 1 linear, 2 parabolic, 3 third-power 
+		kstd=3,
+		degree = 1, -- 1 linear, 2 parabolic, 3 third-power 
 		barsshift=0,
 		showHistory=0,
 		line=
@@ -141,7 +141,7 @@ function Reg()
 			return nil
 		end
 
-        if index < (Size() - barsshift) and showHistory == 0 then return nil end
+        if index < (Size() - barsshift) and showHistory == 0 then return nil end 
 		if index > (Size() - barsshift) then return nil end
         if calculated_buffer[index] ~= nil then return nil end		
 		 
@@ -226,9 +226,6 @@ function Reg()
 			if index == (Size() - barsshift) then
 				SetValue(index+n-bars, 1, fx_buffer[n])
 			end
-			if n == i0+p and showHistory == 1 then
-				out4 = fx_buffer[n]
-			end
 		end
 			 
 		--- Std 
@@ -248,10 +245,6 @@ function Reg()
 				SetValue(index+n-bars, 2, sqh_buffer[n])
 	            SetValue(index+n-bars, 3, sql_buffer[n])
 			end
-			if n == i0+p and showHistory == 1 then
-				out5 = sqh_buffer[n]
-				out6 = sql_buffer[n]
-			end
 		end
 						
 		SetValue(index-bars, 1, nil)
@@ -262,6 +255,11 @@ function Reg()
 		out1 = fx_buffer[bars]
 		out2 = sqh_buffer[bars]
 		out3 = sql_buffer[bars]
+		if showHistory == 1 then
+			out4 = fx_buffer[bars]
+			out5 = sqh_buffer[bars]
+			out6 = sql_buffer[bars]
+		end
 		
 		return out1, out2, out3, out4, out5, out6 
 	
@@ -299,7 +297,6 @@ function OnCalculate(index)
 	return myfunc(index, Settings)
  end
  
- -- РџРѕР»СЊР·РѕРІР°С‚РµР»СЊcРєРёРµ С„СѓРЅРєС†РёРё
 function WriteLog(text)
 
    logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n")
