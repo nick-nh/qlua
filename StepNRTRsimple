@@ -1,4 +1,4 @@
---logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
+logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
 
 min_price_step = 0
 
@@ -12,26 +12,38 @@ Settings=
 	Percentage = 0,
 	Switch = 1, --1 - HighLow, 2 - CloseClose
 	ShowLine = 1,
-	ShowSignalLine = 1,
+	ShowSignalLine = 0,
 	line =
 	{		
 		{
-		Name = "NRTR",
-		Color = RGB(0, 64, 0),
-		Type = TYPE_LINE, --TYPE_DASHDOT,
-		Width = 2
+			Name = "NRTR",
+			Color = RGB(0, 64, 0),
+			Type = TYPE_LINE, --TYPE_DASHDOT,
+			Width = 2
 		},
 		{
-		Name = "NRTR_buy",
-		Color = RGB(40,240,250),
-		Type = TYPE_POINT,
-		Width = 4
+			Name = "NRTR_buy",
+			Color = RGB(89,217,107),
+			Type = TYPE_TRIANGLE_UP,
+			Width = 4
 		},
 		{
-		Name = "NRTR_sell",
-		Color = RGB(255,0,255),
-		Type = TYPE_POINT,
-		Width = 4
+			Name = "NRTR_sell",
+			Color = RGB(255,0,0),
+			Type = TYPE_TRIANGLE_DOWN,
+			Width = 4
+		},
+		{
+			Name = "signal_buy",
+			Color = RGB(40,240,250),
+			Type = TYPET_BAR,
+			Width = 4
+		},
+		{
+			Name = "signal_sell",
+			Color = RGB(255,0,255),
+			Type = TYPET_BAR,
+			Width = 4
 		}
 	}
 }
@@ -48,7 +60,10 @@ function OnCalculate(index)
 	if index == 1 then
 		DSInfo = getDataSourceInfo()     	
 		min_price_step = getParamEx(DSInfo.class_code, DSInfo.sec_code, "SEC_PRICE_STEP").param_value
-		--WriteLog ("min_price_step "..tostring(min_price_step))
+		if tonumber(min_price_step) == 0 or min_price_step == nil then
+			min_price_step = 1
+		end
+		WriteLog ("min_price_step "..tostring(min_price_step))
 	end
 	return myNRTR(index, Settings)
 		
@@ -133,6 +148,8 @@ function cached_NRTR()
 		local out1 = nil
 		local out2 = nil
 		local out3 = nil		
+		local out4 = nil
+		local out5 = nil		
 		
 		if index == 1 then
 			cache_NRTR = {}
@@ -161,11 +178,11 @@ function cached_NRTR()
 			return nil
 		end
 		
-		--WriteLog ("---------------------------------")
-		--WriteLog ("index "..tostring(index))
-		--WriteLog ("C(index) "..tostring(C(index)))
-		--WriteLog ("H(index) "..tostring(H(index)))
-		--WriteLog ("L(index) "..tostring(L(index)))
+		WriteLog ("---------------------------------")
+		WriteLog ("index "..tostring(index))
+		WriteLog ("C(index) "..tostring(C(index)))
+		WriteLog ("H(index) "..tostring(H(index)))
+		WriteLog ("L(index) "..tostring(L(index)))
 		
 		local Step=StepSizeCalc(Length,Kv,StepSize,Switch,index)
 		if Step == 0 then Step = 1 end
@@ -198,7 +215,7 @@ function cached_NRTR()
 
 		if C(index)>smax1[index] then trend[index] = 1 end
 		if C(index)<smin1[index] then trend[index]= -1 end
-		--WriteLog ("trend "..tostring(trend[index]))
+		WriteLog ("trend "..tostring(trend[index]))
 
 		if trend[index]>0 then
 			if smin0<smin1[index] then smin0=smin1[index] end
@@ -223,31 +240,31 @@ function cached_NRTR()
 			cache_NRTR[index]=(result+ratio/Step)+Step*min_price_step		
 		end	
 		
-		if trend[index]>0 and trend[index-1]<0 then
+		WriteLog ("cache_NRTR "..tostring(cache_NRTR[index]))
+
+		if trend[index-1]>0 and trend[index-2]<0 then
 			out2 = O(index)
-			signal[index] = cache_NRTR[index-1]
 			out3 = nil
 		end
 
-		if trend[index]<0 and trend[index-1]>0 then
+		if trend[index-1]<0 and trend[index-2]>0 then
 			out2 = nil
 			out3 = O(index)
-			signal[index] = cache_NRTR[index-1]
 		end
 								
-		if ShowLine == 1 then
+		if ShowLine == 1 and ShowSignalLine ~= 1 then
 			out1 = cache_NRTR[index]
 		end
 		
 		if ShowSignalLine == 1 then
 			if trend[index]>0 then
-				out2 = signal[index]
+				out4 = cache_NRTR[index-1]
 			else
-				out3 = signal[index]
+				out5 = cache_NRTR[index-1]
 			end
 		end
 		
-		return out1, out2, out3 
+		return out1, out2, out3, out4, out5 
 		
 	end
 end
