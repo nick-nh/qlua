@@ -224,14 +224,14 @@ function cached_NRTR()
 		end	
 		
 		if trend[index]>0 and trend[index-1]<0 then
-			out2 = cache_NRTR[index-1]
+			out2 = O(index)
 			signal[index] = cache_NRTR[index-1]
 			out3 = nil
 		end
 
 		if trend[index]<0 and trend[index-1]>0 then
 			out2 = nil
-			out3 = cache_NRTR[index-1]
+			out3 = O(index)
 			signal[index] = cache_NRTR[index-1]
 		end
 								
