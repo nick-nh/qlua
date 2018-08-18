@@ -1,4 +1,4 @@
-logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
+--logfile=io.open(getWorkingFolder().."\\LuaIndicators\\qlua_log.txt", "w")
 
 min_price_step = 0
 
@@ -63,7 +63,7 @@ function OnCalculate(index)
 		if tonumber(min_price_step) == 0 or min_price_step == nil then
 			min_price_step = 1
 		end
-		WriteLog ("min_price_step "..tostring(min_price_step))
+		--WriteLog ("min_price_step "..tostring(min_price_step))
 	end
 	return myNRTR(index, Settings)
 		
@@ -178,11 +178,11 @@ function cached_NRTR()
 			return nil
 		end
 		
-		WriteLog ("---------------------------------")
-		WriteLog ("index "..tostring(index))
-		WriteLog ("C(index) "..tostring(C(index)))
-		WriteLog ("H(index) "..tostring(H(index)))
-		WriteLog ("L(index) "..tostring(L(index)))
+		--WriteLog ("---------------------------------")
+		--WriteLog ("index "..tostring(index))
+		--WriteLog ("C(index) "..tostring(C(index)))
+		--WriteLog ("H(index) "..tostring(H(index)))
+		--WriteLog ("L(index) "..tostring(L(index)))
 		
 		local Step=StepSizeCalc(Length,Kv,StepSize,Switch,index)
 		if Step == 0 then Step = 1 end
@@ -215,7 +215,7 @@ function cached_NRTR()
 
 		if C(index)>smax1[index] then trend[index] = 1 end
 		if C(index)<smin1[index] then trend[index]= -1 end
-		WriteLog ("trend "..tostring(trend[index]))
+		--WriteLog ("trend "..tostring(trend[index]))
 
 		if trend[index]>0 then
 			if smin0<smin1[index] then smin0=smin1[index] end
@@ -240,7 +240,7 @@ function cached_NRTR()
 			cache_NRTR[index]=(result+ratio/Step)+Step*min_price_step		
 		end	
 		
-		WriteLog ("cache_NRTR "..tostring(cache_NRTR[index]))
+		--WriteLog ("cache_NRTR "..tostring(cache_NRTR[index]))
 
 		if trend[index-1]>0 and trend[index-2]<0 then
 			out2 = O(index)
