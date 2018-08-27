@@ -28,7 +28,7 @@
 Целевая зона строится по двум прицпам. Если удалось определить паттерн движения по этим соотношениям
 (алгоритм взял из индикатора MT5).
 
-<a href="http://funkyimg.com/view/2KKiR" target="_blank"><img src="http://funkyimg.com/i/2KKiR.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>       
+<a href="http://funkyimg.com/view/2KKk1" target="_blank"><img src="http://funkyimg.com/i/2KKk1.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>      
 
 
 Если паттерн не определен, то целевая зона определяется через усреднение (numberOfMovesForTargetZone = 5) прошлых движений.
