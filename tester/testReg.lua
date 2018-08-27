@@ -1,14 +1,14 @@
 RegSettings = {
     bars    = 182,
-    degree = 1, -- 1 -линейная, 2 - параболическая, - 3 степени
-    kstd = 3 --отклонение сигма
+    degree = 1, -- 1 -Р»РёРЅРµР№РЅР°СЏ, 2 - РїР°СЂР°Р±РѕР»РёС‡РµСЃРєР°СЏ, - 3 СЃС‚РµРїРµРЅРё
+    kstd = 3 --РѕС‚РєР»РѕРЅРµРЅРёРµ СЃРёРіРјР°
 }
 
 function initReg()
-    calcAlgoValue = nil     --      Возвращаемая таблица
-    fx_buffer = nil         --      Линия регрессии
-    sql_buffer = nil    --      +Сигма
-    sqh_buffer = nil    --      -Сигма
+    calcAlgoValue = nil     --      Р’РѕР·РІСЂР°С‰Р°РµРјР°СЏ С‚Р°Р±Р»РёС†Р°
+    fx_buffer = nil         --      Р›РёРЅРёСЏ СЂРµРіСЂРµСЃСЃРёРё
+    sql_buffer = nil    --      +РЎРёРіРјР°
+    sqh_buffer = nil    --      -РЎРёРіРјР°
     sx = nil
 end
 
@@ -74,8 +74,8 @@ function iterateReg(iSec, cell)
                 
         settingsTask = {
             bars    = _Period,
-            degree = 1, -- 1 -линейная, 2 - параболическая, - 3 степени
-            kstd = 3, --отклонение сигма
+            degree = 1, -- 1 -Р»РёРЅРµР№РЅР°СЏ, 2 - РїР°СЂР°Р±РѕР»РёС‡РµСЃРєР°СЏ, - 3 СЃС‚РµРїРµРЅРё
+            kstd = 3, --РѕС‚РєР»РѕРЅРµРЅРёРµ СЃРёРіРјР°
             Size = Size
         }
         
@@ -83,9 +83,9 @@ function iterateReg(iSec, cell)
         local profitRatio, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount = calculateSigma(deals)
 
         --myLog("--------------------------------------------------")
-        --myLog("Прибыль по лонгам "..tostring(longProfit))
-        --myLog("Прибыль по шортам "..tostring(shortProfit))
-        --myLog("Прибыль всего "..tostring(allProfit))
+        --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+        --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+        --myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
         --myLog("================================================")
         
         dealsLP = tostring(dealsLongCount).."/"..tostring(profitDealsLongCount)
