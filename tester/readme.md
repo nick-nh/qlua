@@ -1,9 +1,9 @@
 Простой тестер. Алгоритмы тестирования подключаются через файлы (модули)
 
 dofile (getScriptPath().."\\testNRTR.lua") --stepNRTR алгоритм
-dofile (getScriptPath().."\\testTHV_HA.lua") --SER алгоритм
+dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
 dofile (getScriptPath().."\\testEMA.lua") --EMA алгоритм
-dofile (getScriptPath().."\\testSAR.lua") --SER алгоритм
+dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
 dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
 
 Список алгоритмов в таблице
@@ -53,4 +53,4 @@ PARAMS_FILE_NAME = getScriptPath().."\\testMonitor.csv" -- ИМЯ ЛОГ-ФАЙ�
 <a href="http://funkyimg.com/view/2KKng" target="_blank"><img src="http://funkyimg.com/i/2KKng.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 <a href="http://funkyimg.com/view/2KKnf" target="_blank"><img src="http://funkyimg.com/i/2KKnf.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
-Установка тестера: проcто добавить скрипт в Квике. Не забыть добавить библиотеку обмена StaticVar в папку Квика. Индикаторы в папку Luaindicators.
+Установка тестера: проcто добавить скрипт testet в Квике. Не забыть добавить библиотеку обмена StaticVar в папку Квика. Индикаторы в папку Luaindicators.
