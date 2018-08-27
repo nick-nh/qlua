@@ -1,32 +1,32 @@
 -- nick-h@yandex.ru
--- Glukk Inc ©
+-- Glukk Inc В©
 
 --local w32 = require("w32")
 require("StaticVar")
 
-dofile (getScriptPath().."\\testNRTR.lua") --stepNRTR алгоритм
-dofile (getScriptPath().."\\testTHV_HA.lua") --SER алгоритм
-dofile (getScriptPath().."\\testEMA.lua") --EMA алгоритм
-dofile (getScriptPath().."\\testSAR.lua") --SER алгоритм
-dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
+dofile (getScriptPath().."\\testNRTR.lua") --stepNRTR Р°Р»РіРѕСЂРёС‚Рј
+dofile (getScriptPath().."\\testTHV_HA.lua") --SER Р°Р»РіРѕСЂРёС‚Рј
+dofile (getScriptPath().."\\testEMA.lua") --EMA Р°Р»РіРѕСЂРёС‚Рј
+dofile (getScriptPath().."\\testSAR.lua") --SER Р°Р»РіРѕСЂРёС‚Рј
+dofile (getScriptPath().."\\testReg.lua") --Reg Р°Р»РіРѕСЂРёС‚Рј
 
 SEC_CODES = {}
 
-FILE_LOG_NAME = getScriptPath().."\\testMonitorLog.txt" -- ИМЯ ЛОГ-ФАЙЛА
-PARAMS_FILE_NAME = getScriptPath().."\\testMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
+FILE_LOG_NAME = getScriptPath().."\\testMonitorLog.txt" -- РРњРЇ Р›РћР“-Р¤РђР™Р›Рђ
+PARAMS_FILE_NAME = getScriptPath().."\\testMonitor.csv" -- РРњРЇ Р›РћР“-Р¤РђР™Р›Рђ
 
 soundFileName = "c:\\windows\\media\\Alarm03.wav"
 
-INTERVAL = INTERVAL_M5 -- --текущий интервал
-RFR = 0 --7.42 --безрискова ставка для расчета коэфф. Шарпа
+INTERVAL = INTERVAL_M5 -- --С‚РµРєСѓС‰РёР№ РёРЅС‚РµСЂРІР°Р»
+RFR = 0 --7.42 --Р±РµР·СЂРёСЃРєРѕРІР° СЃС‚Р°РІРєР° РґР»СЏ СЂР°СЃС‡РµС‚Р° РєРѕСЌС„С„. РЁР°СЂРїР°
 
 
 ALGORITHMS = {}
 
---/*РАБОЧИЕ ПЕРЕМЕННЫЕ РОБОТА (менять не нужно)*/
-IsRun = true -- Флаг поддержания работы скрипта
+--/*Р РђР‘РћР§РР• РџР•Р Р•РњР•РќРќР«Р• Р РћР‘РћРўРђ (РјРµРЅСЏС‚СЊ РЅРµ РЅСѓР¶РЅРѕ)*/
+IsRun = true -- Р¤Р»Р°Рі РїРѕРґРґРµСЂР¶Р°РЅРёСЏ СЂР°Р±РѕС‚С‹ СЃРєСЂРёРїС‚Р°
 is_Connected = 0
-g_previous_time = os.time() -- помещение в переменную времени сервера в формате HHMMSS 
+g_previous_time = os.time() -- РїРѕРјРµС‰РµРЅРёРµ РІ РїРµСЂРµРјРµРЅРЅСѓСЋ РІСЂРµРјРµРЅРё СЃРµСЂРІРµСЂР° РІ С„РѕСЂРјР°С‚Рµ HHMMSS 
 fixResColumnCount = 0
 fixAlgoColumnCount = 0
 stopSignal = false
@@ -48,7 +48,7 @@ initalAssets = 0
 leverage = 1
 deals = {}
 openedDS = {}
-resultsTables = {} -- таблица результата
+resultsTables = {} -- С‚Р°Р±Р»РёС†Р° СЂРµР·СѓР»СЊС‚Р°С‚Р°
 --iterateSettings = {}
 
 lineTask = nil
@@ -87,9 +87,9 @@ function DataSource(i)
     end
     ds = CreateDataSource(classcode,seccode,interval)
     if ds == nil then
-        message('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-        myLog('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-        -- Завершает выполнение скрипта
+        message('NRTR monitor: РћРЁРР‘РљРђ РїРѕР»СѓС‡РµРЅРёСЏ РґРѕСЃС‚СѓРїР° Рє СЃРІРµС‡Р°Рј! '..Error)
+        myLog('NRTR monitor: РћРЁРР‘РљРђ РїРѕР»СѓС‡РµРЅРёСЏ РґРѕСЃС‚СѓРїР° Рє СЃРІРµС‡Р°Рј! '..Error)
+        -- Р—Р°РІРµСЂС€Р°РµС‚ РІС‹РїРѕР»РЅРµРЅРёРµ СЃРєСЂРёРїС‚Р°
         IsRun = false
         return
     end
@@ -103,12 +103,12 @@ end
 
 function OnInit()
 
-    logFile = io.open(FILE_LOG_NAME, "w") -- открывает файл 
+    logFile = io.open(FILE_LOG_NAME, "w") -- РѕС‚РєСЂС‹РІР°РµС‚ С„Р°Р№Р» 
     
     local ParamsFile = io.open(PARAMS_FILE_NAME,"r")
     if ParamsFile == nil then
         IsRun = false
-        message("Не удалость прочитать файл настроек!!!")
+        message("РќРµ СѓРґР°Р»РѕСЃС‚СЊ РїСЂРѕС‡РёС‚Р°С‚СЊ С„Р°Р№Р» РЅР°СЃС‚СЂРѕРµРє!!!")
         return false
     end
 
@@ -116,7 +116,7 @@ function OnInit()
 
     if is_Connected ~= 1 then
         --IsRun = false
-        message("Нет подключения к серверу!!!")
+        message("РќРµС‚ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє СЃРµСЂРІРµСЂСѓ!!!")
         --return false
     end
 
@@ -131,20 +131,20 @@ function OnInit()
     }    
         
     SEC_CODES['class_codes'] =           {} -- CLASS_CODE
-    SEC_CODES['names'] =                 {} -- имена бумаг
-    SEC_CODES['sec_codes'] =             {} -- коды бумаг
-    SEC_CODES['isLong'] =                {} -- доступен Long
-    SEC_CODES['isShort'] =               {} -- доступен Short
-    SEC_CODES['ChartId'] =               {} -- имя графика для вывода сделок
-    SEC_CODES['Algorithm'] =             {} -- имя алгоритма для расчета из таблицы алгоритмов
-    SEC_CODES['Size'] =                  {} -- число свечек для расчета, от конца
-    SEC_CODES['interval'] =              {} -- интервал расчета
-    SEC_CODES['lastIndexCalculated'] =   {} -- свеча последнего рассчета
+    SEC_CODES['names'] =                 {} -- РёРјРµРЅР° Р±СѓРјР°Рі
+    SEC_CODES['sec_codes'] =             {} -- РєРѕРґС‹ Р±СѓРјР°Рі
+    SEC_CODES['isLong'] =                {} -- РґРѕСЃС‚СѓРїРµРЅ Long
+    SEC_CODES['isShort'] =               {} -- РґРѕСЃС‚СѓРїРµРЅ Short
+    SEC_CODES['ChartId'] =               {} -- РёРјСЏ РіСЂР°С„РёРєР° РґР»СЏ РІС‹РІРѕРґР° СЃРґРµР»РѕРє
+    SEC_CODES['Algorithm'] =             {} -- РёРјСЏ Р°Р»РіРѕСЂРёС‚РјР° РґР»СЏ СЂР°СЃС‡РµС‚Р° РёР· С‚Р°Р±Р»РёС†С‹ Р°Р»РіРѕСЂРёС‚РјРѕРІ
+    SEC_CODES['Size'] =                  {} -- С‡РёСЃР»Рѕ СЃРІРµС‡РµРє РґР»СЏ СЂР°СЃС‡РµС‚Р°, РѕС‚ РєРѕРЅС†Р°
+    SEC_CODES['interval'] =              {} -- РёРЅС‚РµСЂРІР°Р» СЂР°СЃС‡РµС‚Р°
+    SEC_CODES['lastIndexCalculated'] =   {} -- СЃРІРµС‡Р° РїРѕСЃР»РµРґРЅРµРіРѕ СЂР°СЃСЃС‡РµС‚Р°
 
-    myLog("Читаем файл параметров")
+    myLog("Р§РёС‚Р°РµРј С„Р°Р№Р» РїР°СЂР°РјРµС‚СЂРѕРІ")
     local lineCount = 0
     for line in ParamsFile:lines() do
-        myLog("Строка параметров "..line)
+        myLog("РЎС‚СЂРѕРєР° РїР°СЂР°РјРµС‚СЂРѕРІ "..line)
         lineCount = lineCount + 1
         if lineCount > 1 and line ~= "" then
             local per1, per2, per3, per4, per5, per6, per7, per8, per9 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
@@ -163,7 +163,7 @@ function OnInit()
 
     ParamsFile:close()
 
-    CreateTable() -- Создает таблицу
+    CreateTable() -- РЎРѕР·РґР°РµС‚ С‚Р°Р±Р»РёС†Сѓ
     SetTableNotificationCallback(t_id, tAlgo_event_callback)
     SetTableNotificationCallback(tv_id, volume_event_callback)
     SetTableNotificationCallback(tres_id, tRes_event_callback)
@@ -179,8 +179,8 @@ function OnInit()
         --openedDS[i] = {}
         myLog("================================================")
         InsertRow(t_id, i)
-        SetCell(t_id, i, 0, SEC_CODES['names'][i], i)  --count строка, 0 - колонка, v - значение 
-        SetCell(t_id, i, 3, tostring(SEC_CODES['interval'][i]), SEC_CODES['interval'][i])  --i строка, 1 - колонка, v - значение
+        SetCell(t_id, i, 0, SEC_CODES['names'][i], i)  --count СЃС‚СЂРѕРєР°, 0 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ 
+        SetCell(t_id, i, 3, tostring(SEC_CODES['interval'][i]), SEC_CODES['interval'][i])  --i СЃС‚СЂРѕРєР°, 1 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ
 
         for cell,INTERVAL in pairs(ALGORITHMS["names"]) do                    
             
@@ -188,7 +188,7 @@ function OnInit()
             if ALGORITHMS["names"][cell] == SEC_CODES['Algorithm'][i] then
                 --line = line + 1
 
-                SetCell(t_id, i, 1, ALGORITHMS['names'][cell], cell)  --i строка, 1 - колонка, v - значение
+                SetCell(t_id, i, 1, ALGORITHMS['names'][cell], cell)  --i СЃС‚СЂРѕРєР°, 1 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ
                 
                 local ds = DataSource(i)
                 SEC_CODES['lastIndexCalculated'][i][cell] = ds:Size()            
@@ -198,11 +198,11 @@ function OnInit()
                 
                 --Size = findFirstEmptyCandle(DS)
                 local Size = math.min(math.max(SEC_CODES['Size'][i], ds:Size()), SEC_CODES['Size'][i]) 
-                SetCell(t_id, i, 2, tostring(Size), Size)  --i строка, 1 - колонка, v - значение
-                --SetCell(t_id, i, 18, "Stop")  --count строка, 0 - колонка, v - значение 
+                SetCell(t_id, i, 2, tostring(Size), Size)  --i СЃС‚СЂРѕРєР°, 1 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ
+                --SetCell(t_id, i, 18, "Stop")  --count СЃС‚СЂРѕРєР°, 0 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ 
                 --SetColor(t_id, i, 18, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
                 
-                myLog("Всего свечей ".. SEC_CODE..", интервала "..ALGORITHMS["names"][cell].." "..tostring(ds:Size()))
+                myLog("Р’СЃРµРіРѕ СЃРІРµС‡РµР№ ".. SEC_CODE..", РёРЅС‚РµСЂРІР°Р»Р° "..ALGORITHMS["names"][cell].." "..tostring(ds:Size()))
             end
 
         end
@@ -215,7 +215,7 @@ function OnInit()
 
 end 
 
--- Функция ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK при остановке скрипта
+-- Р¤СѓРЅРєС†РёСЏ Р’Р«Р—Р«Р’РђР•РўРЎРЇ РўР•Р РњРРќРђР›РћРњ QUIK РїСЂРё РѕСЃС‚Р°РЅРѕРІРєРµ СЃРєСЂРёРїС‚Р°
 function OnStop()
     IsRun = false
     myLog("Script Stoped") 
@@ -228,11 +228,11 @@ function OnStop()
     if tv_id~= nil then
         DestroyTable(tv_id)
     end
-    if logFile~=nil then logFile:close() end    -- Закрывает файл 
+    if logFile~=nil then logFile:close() end    -- Р—Р°РєСЂС‹РІР°РµС‚ С„Р°Р№Р» 
 end
 
-function main() -- Функция, реализующая основной поток выполнения в скрипте    
-    while IsRun do -- Цикл будет выполнятся, пока IsRun == true         
+function main() -- Р¤СѓРЅРєС†РёСЏ, СЂРµР°Р»РёР·СѓСЋС‰Р°СЏ РѕСЃРЅРѕРІРЅРѕР№ РїРѕС‚РѕРє РІС‹РїРѕР»РЅРµРЅРёСЏ РІ СЃРєСЂРёРїС‚Рµ    
+    while IsRun do -- Р¦РёРєР» Р±СѓРґРµС‚ РІС‹РїРѕР»РЅСЏС‚СЃСЏ, РїРѕРєР° IsRun == true         
         if IsRun == false then break end
         
         if calculateTask ~= nil then
@@ -302,7 +302,7 @@ function addDeals(deals, ChartId, DS)
         
         if deals["openLong"][i] ~=nil then
             label.YVALUE = deals["openLong"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_buy.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\РњРѕРёРЎРґРµР»РєРё_buy.bmp'
             ALIGNMENT = "BOTTOM"
             label.R = 0
             label.G = 0
@@ -326,7 +326,7 @@ function addDeals(deals, ChartId, DS)
             label.HINT = "open Long "..tostring(deals["openLong"][i])
         elseif deals["openShort"][i] ~=nil then
             label.YVALUE = deals["openShort"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_sell.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\РР·РѕР±СЂР°Р¶РµРЅРёСЏ\\РњРѕРёРЎРґРµР»РєРё_sell.bmp'
             label.R = 0
             label.G = 0
             label.B = 0
@@ -350,7 +350,7 @@ function addDeals(deals, ChartId, DS)
             label.HINT = "open Short "..tostring(deals["openShort"][i])
         elseif deals["closeLong"][i] ~=nil then
             label.YVALUE = deals["closeLong"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_sell.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\РР·РѕР±СЂР°Р¶РµРЅРёСЏ\\РњРѕРёРЎРґРµР»РєРё_sell.bmp'
             ALIGNMENT = "TOP"
             label.R = 0
             label.G = 0
@@ -374,7 +374,7 @@ function addDeals(deals, ChartId, DS)
             label.HINT = "close Long "..tostring(deals["closeLong"][i])
         elseif deals["closeShort"][i] ~=nil then
             label.YVALUE = deals["closeShort"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_buy.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\РР·РѕР±СЂР°Р¶РµРЅРёСЏ\\РњРѕРёРЎРґРµР»РєРё_buy.bmp'
             ALIGNMENT = "BOTTOM"
             label.R = 0
             label.G = 0
@@ -516,16 +516,16 @@ function calculateSigma(deals)
     return profitRatio, avg, sigma, maxDrawDown, sharpe, round(avgHPR, 2), ZCount
 end
 
-function CreateTable() -- Функция создает таблицу
+function CreateTable() -- Р¤СѓРЅРєС†РёСЏ СЃРѕР·РґР°РµС‚ С‚Р°Р±Р»РёС†Сѓ
     
-    t_id = AllocTable() -- Получает доступный id для создания
+    t_id = AllocTable() -- РџРѕР»СѓС‡Р°РµС‚ РґРѕСЃС‚СѓРїРЅС‹Р№ id РґР»СЏ СЃРѕР·РґР°РЅРёСЏ
     
-    -- Добавляет колонки
-    AddColumn(t_id, 0, "Инструмент", true, QTABLE_INT_TYPE, 22)
-    AddColumn(t_id, 1, "Алгоритм", true, QTABLE_INT_TYPE, 20)
+    -- Р”РѕР±Р°РІР»СЏРµС‚ РєРѕР»РѕРЅРєРё
+    AddColumn(t_id, 0, "РРЅСЃС‚СЂСѓРјРµРЅС‚", true, QTABLE_INT_TYPE, 22)
+    AddColumn(t_id, 1, "РђР»РіРѕСЂРёС‚Рј", true, QTABLE_INT_TYPE, 20)
     AddColumn(t_id, 2, "Size", true, QTABLE_INT_TYPE, 10)
     AddColumn(t_id, 3, "interval", true, QTABLE_INT_TYPE, 10)
-    AddColumn(t_id, 4, "Выполнено", true, QTABLE_INT_TYPE, 15)
+    AddColumn(t_id, 4, "Р’С‹РїРѕР»РЅРµРЅРѕ", true, QTABLE_INT_TYPE, 15)
     AddColumn(t_id, 5, "Best", true, QTABLE_DOUBLE_TYPE, 15)
     AddColumn(t_id, 6, "profit(%)", true, QTABLE_DOUBLE_TYPE, 15)
     AddColumn(t_id, 7, "long", true, QTABLE_DOUBLE_TYPE, 15)
@@ -542,15 +542,15 @@ function CreateTable() -- Функция создает таблицу
     --AddColumn(t_id, 18, "Stop", true, QTABLE_STRING_TYPE, 12)
     fixAlgoColumnCount = 18
 
-    t = CreateWindow(t_id) -- Создает таблицу
-    SetWindowCaption(t_id, "Test") -- Устанавливает заголовок
-    SetWindowPos(t_id, 90, 60, 1400, 800) -- Задает положение и размеры окна таблицы
+    t = CreateWindow(t_id) -- РЎРѕР·РґР°РµС‚ С‚Р°Р±Р»РёС†Сѓ
+    SetWindowCaption(t_id, "Test") -- РЈСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ Р·Р°РіРѕР»РѕРІРѕРє
+    SetWindowPos(t_id, 90, 60, 1400, 800) -- Р—Р°РґР°РµС‚ РїРѕР»РѕР¶РµРЅРёРµ Рё СЂР°Р·РјРµСЂС‹ РѕРєРЅР° С‚Р°Р±Р»РёС†С‹
     
-    tv_id = AllocTable() -- таблица ввода значения
+    tv_id = AllocTable() -- С‚Р°Р±Р»РёС†Р° РІРІРѕРґР° Р·РЅР°С‡РµРЅРёСЏ
         
-    tres_id = AllocTable() -- таблица результатов
-    AddColumn(tres_id, 0, "Инструмент", true, QTABLE_INT_TYPE, 15)
-    AddColumn(tres_id, 1, "Алгоритм", true, QTABLE_INT_TYPE, 15)
+    tres_id = AllocTable() -- С‚Р°Р±Р»РёС†Р° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ
+    AddColumn(tres_id, 0, "РРЅСЃС‚СЂСѓРјРµРЅС‚", true, QTABLE_INT_TYPE, 15)
+    AddColumn(tres_id, 1, "РђР»РіРѕСЂРёС‚Рј", true, QTABLE_INT_TYPE, 15)
     AddColumn(tres_id, 2, "all", true, QTABLE_DOUBLE_TYPE, 12)
     AddColumn(tres_id, 3, "profit(%)", true, QTABLE_DOUBLE_TYPE, 12)
     AddColumn(tres_id, 4, "long", true, QTABLE_DOUBLE_TYPE, 12)
@@ -568,7 +568,7 @@ function CreateTable() -- Функция создает таблицу
     
 end
 
-function CreateResTable(iSec) -- Функция создает таблицу
+function CreateResTable(iSec) -- Р¤СѓРЅРєС†РёСЏ СЃРѕР·РґР°РµС‚ С‚Р°Р±Р»РёС†Сѓ
         
     local seccode = SEC_CODES['sec_codes'][iSec]          
 
@@ -618,25 +618,25 @@ end
 function tAlgo_event_callback(t_id, msg, par1, par2)
 
     if msg == QTABLE_LBUTTONDBLCLK then
-        if par2 == 2 and IsWindowClosed(tv_id) then --Вводим Size
+        if par2 == 2 and IsWindowClosed(tv_id) then --Р’РІРѕРґРёРј Size
             tstr = par1
             tcell = par2
-            AddColumn(tv_id, 0, "Значение", true, QTABLE_INT_TYPE, 25)
+            AddColumn(tv_id, 0, "Р—РЅР°С‡РµРЅРёРµ", true, QTABLE_INT_TYPE, 25)
             tv = CreateWindow(tv_id) 
-            SetWindowCaption(tv_id, "Введите Size")
+            SetWindowCaption(tv_id, "Р’РІРµРґРёС‚Рµ Size")
             SetWindowPos(tv_id, 290, 260, 250, 100)                                
             InsertRow(tv_id, 1)
-            SetCell(tv_id, 1, 0, GetCell(t_id, par1, 2).image, GetCell(t_id, par1, 2).value)  --i строка, 0 - колонка, v - значение 
-        elseif par2 == 3 and IsWindowClosed(tv_id) then --Вводим интервал
+            SetCell(tv_id, 1, 0, GetCell(t_id, par1, 2).image, GetCell(t_id, par1, 2).value)  --i СЃС‚СЂРѕРєР°, 0 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ 
+        elseif par2 == 3 and IsWindowClosed(tv_id) then --Р’РІРѕРґРёРј РёРЅС‚РµСЂРІР°Р»
             tstr = par1
             tcell = par2
-            AddColumn(tv_id, 0, "Значение", true, QTABLE_INT_TYPE, 25)
+            AddColumn(tv_id, 0, "Р—РЅР°С‡РµРЅРёРµ", true, QTABLE_INT_TYPE, 25)
             tv = CreateWindow(tv_id) 
-            SetWindowCaption(tv_id, "Введите Interval")
+            SetWindowCaption(tv_id, "Р’РІРµРґРёС‚Рµ Interval")
             SetWindowPos(tv_id, 290, 260, 250, 100)                                
             InsertRow(tv_id, 1)
-            SetCell(tv_id, 1, 0, GetCell(t_id, par1, 3).image, GetCell(t_id, par1, 3).value)  --i строка, 0 - колонка, v - значение 
-        elseif par2 > 3 then --переоткрыть результат
+            SetCell(tv_id, 1, 0, GetCell(t_id, par1, 3).image, GetCell(t_id, par1, 3).value)  --i СЃС‚СЂРѕРєР°, 0 - РєРѕР»РѕРЅРєР°, v - Р·РЅР°С‡РµРЅРёРµ 
+        elseif par2 > 3 then --РїРµСЂРµРѕС‚РєСЂС‹С‚СЊ СЂРµР·СѓР»СЊС‚Р°С‚
             iSec = GetCell(t_id, par1, 0).value
             cell = GetCell(t_id, par1, 1).value 
             local settingTable = ALGORITHMS['settings'][cell]
@@ -657,7 +657,7 @@ function tAlgo_event_callback(t_id, msg, par1, par2)
             end 
         end
     end
-    if (msg==QTABLE_CLOSE) then --закрытие окна
+    if (msg==QTABLE_CLOSE) then --Р·Р°РєСЂС‹С‚РёРµ РѕРєРЅР°
         IsRun = false
     end
     
@@ -721,7 +721,7 @@ function calculateAlgorithm(iSec, cell)
     SEC_CODE = SEC_CODES['sec_codes'][iSec]
     CLASS_CODE =SEC_CODES['class_codes'][iSec]
     
-    -- Получает ШАГ ЦЕНЫ ИНСТРУМЕНТА, последнюю цену, открытые позиции
+    -- РџРѕР»СѓС‡Р°РµС‚ РЁРђР“ Р¦Р•РќР« РРќРЎРўР РЈРњР•РќРўРђ, РїРѕСЃР»РµРґРЅСЋСЋ С†РµРЅСѓ, РѕС‚РєСЂС‹С‚С‹Рµ РїРѕР·РёС†РёРё
     SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
     STEPPRICE = getParamEx(CLASS_CODE, SEC_CODE, "STEPPRICE").param_value
     if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
@@ -735,9 +735,9 @@ function calculateAlgorithm(iSec, cell)
 
     local logDeals = true
     if logDeals then
-        myLog("Шаг цены "..tostring(SEC_PRICE_STEP))
-        myLog("Стоимость шага цены "..tostring(STEPPRICE))
-        myLog("Плечо (фьюч.) "..tostring(leverage))
+        myLog("РЁР°Рі С†РµРЅС‹ "..tostring(SEC_PRICE_STEP))
+        myLog("РЎС‚РѕРёРјРѕСЃС‚СЊ С€Р°РіР° С†РµРЅС‹ "..tostring(STEPPRICE))
+        myLog("РџР»РµС‡Рѕ (С„СЊСЋС‡.) "..tostring(leverage))
     end
     if initalAssets == 0 and CLASS_CODE == "SPBFUT" then
         initalAssets = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "BUYDEPO").param_value) --*leverage
@@ -807,10 +807,10 @@ function getTradeSignal(index, calcAlgoValue, calcTrend, DS)
     else    
         local signaltestvalue1 = calcTrend[index-1] or 0
         local signaltestvalue2 = calcTrend[index-2] or 0
-        if signaltestvalue1 > 0 and signaltestvalue2 < 0 then --тренд сменился на растущий
+        if signaltestvalue1 > 0 and signaltestvalue2 < 0 then --С‚СЂРµРЅРґ СЃРјРµРЅРёР»СЃСЏ РЅР° СЂР°СЃС‚СѓС‰РёР№
             signal = 1
         end
-        if signaltestvalue1 < 0 and signaltestvalue2 > 0 then --тренд сменился на падающий
+        if signaltestvalue1 < 0 and signaltestvalue2 > 0 then --С‚СЂРµРЅРґ СЃРјРµРЅРёР»СЃСЏ РЅР° РїР°РґР°СЋС‰РёР№
             signal = -1
         end
     end
@@ -883,10 +883,10 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             deals["closeShort"][dealsCount] = DS:O(index) 
             deals["dealProfit"][dealsCount] = tradeProfit 
             if logDeals then
-                myLog("Закрытие шорта по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по шортам "..tostring(shortProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
+                myLog("Р—Р°РєСЂС‹С‚РёРµ С€РѕСЂС‚Р° РїРѕ С†РµРЅРµ "..tostring(DS:O(index)))
+                myLog("РџСЂРёР±С‹Р»СЊ СЃРґРµР»РєРё "..tostring(tradeProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 myLog("equity "..tostring(equitySum))
             end
             lastDealPrice = 0
@@ -904,10 +904,10 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             deals["closeLong"][dealsCount] = DS:O(index) 
             deals["dealProfit"][dealsCount] = tradeProfit 
             if logDeals then
-                myLog("Закрытие лонга по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по лонгам "..tostring(longProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
+                myLog("Р—Р°РєСЂС‹С‚РёРµ Р»РѕРЅРіР° РїРѕ С†РµРЅРµ "..tostring(DS:O(index)))
+                myLog("РџСЂРёР±С‹Р»СЊ СЃРґРµР»РєРё "..tostring(tradeProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 myLog("equity "..tostring(equitySum))
             end
             lastDealPrice = 0
@@ -948,10 +948,10 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             deals["closeShort"][dealsCount] = DS:O(index) 
             deals["dealProfit"][dealsCount] = tradeProfit 
             if logDeals then
-                myLog("Закрытие шорта по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по шортам "..tostring(shortProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
+                myLog("Р—Р°РєСЂС‹С‚РёРµ С€РѕСЂС‚Р° РїРѕ С†РµРЅРµ "..tostring(DS:O(index)))
+                myLog("РџСЂРёР±С‹Р»СЊ СЃРґРµР»РєРё "..tostring(tradeProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 myLog("equity "..tostring(equitySum))
             end
         end        
@@ -961,7 +961,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             deals["index"][dealsCount] = index 
             deals["openLong"][dealsCount] = DS:O(index) 
             if logDeals then
-                myLog("Покупка по цене "..tostring(lastDealPrice))
+                myLog("РџРѕРєСѓРїРєР° РїРѕ С†РµРЅРµ "..tostring(lastDealPrice))
             end
         else
             lastDealPrice = 0
@@ -990,10 +990,10 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             deals["closeLong"][dealsCount] = DS:O(index) 
             deals["dealProfit"][dealsCount] = tradeProfit 
             if logDeals then
-                myLog("Закрытие лонга по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по лонгам "..tostring(longProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
+                myLog("Р—Р°РєСЂС‹С‚РёРµ Р»РѕРЅРіР° РїРѕ С†РµРЅРµ "..tostring(DS:O(index)))
+                myLog("РџСЂРёР±С‹Р»СЊ СЃРґРµР»РєРё "..tostring(tradeProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 myLog("equity "..tostring(equitySum))
             end
         end
@@ -1003,7 +1003,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             deals["index"][dealsCount] = index 
             deals["openShort"][dealsCount] = DS:O(index) 
             if logDeals then
-                myLog("Продажа по цене "..tostring(lastDealPrice))
+                myLog("РџСЂРѕРґР°Р¶Р° РїРѕ С†РµРЅРµ "..tostring(lastDealPrice))
             end
         else
             lastDealPrice = 0
@@ -1165,13 +1165,13 @@ function Median(x, y, z)
    return (x+y+z) - math.min(x,math.min(y,z)) - math.max(x,math.max(y,z)) 
 end
 
- -- функция записывает в лог строчку с временем и датой 
+ -- С„СѓРЅРєС†РёСЏ Р·Р°РїРёСЃС‹РІР°РµС‚ РІ Р»РѕРі СЃС‚СЂРѕС‡РєСѓ СЃ РІСЂРµРјРµРЅРµРј Рё РґР°С‚РѕР№ 
 function myLog(str)
     if logFile==nil then return end
 
-    local current_time=os.time()--tonumber(timeformat(getInfoParam("SERVERTIME"))) -- помещене в переменную времени сервера в формате HHMMSS 
-    if (current_time-g_previous_time)>1 then -- если текущая запись произошла позже 1 секунды, чем предыдущая
-        logFile:write("\n") -- добавляем пустую строку для удобства чтения
+    local current_time=os.time()--tonumber(timeformat(getInfoParam("SERVERTIME"))) -- РїРѕРјРµС‰РµРЅРµ РІ РїРµСЂРµРјРµРЅРЅСѓСЋ РІСЂРµРјРµРЅРё СЃРµСЂРІРµСЂР° РІ С„РѕСЂРјР°С‚Рµ HHMMSS 
+    if (current_time-g_previous_time)>1 then -- РµСЃР»Рё С‚РµРєСѓС‰Р°СЏ Р·Р°РїРёСЃСЊ РїСЂРѕРёР·РѕС€Р»Р° РїРѕР·Р¶Рµ 1 СЃРµРєСѓРЅРґС‹, С‡РµРј РїСЂРµРґС‹РґСѓС‰Р°СЏ
+        logFile:write("\n") -- РґРѕР±Р°РІР»СЏРµРј РїСѓСЃС‚СѓСЋ СЃС‚СЂРѕРєСѓ РґР»СЏ СѓРґРѕР±СЃС‚РІР° С‡С‚РµРЅРёСЏ
     end
     g_previous_time = current_time 
 
@@ -1181,7 +1181,7 @@ function myLog(str)
         logFile:write("======================================================================================================================\n\n")
         logFile:write("======================================================================================================================\n")
     end
-    logFile:flush() -- Сохраняет изменения в файле
+    logFile:flush() -- РЎРѕС…СЂР°РЅСЏРµС‚ РёР·РјРµРЅРµРЅРёСЏ РІ С„Р°Р№Р»Рµ
 end
 
 function toYYYYMMDDHHMMSS(datetime)
