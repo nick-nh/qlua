@@ -105,9 +105,9 @@ function iterateTHV(iSec, cell)
                 local profitRatio, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount = calculateSigma(deals)
 
                 --myLog("--------------------------------------------------")
-                --myLog("Прибыль по лонгам "..tostring(longProfit))
-                --myLog("Прибыль по шортам "..tostring(shortProfit))
-                --myLog("Прибыль всего "..tostring(allProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 --myLog("================================================")
                 
                 dealsLP = tostring(dealsLongCount).."/"..tostring(profitDealsLongCount)
@@ -193,9 +193,9 @@ function THV(index, settings, DS)
     local outUP
 
     if g_ibuf_96 == nil then
-        myLog("Показатель Period "..tostring(period))
-        myLog("Показатель koef "..tostring(koef))
-        myLog("Показатель SarDeviation "..tostring(SarDeviation))
+        myLog("РџРѕРєР°Р·Р°С‚РµР»СЊ Period "..tostring(period))
+        myLog("РџРѕРєР°Р·Р°С‚РµР»СЊ koef "..tostring(koef))
+        myLog("РџРѕРєР°Р·Р°С‚РµР»СЊ SarDeviation "..tostring(SarDeviation))
         myLog("--------------------------------------------------")
         
         g_ibuf_92={}
