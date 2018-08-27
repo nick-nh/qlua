@@ -1,4 +1,4 @@
-Код класса;Имя;Идентификатор;Доступен лонг;Доступен шорт;ChartId;Algorithm;Size;Interval
+РљРѕРґ РєР»Р°СЃСЃР°;РРјСЏ;РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ;Р”РѕСЃС‚СѓРїРµРЅ Р»РѕРЅРі;Р”РѕСЃС‚СѓРїРµРЅ С€РѕСЂС‚;ChartId;Algorithm;Size;Interval
 SPBFUT;SiU8;SiU8;1;1;testGraphSi;NRTR;200;5
 SPBFUT;SiU8;SiU8;1;1;testGraphSi;NRTR;200;15
 SPBFUT;SiU8;SiU8;1;1;testGraphSi;NRTR;400;3
