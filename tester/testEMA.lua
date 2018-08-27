@@ -47,10 +47,10 @@ function ema2Trade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, 
             deals["closeShort"][dealsCount] = DS:O(index) 
             deals["dealProfit"][dealsCount] = tradeProfit 
             if logDeals then
-                myLog("Закрытие шорта по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по шортам "..tostring(shortProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
+                myLog("Р—Р°РєСЂС‹С‚РёРµ С€РѕСЂС‚Р° РїРѕ С†РµРЅРµ "..tostring(DS:O(index)))
+                myLog("РџСЂРёР±С‹Р»СЊ СЃРґРµР»РєРё "..tostring(tradeProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 myLog("equity "..tostring(equitySum))
             end
         end        
@@ -60,7 +60,7 @@ function ema2Trade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, 
             deals["index"][dealsCount] = index 
             deals["openLong"][dealsCount] = DS:O(index) 
             if logDeals then
-                myLog("Покупка по цене "..tostring(lastDealPrice))
+                myLog("РџРѕРєСѓРїРєР° РїРѕ С†РµРЅРµ "..tostring(lastDealPrice))
             end
         else
             lastDealPrice = 0
@@ -87,10 +87,10 @@ function ema2Trade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, 
             deals["closeLong"][dealsCount] = DS:O(index) 
             deals["dealProfit"][dealsCount] = tradeProfit 
             if logDeals then
-                myLog("Закрытие лонга по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по лонгам "..tostring(longProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
+                myLog("Р—Р°РєСЂС‹С‚РёРµ Р»РѕРЅРіР° РїРѕ С†РµРЅРµ "..tostring(DS:O(index)))
+                myLog("РџСЂРёР±С‹Р»СЊ СЃРґРµР»РєРё "..tostring(tradeProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+                myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 myLog("equity "..tostring(equitySum))
             end
         end
@@ -100,7 +100,7 @@ function ema2Trade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, 
             deals["index"][dealsCount] = index 
             deals["openShort"][dealsCount] = DS:O(index) 
             if logDeals then
-                myLog("Продажа по цене "..tostring(lastDealPrice))
+                myLog("РџСЂРѕРґР°Р¶Р° РїРѕ С†РµРЅРµ "..tostring(lastDealPrice))
             end
         else
             lastDealPrice = 0
@@ -198,9 +198,9 @@ function iterateEMA(iSec, cell)
                 local profitRatio, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount = calculateSigma(deals)
 
                 --myLog("--------------------------------------------------")
-                --myLog("Прибыль по лонгам "..tostring(longProfit))
-                --myLog("Прибыль по шортам "..tostring(shortProfit))
-                --myLog("Прибыль всего "..tostring(allProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 --myLog("================================================")
                 
                 dealsLP = tostring(dealsLongCount).."/"..tostring(profitDealsLongCount)
@@ -256,7 +256,7 @@ function allEMA(index, settings, DS)
     local periods = settings.periods or {period1 = 29}     
     local Size = settings.Size or 2000 
     
-    --подготавливаем массив данных по периодам
+    --РїРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РјР°СЃСЃРёРІ РґР°РЅРЅС‹С… РїРѕ РїРµСЂРёРѕРґР°Рј
     if index == nil then index = 1 end
 
     if EMA == nil then
