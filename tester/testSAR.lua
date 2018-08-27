@@ -95,9 +95,9 @@ function iterateSAR(iSec, cell)
                 local profitRatio, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount = calculateSigma(deals)
 
                 --myLog("--------------------------------------------------")
-                --myLog("Прибыль по лонгам "..tostring(longProfit))
-                --myLog("Прибыль по шортам "..tostring(shortProfit))
-                --myLog("Прибыль всего "..tostring(allProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ Р»РѕРЅРіР°Рј "..tostring(longProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РїРѕ С€РѕСЂС‚Р°Рј "..tostring(shortProfit))
+                --myLog("РџСЂРёР±С‹Р»СЊ РІСЃРµРіРѕ "..tostring(allProfit))
                 --myLog("================================================")
                 
                 dealsLP = tostring(dealsLongCount).."/"..tostring(profitDealsLongCount)
@@ -154,9 +154,9 @@ function SAR(index, settings, DS)
     if index == nil then index = 1 end
         
     if cache_SAR == nil then
-        myLog("Показатель SarPeriod "..tostring(SarPeriod))
-        myLog("Показатель SarPeriod2 "..tostring(SarPeriod2))
-        myLog("Показатель SarDeviation "..tostring(SarDeviation))
+        myLog("РџРѕРєР°Р·Р°С‚РµР»СЊ SarPeriod "..tostring(SarPeriod))
+        myLog("РџРѕРєР°Р·Р°С‚РµР»СЊ SarPeriod2 "..tostring(SarPeriod2))
+        myLog("РџРѕРєР°Р·Р°С‚РµР»СЊ SarDeviation "..tostring(SarDeviation))
         myLog("--------------------------------------------------")
         cache_SAR={}
         cache_ST={}
