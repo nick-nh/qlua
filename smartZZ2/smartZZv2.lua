@@ -972,19 +972,20 @@ function cached_ZZ()
 				end
 			end	
 			
-			--message("minRangeIndex "..tostring(minRangeIndex).." lastLow "..tostring(lastLow))
-            --message("maxRangeIndex "..tostring(maxRangeIndex).." lastHi "..tostring(lastHi))
-            --message("priceLevel "..tostring(priceLevel))
-            --message("#sortedZZLevels "..tostring(#sortedZZLevels))
+            --WriteLog ("#sortedZZLevels "..tostring(#sortedZZLevels))
+            --WriteLog ("numberOfHistoryZZLevels "..tostring(numberOfHistoryZZLevels))
+            --WriteLog ("priceLevel "..tostring(priceLevel))
 			
+			local minRangeIndex = 1
+			local maxRangeIndex = #sortedZZLevels
 			
             if priceLevel ~= nil then
-				local minRangeIndex = math.min(priceLevel-numberOfHistoryZZLevels,1)
-				local maxRangeIndex = math.max(priceLevel+numberOfHistoryZZLevels-1, #sortedZZLevels)
-                local minj = priceLevel-numberOfHistoryZZLevels
-                local maxj = priceLevel+numberOfHistoryZZLevels-1
-                if minj<=0 then minj = 1 end
-                if maxj>#sortedZZLevels then maxj = #sortedZZLevels end
+				minRangeIndex = priceLevel
+				maxRangeIndex = priceLevel
+				local minj = math.max(priceLevel-numberOfHistoryZZLevels,1)
+                local maxj = math.min(priceLevel+numberOfHistoryZZLevels-1, #sortedZZLevels)
+				--WriteLog ("minRangeIndex "..tostring(minRangeIndex).." minj "..tostring(minj))
+				--WriteLog ("maxRangeIndex "..tostring(maxRangeIndex).." maxj "..tostring(maxj))
                 for j = minj, maxj do
                     if sortedZZLevels[j]["val"] ~= nil and sortedZZLevels[j]["val"] ~= 0 then
                         if sortedZZLevels[j]["val"] < lastLow then
@@ -997,7 +998,10 @@ function cached_ZZ()
                         end
                     end				
                 end		
-            end	
+			end	
+			
+			--WriteLog ("minRangeIndex "..tostring(minRangeIndex).." lastLow "..tostring(lastLow))
+            --WriteLog ("maxRangeIndex "..tostring(maxRangeIndex).." lastHi "..tostring(lastHi))
             
             for j = 1, deepZZForCalculatedLevels do
                 if ZZLevels[sizeOfZZLevels-j+1]["val"] ~= nil and ZZLevels[sizeOfZZLevels-j+1]["val"] ~= 0 then
@@ -1160,11 +1164,12 @@ function cached_ZZ()
                                     add = -40
                                 else add = 0	
                                 end                           
+                                --WriteLog ("numberOfLiines-nn+1+add "..tostring(numberOfLiines-nn+1+add));
                                 SetValue(sortedZZLevels[j]["index"], numberOfLiines-nn+1+add, sortedZZLevels[j]["val"])
                                 lineIndex[numberOfLiines-nn+1+add]["val"] = sortedZZLevels[j]["val"]
                                 lineIndex[numberOfLiines-nn+1+add]["index"] = sortedZZLevels[j]["index"]
-                                --WriteLog ("sortedZZLevels["..tostring(j).."]["val"] "..tostring(sortedZZLevels[j]["val"]));
-                                --WriteLog ("sortedZZLevels["..tostring(j).."]["index"] "..tostring(sortedZZLevels[j]["index"]));
+                                --WriteLog ("sortedZZLevels["..tostring(j).."][val] "..tostring(sortedZZLevels[j]["val"]));
+                                --WriteLog ("sortedZZLevels["..tostring(j).."][index] "..tostring(sortedZZLevels[j]["index"]));
                             end
                         end
                     end
