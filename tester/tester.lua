@@ -326,7 +326,7 @@ function addDeals(deals, ChartId, DS)
             label.HINT = "open Long "..tostring(deals["openLong"][i])
         elseif deals["openShort"][i] ~=nil then
             label.YVALUE = deals["openShort"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_sell.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_sell.bmp'
             label.R = 0
             label.G = 0
             label.B = 0
@@ -350,7 +350,7 @@ function addDeals(deals, ChartId, DS)
             label.HINT = "open Short "..tostring(deals["openShort"][i])
         elseif deals["closeLong"][i] ~=nil then
             label.YVALUE = deals["closeLong"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_sell.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_sell.bmp'
             ALIGNMENT = "TOP"
             label.R = 0
             label.G = 0
@@ -374,7 +374,7 @@ function addDeals(deals, ChartId, DS)
             label.HINT = "close Long "..tostring(deals["closeLong"][i])
         elseif deals["closeShort"][i] ~=nil then
             label.YVALUE = deals["closeShort"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Изображения\\МоиСделки_buy.bmp'
+            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_buy.bmp'
             ALIGNMENT = "BOTTOM"
             label.R = 0
             label.G = 0
