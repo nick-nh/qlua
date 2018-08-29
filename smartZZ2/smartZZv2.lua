@@ -987,7 +987,7 @@ function cached_ZZ()
 				--WriteLog ("minRangeIndex "..tostring(minRangeIndex).." minj "..tostring(minj))
 				--WriteLog ("maxRangeIndex "..tostring(maxRangeIndex).." maxj "..tostring(maxj))
                 for j = minj, maxj do
-                    if sortedZZLevels[j]["val"] ~= nil and sortedZZLevels[j]["val"] ~= 0 then
+                    if sortedZZLevels[j] ~= nil then
                         if sortedZZLevels[j]["val"] < lastLow then
                             lastLow = sortedZZLevels[j]["val"]
                             minRangeIndex = j
@@ -1002,12 +1002,27 @@ function cached_ZZ()
 			
 			--WriteLog ("minRangeIndex "..tostring(minRangeIndex).." lastLow "..tostring(lastLow))
             --WriteLog ("maxRangeIndex "..tostring(maxRangeIndex).." lastHi "..tostring(lastHi))
-            
-            for j = 1, deepZZForCalculatedLevels do
-                if ZZLevels[sizeOfZZLevels-j+1]["val"] ~= nil and ZZLevels[sizeOfZZLevels-j+1]["val"] ~= 0 then
+			
+			deepZZForCalculatedLevels = math.min(deepZZForCalculatedLevels,#ZZLevels-1)
+			numberOfZZLevels = math.min(numberOfZZLevels,#ZZLevels-1)
+			numberOfMovesForTargetZone = math.min(numberOfMovesForTargetZone,#ZZLevels-1)
+
+			local j = 1
+			while j<=deepZZForCalculatedLevels do
+            --for j = 1, deepZZForCalculatedLevels do
+				if ZZLevels[sizeOfZZLevels-j+1] ~= nil then
+					if math.abs(ZZLevels[sizeOfZZLevels-j+1]["val"] - C(index))/ZZLevels[sizeOfZZLevels-j+1]["val"] > 0.5 then
+						deepZZForCalculatedLevels = math.min(5,#ZZLevels-1)
+						numberOfZZLevels = math.min(numberOfZZLevels,deepZZForCalculatedLevels)
+						numberOfMovesForTargetZone = math.min(numberOfMovesForTargetZone,deepZZForCalculatedLevels)
+						if j>deepZZForCalculatedLevels then
+							break
+						end
+					end
                     lastLow = math.min(ZZLevels[sizeOfZZLevels-j+1]["val"], lastLow)
                     lastHi = math.max(ZZLevels[sizeOfZZLevels-j+1]["val"], lastHi)
-                end				
+				end	
+				j = j+1			
             end		
 			
             local pD = ZZLevels[sizeOfZZLevels]["val"]            
@@ -1043,7 +1058,7 @@ function cached_ZZ()
 
 			local currentDeviation = 0
 			
-			if ZZLevels[sizeOfZZLevels-4]["val"] ~= nil then
+			if ZZLevels[sizeOfZZLevels-4] ~= nil then
 
 				pX = ZZLevels[sizeOfZZLevels-4]["val"]
 				pA = ZZLevels[sizeOfZZLevels-3]["val"]
@@ -1140,7 +1155,7 @@ function cached_ZZ()
                 local nn = 0
                 local addedZZ = {}
                 for j = 1, numberOfZZLevels do
-                    if ZZLevels[sizeOfZZLevels-j+1]["val"] ~= nil then
+                    if ZZLevels[sizeOfZZLevels-j+1] ~= nil then
                         nn = nn + 1
                         if C(index) > ZZLevels[sizeOfZZLevels-j+1]["val"] then
                             add = -40
@@ -1159,7 +1174,7 @@ function cached_ZZ()
                     for j = minRangeIndex, maxRangeIndex do
                         nn = nn + 1
                         if addedZZ[sortedZZLevels[j]["index"]] == nil then
-                            if sortedZZLevels[j]["val"] ~= nil then
+                            if sortedZZLevels[j] ~= nil then
                                 if C(index) > sortedZZLevels[j]["val"] then
                                     add = -40
                                 else add = 0	
@@ -1206,7 +1221,7 @@ function cached_ZZ()
 					local quantRange = 0
 					
 					for j = 1, numberOfMovesForTargetZone*2-1, 2 do
-						if ZZLevels[sizeOfZZLevels-j -1]["val"] ~= nil then
+						if ZZLevels[sizeOfZZLevels-j -1] ~= nil then
 							meanRange = meanRange + math.abs(ZZLevels[sizeOfZZLevels-j]["val"] - ZZLevels[sizeOfZZLevels-j -1]["val"])
 							quantRange = quantRange + 1
 						end
@@ -1235,7 +1250,7 @@ function cached_ZZ()
 			end
 			if showFiboExt == 1 then
 				
-				if ZZLevels[sizeOfZZLevels-3]["index"] ~= nil  then
+				if ZZLevels[sizeOfZZLevels-3] ~= nil  then
 					local rangeFibo = math.max(math.abs((ZZLevels[sizeOfZZLevels-2]["val"] - ZZLevels[sizeOfZZLevels-3]["val"])), math.abs((ZZLevels[sizeOfZZLevels-2]["val"] - ZZLevels[sizeOfZZLevels-1]["val"])))
 					--local corrRangeFibo = math.abs((ZZLevels[sizeOfZZLevels-2]["val"] - ZZLevels[sizeOfZZLevels-3]["val"]))
 					local sign = 1
@@ -1282,14 +1297,26 @@ function cached_ZZ()
 			--end		
 			
 			-- выводим метку паттерна
-			if showLabel == 1 and ZZLevels[sizeOfZZLevels-deepZZForCalculatedLevels]["index"] ~= nil and Settings.ChartId ~= '' then
+			
+			local labelAtHigh = true
+			--local zLabelShift = deepZZForCalculatedLevels
+			--while ZZLevels[sizeOfZZLevels-zLabelShift] == nil and zLabelShift > 0 do
+			--	zLabelShift = zLabelShift - 1 
+			--end
+			--if zLabelShift ~= 0 then
+			--	labelAtHigh = ZZLevels[sizeOfZZLevels-zLabelShift]["index"] < ZZLevels[sizeOfZZLevels-zLabelShift+1]["index"]
+			--end
+
+			labelAtHigh = C(index) < ZZLevels[sizeOfZZLevels-1]["val"]
+
+			if showLabel == 1 and Settings.ChartId ~= '' then
 			
 				label.DATE, label.TIME = getCandleProp(index-LabelShift) --ZZLevels[sizeOfZZLevels]["index"]
 				local firsY
 				local secondY
 				local thirdY
 
-				if ZZLevels[sizeOfZZLevels-deepZZForCalculatedLevels]["index"] > ZZLevels[sizeOfZZLevels-deepZZForCalculatedLevels+1]["index"] then
+				if labelAtHigh then
 					firsY = lastLow - (lastHi - lastLow)/17
 					secondY = firsY - (lastHi - lastLow)/17
 					thirdY = secondY - (lastHi - lastLow)/17
@@ -1318,7 +1345,7 @@ function cached_ZZ()
 				downcount = 0
 
 				for j = 0, numberOfMovesForTargetZone*2-1, 2 do
-					if ZZLevels[sizeOfZZLevels-j -1]["val"] ~= nil then
+					if ZZLevels[sizeOfZZLevels-j -1] ~= nil then
 						if ZZLevels[sizeOfZZLevels-j]["val"] > ZZLevels[sizeOfZZLevels-j -1]["val"] then
 							upIntervals = upIntervals + ZZLevels[sizeOfZZLevels-j]["index"] - ZZLevels[sizeOfZZLevels-j -1]["index"]
 							upcount = upcount + 1
@@ -1388,7 +1415,7 @@ function cached_ZZ()
 		
 		-- выводим центр движения
 		if showCoG == 1 and ZZLevels[sizeOfZZLevels-1]~=nil then
-            if ZZLevels[sizeOfZZLevels-1]["index"] ~= nil  then
+            if ZZLevels[sizeOfZZLevels-1] ~= nil  then
 				
 				local IndCoG = math.floor((ZZLevels[sizeOfZZLevels]["index"] + ZZLevels[sizeOfZZLevels-1]["index"])/2)
 				local valCoG = (ZZLevels[sizeOfZZLevels]["val"] + ZZLevels[sizeOfZZLevels-1]["val"])/2
