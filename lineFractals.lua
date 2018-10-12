@@ -3,10 +3,11 @@
 
 --logfile=io.open(getWorkingFolder().."\\LuaIndicators\\qlua_log.txt", "w")
 
+lines = 50
+
 Settings = {
 Name = "*line Fractals", 
 Period = 29,
-lines = 50,
 line = {{
 		Name = "FRACTALS - Down", 
 		Type = TYPE_TRIANGLE_DOWN, 
@@ -62,10 +63,10 @@ function Init()
 	func = FRACTALS()
 
 	--добавляем линии
-	for i = 1, Settings.lines do
+	for i = 1, lines do
 		Settings.line[i+2] = {Color = RGB(0, 128, 255), Type = TYPET_BAR, Width = 1} --upLines
 	end
-	for i = Settings.lines+1, 2*Settings.lines do
+	for i = lines+1, 2*lines do
 		Settings.line[i+2] = {Color = RGB(255, 64, 0), Type = TYPET_BAR, Width = 1} --downLines
 	end
 
@@ -91,7 +92,6 @@ function FRACTALS() --Fractals ("FRACTALS")
 
 		local Fsettings=(Fsettings or {})
 		local P = (Fsettings.Period or 5)
-		local lines = Fsettings.lines or 0
 
 		P = math.floor(P/2)*2+1
 		H_tmp[I]=Value(I,"High",ds)
