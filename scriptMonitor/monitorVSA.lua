@@ -1,3 +1,11 @@
+VSASettings = {
+    period    = 29,
+    volumeFactor = 1,
+    overEMAVolumeFactor = 5,
+    useClosePrice = true, -- по ценам закрытия или по максимумам-минимумам
+    Size = 1000
+}
+
 function initVSA()
     cache_volEMA = nil
 end
@@ -57,7 +65,7 @@ function signalVSA(i, cell, settings, DS, signal)
 
         local period = settings.period or 29            -- period        
         local volumeFactor = settings.volumeFactor or 1
-        local overEMAVolumeFactor = settings.overEMAVolumeFactor or 2
+        local overEMAVolumeFactor = settings.overEMAVolumeFactor or 5
         local useClosePrice = settings.useClosePrice or true
         
         index = DS:Size()-1
