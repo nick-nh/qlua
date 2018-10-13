@@ -98,6 +98,7 @@ Settings =
 	showFiboExt = 1, -- показывать расширение фибо волны
 	LabelShift = 100, -- сдвиг метки от вершины
 	ChartId = '',
+	whiteLabelColor = 0,
 	line=
 	{
 		{
@@ -307,6 +308,9 @@ end
 function OnDestroy()
 	if Settings.ChartId ~= '' then
 		DelAllLabels(Settings.ChartId)
+		--for i=1,#AddedLabels,1 do
+		--	DelLabel(Settings.ChartId, AddedLabels[i]);
+		--end
 		AddedLabels = {}
 	end
 end
@@ -395,11 +399,11 @@ function RegisterPeak(index, val, Peak, peak_count, ZZLevels)
 	SetValue(index, 1, val)
 
 	--WriteLog ("new T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))).." "..tostring(val))
-	for i=sizeOfZZLevels,sizeOfZZLevels-7,-1 do
-		if ZZLevels[i]~=nil then
-			--WriteLog ("T("..ZZLevels[i]["index"].."); "..isnil(toYYYYMMDDHHMMSS(T(ZZLevels[i]["index"]))).." "..tostring(ZZLevels[i]["val"]))
-		end
-	end
+	--for i=sizeOfZZLevels,sizeOfZZLevels-9,-1 do
+	--	if ZZLevels[i]~=nil then
+	--		--WriteLog ("T("..ZZLevels[i]["index"].."); "..isnil(toYYYYMMDDHHMMSS(T(ZZLevels[i]["index"]))).." "..tostring(ZZLevels[i]["val"]))
+	--	end
+	--end
 
     return peak_count
 
@@ -421,11 +425,11 @@ function ReplaceLastPeak(index, val, Peak, peak_count, ZZLevels)
 
 	SetValue(index, 1, val)
 	
-	for i=sizeOfZZLevels,sizeOfZZLevels-7,-1 do
-		if ZZLevels[i]~=nil then
-			--WriteLog ("T("..ZZLevels[i]["index"].."); "..isnil(toYYYYMMDDHHMMSS(T(ZZLevels[i]["index"]))).." "..tostring(ZZLevels[i]["val"]))
-		end
-	end
+	--for i=sizeOfZZLevels,sizeOfZZLevels-9,-1 do
+	--	if ZZLevels[i]~=nil then
+	--		--WriteLog ("T("..ZZLevels[i]["index"].."); "..isnil(toYYYYMMDDHHMMSS(T(ZZLevels[i]["index"]))).." "..tostring(ZZLevels[i]["val"]))
+	--	end
+	--end
 end
 
 function GetPeak(index, offset, Peak, ZZLevels)
@@ -499,6 +503,7 @@ function cached_ZZ()
 		local showLabel = Fsettings.showLabel or 1
 		local showFiboExt = Fsettings.showFiboExt or 1
 		local LabelShift = Fsettings.LabelShift or 250
+		local whiteLabelColor = Fsettings.whiteLabelColor or 0
         		        
         local searchBoth = 0;
         local searchPeak = 1;
@@ -742,7 +747,10 @@ function cached_ZZ()
                 LowMapBuffer[i]=0.0;
                 HighMapBuffer[i]=0.0;
             end
-            
+			
+			lastlow = -1
+			lasthigh = -1
+
             for i = start, index-1, 1 do
                 
                 -- fill high/low maps
@@ -1216,7 +1224,16 @@ function cached_ZZ()
 					lineIndex[24]["val"] = mutE
 					lineIndex[24]["index"] = index-widthOfTargetMarks
 				else
+
+
+					--WriteLog ("!!!!Lost Z point")
 					
+					--for i=sizeOfZZLevels,sizeOfZZLevels-9,-1 do
+					--	if ZZLevels[i]~=nil then
+					--		--WriteLog ("T("..ZZLevels[i]["index"].."); "..isnil(toYYYYMMDDHHMMSS(T(ZZLevels[i]["index"]))).." "..tostring(ZZLevels[i]["val"]))
+					--	end
+					--end
+				
 					local meanRange = 0
 					local quantRange = 0
 					
@@ -1265,7 +1282,8 @@ function cached_ZZ()
 					
 					if outTF4236 < 0 or (sign*(C(index) - outTF2618) < 0) then outTF4236 = nil end
 					if outTF2618 < 0 or (sign*(C(index) - outTF1618) < 0) then outTF2618 = nil end
-					if outTF1618 < 0 then outTF1618 = nil end
+					if outTF1618 < 0 or (sign*(C(index) - outTF1000) < 0) then outTF1618 = nil end
+					--if outTF1618 < 0 then outTF1618 = nil end
 					if outTF1000 < 0 then outTF1000 = nil end
 					if (sign*(C(index) - (outTF1618 or C(index))) > 0) then outTF1000 = nil end
 					if (sign*(C(index) - (outTF2618 or C(index))) > 0) then outTF1618 = nil end
@@ -1291,14 +1309,14 @@ function cached_ZZ()
 			
 			--if isBreak == 1 then
 			--	for nn = 1, numberOfLiines do
-			--		--WriteLog ("lineIndex[1]["..tostring(nn).."] "..tostring(lineIndex[1][nn]));
-			--		--WriteLog ("lineIndex[2]["..tostring(nn).."] "..tostring(lineIndex[2][nn]));
+			--		WriteLog ("lineIndex[1]["..tostring(nn).."] "..tostring(lineIndex[1][nn]));
+			--		WriteLog ("lineIndex[2]["..tostring(nn).."] "..tostring(lineIndex[2][nn]));
 			--	end					
 			--end		
 			
 			-- выводим метку паттерна
 			
-			local labelAtHigh = true
+			--local labelAtHigh = true
 			--local zLabelShift = deepZZForCalculatedLevels
 			--while ZZLevels[sizeOfZZLevels-zLabelShift] == nil and zLabelShift > 0 do
 			--	zLabelShift = zLabelShift - 1 
@@ -1307,7 +1325,7 @@ function cached_ZZ()
 			--	labelAtHigh = ZZLevels[sizeOfZZLevels-zLabelShift]["index"] < ZZLevels[sizeOfZZLevels-zLabelShift+1]["index"]
 			--end
 
-			labelAtHigh = C(index) < ZZLevels[sizeOfZZLevels-1]["val"]
+			local labelAtHigh = math.abs(C(index) - lastHi) < math.abs(C(index) - lastLow)
 
 			if showLabel == 1 and Settings.ChartId ~= '' then
 			
@@ -1317,11 +1335,11 @@ function cached_ZZ()
 				local thirdY
 
 				if labelAtHigh then
-					firsY = lastLow - (lastHi - lastLow)/17
+					firsY = lastHi + 3*(lastHi - lastLow)/17
 					secondY = firsY - (lastHi - lastLow)/17
 					thirdY = secondY - (lastHi - lastLow)/17
 				else
-					firsY = lastHi + 3*(lastHi - lastLow)/17
+					firsY = lastLow - (lastHi - lastLow)/17
 					secondY = firsY - (lastHi - lastLow)/17
 					thirdY = secondY - (lastHi - lastLow)/17
 				end
@@ -1330,9 +1348,15 @@ function cached_ZZ()
 				--WriteLog ("date "..tostring(label.DATE).." time "..tostring(label.TIME))
 
 				label.YVALUE = firsY
-				label.R = 0 
-				label.G = 0 
-				label.B = 0  
+				if whiteLabelColor == 1  then
+					label.R = 200 
+					label.G = 200 
+					label.B = 200  
+				else
+					label.R = 0 
+					label.G = 0 
+					label.B = 0  
+				end
 				label.TRANSPARENCY = 0 
 				label.TRANSPARENT_BACKGROUND = 1  
 				label.FONT_FACE_NAME = 'Verdana'  
