@@ -28,7 +28,6 @@ showHourVWAP - выводить ли ежечасовую линию VWAP.
 showDayVWAP  - выводить ли дневную линию VWAP.
 
 <a href="http://funkyimg.com/view/2M4TG" target="_blank"><img src="http://funkyimg.com/i/2M4TG.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
-<a href="http://funkyimg.com/view/2M4TH" target="_blank"><img src="http://funkyimg.com/i/2M4TH.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
 Команда Start   - если в настройках не указан автозапуск по инструменту, то можно запустить его дважды нажав. Stop - остановить сканер.
 del Labels      - удалить все метки на графике инструмента.
