@@ -1230,7 +1230,7 @@ function addDeal(index, ChartId, openLong, openShort, closeLong, closeShort, tim
         
     label.DATE = (time.year*10000+time.month*100+time.day)
     label.TIME = ((time.hour)*10000+(time.min)*100)            
-    local IMAGE_PATH = getScriptPath()..'\\Изображения\\'
+    local IMAGE_PATH = getScriptPath()..'\\Pictures\\'
 
     if openLong ~= nil then
         label.YVALUE = openLong
