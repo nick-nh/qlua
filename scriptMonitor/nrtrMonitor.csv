@@ -1,0 +1,11 @@
+SecCode;ChartId;Interval;isLong;isShort;Length;Kv
+FEES;testGraphFEES;1440;1;0;9;1.7
+ALRS;testGraphALRS;1440;1;0;16;1.8
+MOEX;testGraphMOEX;1440;1;0;9;1.7
+SBER;testGraphSBER;1440;1;0;47;1.9
+GAZP;testGraphGAZP;1440;1;0;101;1.4
+LKOH;testGraphLKOH;1440;1;0;9;1.7
+GMKN;testGraphGMKN;1440;1;0;9;1.7
+CHMF;testGraphCHMF;1440;1;0;9;1.7
+AFLT;testGraphAFLT;1440;1;0;9;1.7
+MAGN;testGraphMAGN;1440;1;0;22;2.5
