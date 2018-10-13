@@ -1,3 +1,24 @@
+allEMASettings = {
+    periods = {64,182},
+    Size = 1000,
+    testZone = 10
+}
+EMA182Settings = {
+    period    = 182,
+    Size = 1000,
+    testZone = 10
+}
+EMA64Settings = {
+    period    = 64,
+    Size = 1000,
+    testZone = 10
+}
+EMA29Settings = {
+    period    = 29,
+    Size = 1000,
+    testZone = 10
+}
+
 function initEMA()
     calcAlgoValue=nil
 end
