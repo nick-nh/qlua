@@ -1,0 +1,18 @@
+Код класса;Имя;Идентификатор;ChartId;clasterSize;clasterTime;bigDealSize;collectStats;autoScan;showHourVWAP;showDayVWAP
+TQBR;Сбербанк;SBER;testGraphTQBR;5;2;20000;1;1;0;0
+TQBR;ВТБ;VTBR;;5;0;5000;0;0;0;0
+TQBR;Мосбиржа;MOEX;;5;0;5000;0;0;0;0
+TQBR;ФСК;FEES;;5;2;2000;0;0;0;0
+TQBR;Русгидро;HYDR;;5;0;5000;0;0;0;0
+TQBR;Новатек;NVTK;;5;0;5000;0;0;0;0
+TQBR;Газпром;GAZP;;5;0;5000;0;0;0;0
+TQBR;Лукойл;LKOH;;5;0;5000;0;0;0;0
+TQBR;Роснефть;ROSN;;5;0;5000;0;0;0;0
+TQBR;Алроса;ALRS;;5;0;5000;0;0;0;0
+TQBR;ГМК;GMKN;;5;0;5000;0;0;0;0
+TQBR;ММК;MAGN;;5;0;5000;0;0;0;0
+TQBR;НЛМК;NLMK;;5;0;5000;0;0;0;0
+TQBR;Северсталь;CHMF;;5;0;5000;0;0;0;0
+TQBR;Аэрофлот;AFLT;;5;0;5000;0;0;0;0
+TQBR;Магнит;MGNT;;5;0;5000;0;0;0;0
+SPBFUT;SiZ8;SiZ8;testGraphSi;5;2;3000;0;0;1;1
