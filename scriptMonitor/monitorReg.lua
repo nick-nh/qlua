@@ -1,3 +1,10 @@
+RegSettings = {
+    bars    = 182,
+    degree = 1, -- 1 -линейная, 2 - параболическая, - 3 степени
+    kstd = 3, --отклонение сигма
+    testZone = 4
+}
+
 function initReg()
     calcAlgoValue = nil     --      Возвращаемая таблица
     fx_buffer = nil         --      Линия регрессии
@@ -149,7 +156,7 @@ function Reg(iSec, index, settings, DS)
 		end
 	end
 	   
-	sq = math.sqrt(sq/(p+1))*kstd
+	sq = math.sqrt(sq/(p-1))*kstd
 
 	for n=i0, i0+p do
 		sqh_buffer[index+n-bars]=round(fx_buffer[n]+sq, 5)
@@ -165,6 +172,7 @@ function signalReg(i, cell, settings, DS, signal)
     --tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value) or 0
 	local testvalue = GetCell(t_id, i, tableIndex["Текущая цена"]).value
 	local scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
+	local minPriceStep = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
 	--local price_step = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value) or 0
     local signaltestvalue1 = calcAlgoValue[DS:Size()-1] or 0
     local signaltestvalue2 = calcAlgoValue[DS:Size()-2] or 0
@@ -183,16 +191,34 @@ function signalReg(i, cell, settings, DS, signal)
     if INTERVALS["visible"][cell] then
         local colorGradation = math.floor((math.abs(testvalue - calcVal)/deltaSigma)*(255-200))
         local Color = RGB(255, 255, 255)
-        if calcVal>=testvalue then
+		if testvalue>plusSigma or testvalue<minusSigma  then
+            Color = RGB(200, 200, 255) --голубой
+		elseif calcVal>=testvalue then
             Color = RGB(math.max(255 - 0.5*colorGradation, 255), 255 - 3*colorGradation, 255 - 3*colorGradation) -- оттенки красного
 		elseif calcVal<testvalue then
             Color = RGB(255 - 3*colorGradation, math.max(255 - 0.7*colorGradation, 255), 255 - 3.4*colorGradation) --оттенки зеленого
-		elseif calcVal>maxSigmaZone or calcVal<minSigmaZone  then
-            Color = RGB(200, 200, 255) --голубой
         end
 
         SetCell(t_id, i, tableIndex[cell], tostring(calcVal), calcVal)
         cellSetColor(i, tableIndex[cell], Color, RGB(0,0,0))
+    end
+	if INTERVALS["visible"][cell+1] then
+		local length = settings.bars or 182
+		local previous = index-length
+		previous = FindExistCandle(previous)
+		local ratio = round(100*(DS:C(index) - DS:C(previous))/DS:C(previous), 2)
+		--local ratio = round(math.atan(height/length)*180/3.14158, 2)		
+		--myLog("SEC_CODE "..tostring(SEC_CODE).." ratio "..tostring(ratio).." index tbl "..tostring(tableIndex[cell + 1]))
+		local colorGradation = math.floor((math.abs(ratio)/100)*(255-200))
+        local Color = RGB(255, 255, 255)
+		if ratio<0 then
+            Color = RGB(math.max(255 - 0.5*colorGradation, 255), 255 - 3*colorGradation, 255 - 3*colorGradation) -- оттенки красного
+		elseif ratio>=0 then
+            Color = RGB(255 - 3*colorGradation, math.max(255 - 0.7*colorGradation, 255), 255 - 3.4*colorGradation) --оттенки зеленого
+        end
+
+        SetCell(t_id, i, tableIndex[cell + 1], tostring(ratio), ratio)
+        cellSetColor(i, tableIndex[cell + 1], Color, RGB(0,0,0))
     end
 
     if signal then
