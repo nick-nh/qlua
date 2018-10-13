@@ -5,7 +5,7 @@
 
 <a href="http://funkyimg.com/view/2KKiR" target="_blank"><img src="http://funkyimg.com/i/2KKiR.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
-<a href="http://funkyimg.com/view/2M4yp" target="_blank"><img src="http://funkyimg.com/p/2M4yp.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+<a href="http://funkyimg.com/view/2M4yp" target="_blank"><img src="http://funkyimg.com/i/2M4yp.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
 Основные настройки
 
