@@ -1,3 +1,8 @@
+RSISettings = {
+    period    = 29,
+    Size = 1000
+}
+
 function initRSI()
     calcAlgoValue = nil
     RSI_H = nil
