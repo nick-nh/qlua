@@ -1,0 +1,70 @@
+Скрипт сканирующий таблицу обезличенных сделок.
+
+Основной смысл скрипта - это собрать данные по сделкам. Найти крупные сделки, сформировать кластеры. Построить профиль дня.
+
+Основное окно содержит список инструментов данные по дельте, vwap, колонки парамтеров кластеризации, команды.
+
+<a href="http://funkyimg.com/view/2M4TC" target="_blank"><img src="http://funkyimg.com/i/2M4TC.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+
+Файл настроек содержит список бумаг. Здесь можно задать параметры для каждой бумаги.
+
+ChartId - имя идентификатора графика на который будет выводиться  информация. Если не указан, то будет простой сбор статистики.
+clasterSize  - размер кластера профиля цены в шагах цены.
+clasterTime  - размер кластера больших сделок в секундах. Если 0, то будут складываться сделки с одинаковым временем mcs ТОС.
+               Если указано количество секунд, то будут складываться сделки за указанное время и это будет основанием для
+               объема кластера. Т.о. можно искать два вида крыпных объемов: первый - это просто крыпные единичные сделки,
+               второй - прошедший объем за указанное количество секунд.
+bigDealSize  - это фильтр замера большой сделки. Если размер полученного кластера превышает указанное, то будет выведена метка
+               на график с указанным ChartId. Увеличение размера ведет к выявлению более крыпных объемов. 
+               Слишком маленькое занчение устанавливать не рекомендуется, т.к. количество меток будет очень большим.
+collectStats - собирать ли статистику по ТОС.
+autoScan     - запускать ли по указнной бумаг сканер при запуске.
+showHourVWAP - выводить ли ежечасовую линию VWAP.
+showDayVWAP  - выводить ли дневную линию VWAP.
+
+<a href="http://funkyimg.com/view/2M4TG" target="_blank"><img src="http://funkyimg.com/i/2M4TG.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+<a href="http://funkyimg.com/view/2M4TH" target="_blank"><img src="http://funkyimg.com/i/2M4TH.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+Команда Start   - если в настройках не указан автозапуск по инструменту, то можно запустить его дважды нажав. Stop - остановить сканер.
+del Labels      - удалить все метки на графике инструмента.
+rescan BigDeals - перезапустить скане по инструменту.
+
+Последние две команды актуальны в случае, если были изменнены параметры кластеризации больших сделок. Допустим, мы видим,
+что метки крупных сделок слишком частые. Мы можем изменить параметры clasterTime или bigDealSize прямо из окна, давжды щелкнув по полю.
+Откроется окно ввода значения, где выбрав мышкой строку можно ввести новое занчение. После изменения запускам рескан ТОС.
+Будут выведены новые метки. Красная метка - это крупный кластер с отрицательной дельтой (больше продаж по рынку),
+зеленая - с положительной (покупки). Если кластеры строятся с праметром clasterTime = 0, то это либо крупная единичнвая сделка
+на продажу или покупку. У метки есть подсказка указаывающая объем и время.
+
+<a href="http://funkyimg.com/view/2M4TJ" target="_blank"><img src="http://funkyimg.com/i/2M4TJ.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+
+Если указаны парметры вывода showDayVWAP или showHourVWAP, то будут выведены расчитанные VWAP кадого часа (тонкие синие метки)
+и дневная VWAP (толстая синяя)
+
+<a href="http://funkyimg.com/view/2M4UY" target="_blank"><img src="http://funkyimg.com/i/2M4UY.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+
+Если в параметрах указана collectStats = 1, то дважды щелкнув по полю delta, будет показано окно с подробной информацией по сделкам.
+Сортировка осуществляется двойным щелчком по нужному полю. 
+Поля:
+Size   - размер лот сделки
+quant  - количество сделок этого размера
+vol    - суммарный объем сделок этого размера
+invVol - делта объема
+vwap   - средняя vwap цена всех сделок этого размера
+
+Применяя разную сорировку можно находить крупные сделки (сортировка по полю Size), наибольшее количество совершенных сделок
+(сортировка по quant), наибольший объем сделок (сортировка по vol), сортировать по дельте.
+
+<a href="http://funkyimg.com/view/2M4TD" target="_blank"><img src="http://funkyimg.com/i/2M4TD.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+<a href="http://funkyimg.com/view/2M4TE" target="_blank"><img src="http://funkyimg.com/i/2M4TE.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+<a href="http://funkyimg.com/view/2M4TF" target="_blank"><img src="http://funkyimg.com/i/2M4TF.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+
+Чтобы увидеть профиль цены надо добавить на график с указанным ChartId индикатор priceProfile. Чтобы он работал необходимо в папку
+где уcтановлен Квик положить StaticVar.dll
+
+<a href="http://funkyimg.com/view/2M4VC" target="_blank"><img src="http://funkyimg.com/i/2M4VC.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+<a href="http://funkyimg.com/view/2M4VD" target="_blank"><img src="http://funkyimg.com/i/2M4VD.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+
+Установка.
+
+Файл индикатора priceProfile в папку luaIndicators, StaticVar.dll в каталог Квика. Папку со скриптом куда угодно. 
+Запускается скрипт через меню Сервис-Lua скрипты...
