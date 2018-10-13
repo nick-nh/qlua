@@ -110,7 +110,7 @@ Shift+A - для включения/выключения звукового со
 
 <a href="http://funkyimg.com/view/2DejE" target="_blank"><img src="http://funkyimg.com/i/2DejE.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
-Чтобы проигрывался звук, надо положить библиотеку w32.dll в корневую папку Квика, либо отключайте в скрипте и в настройках.
+Чтобы проигрывался звук, надо положить библиотеку w32.dll в корневую папку Квика, либо отключайте в скрипте и в настройках в файле scriptMonitorPar.
 
 <a href="http://funkyimg.com/view/2Dehm" target="_blank"><img src="http://funkyimg.com/i/2Dehm.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
