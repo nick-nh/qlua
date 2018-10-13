@@ -1,0 +1,14 @@
+SecCode;ChartId;Interval;isLong;isShort;bars;ratioFactor;kstd
+FEES;testGraphFEES;1440;1;1;9;0.5;0.5
+ALRS;testGraphALRS;1440;1;1;14;1;1.5
+MOEX;testGraphMOEX;1440;1;1;14;1;1.5
+SBER;testGraphSBER;1440;1;1;14;1;1.5
+GMKN;testGraphGMKN;1440;1;1;11;1;0.5
+CHMF;testGraphCHMF;240;1;1;11;1;1
+CHMF;testGraphCHMF;1440;1;1;9;1;1
+AFLT;testGraphAFLT;15;1;1;11;0.1;0.5
+AFLT;testGraphAFLT;1440;1;1;14;1;1.5
+MAGN;testGraphMAGN;15;1;1;11;0.8;0.5
+MAGN;testGraphMAGN;60;1;1;14;0.5;1
+MAGN;testGraphMAGN;240;1;1;14;0.5;1
+MAGN;testGraphMAGN;1440;1;1;14;1;1.5
