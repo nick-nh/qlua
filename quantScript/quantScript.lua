@@ -101,6 +101,7 @@ function OnInit()
             SecData[SEC_CODE]["VolAsk"] = 0
             SecData[SEC_CODE]["VolBid"] = 0
             SecData[SEC_CODE]["allDelta"] = 0
+            SecData[SEC_CODE]["timeDelta"] = {}
             SecData[SEC_CODE]["quantTrades"] = {}
             SecData[SEC_CODE]["lastClaster"] = nil
             SecData[SEC_CODE]["priceProfile"] = {}
@@ -196,6 +197,7 @@ function updateSecs()
             if SecData[SEC_CODE]["ChartId"]~='' then
                 stv.UseNameSpace(SecData[SEC_CODE]["ChartId"])
                 stv.SetVar('priceProfile', SecData[SEC_CODE]["priceProfile"])
+                stv.SetVar('timeDelta', SecData[SEC_CODE]["timeDelta"])
             end
         --end
     end
@@ -459,6 +461,7 @@ function resetSec(SEC_CODE)
     SecData[SEC_CODE]["VolAsk"] = 0
     SecData[SEC_CODE]["VolBid"] = 0
     SecData[SEC_CODE]["allDelta"] = 0
+    SecData[SEC_CODE]["timeDelta"] = {}
     SecData[SEC_CODE]["quantTrades"] = {}
     SecData[SEC_CODE]["lastClaster"] = nil
     SecData[SEC_CODE]["priceProfile"] = {}
@@ -507,10 +510,20 @@ function addTradeStat(trade, value)
     end
     SecData[trade.sec_code]["priceProfile"][clasterIndex]["vol"] = SecData[trade.sec_code]["priceProfile"][clasterIndex]["vol"] + value
     
+    local dayIndex = (trade.datetime.year*10000+trade.datetime.month*100+trade.datetime.day)*10000
+    local timeIndex = (trade.datetime.hour)*100+(trade.datetime.min)
+    SecData[trade.sec_code]["timeDelta"][dayIndex] = true
+
+    if SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex] == nil then
+        SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex] = {buyVol = 0, sellVol = 0}
+    end
+
     if itsSell then
         SecData[trade.sec_code]["allDelta"] = SecData[trade.sec_code]["allDelta"] - value
+        SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex].sellVol = SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex].sellVol + value
     else
         SecData[trade.sec_code]["allDelta"] = SecData[trade.sec_code]["allDelta"] + value
+        SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex].buyVol = SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex].buyVol + value
     end	
     -- price profile
 
@@ -551,7 +564,7 @@ function ReadTrades(firstindex)
 			local trade = getItem ("all_trades", i)
 			
 			if trade ~= nil then
-				if string.find(secString, trade.sec_code..";") ~= nil and (curDate.day == trade.datetime.day or curDate.wday>5) then
+				if string.find(secString, trade.sec_code..";") ~= nil and (curDate.day == trade.datetime.day or curDate.wday==1 or curDate.wday==7) then
 				
                     local datetime = os.time(trade.datetime)
                                                     
@@ -641,82 +654,84 @@ function rescanBigDeals(sec_code, class_code)
         if trade ~= nil then
             
             local datetime = os.time(trade.datetime)
-            
-            local value = 0
-            --if CountQuntOfDeals == 1 then
-            --    value = 1
-            --elseif sum_quantity == 0 then
-                value = trade.value
-            --else
-            --    value = trade.qty
-            --end
-            
-            local itsSell = bit.band(trade.flags, 0x1) ~= 0
 
-            --myLog("deal "..trade.sec_code.." qnt "..tostring(trade.qty).." deal n:"..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
-            
-            if lastClaster == nil then
-                lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell, sellVol = 0, buyVol = 0} -- time, qty, vol, wvap
-            end
-            local needNewClaster = false
-            if SecData[trade.sec_code]["clasterTime"] == 0 and lastClaster["mcs"] ~= trade.datetime.mcs then
-                needNewClaster = true
-            elseif SecData[trade.sec_code]["clasterTime"] ~= 0 and ((trade.datetime.sec-lastClaster["datetime"].sec+1) > SecData[trade.sec_code]["clasterTime"] or lastClaster["datetime"].min ~= trade.datetime.min or lastClaster["datetime"].hour ~= trade.datetime.hour) then
-                needNewClaster = true
-            end
-            
-            --myLog("needNewClaster "..tostring(needNewClaster))
-            
-            if needNewClaster then
-                if lastClaster["value"]~=0 then
-                    lastClaster["price"] = lastClaster["price"]/lastClaster["value"]
-                else
-                    lastClaster["price"] = trade.price
-                end
-                local clasterQty = lastClaster["qty"]
+            if curDate.day == trade.datetime.day or curDate.wday==1 or curDate.wday==7 then
+
+                local value = 0
+                --if CountQuntOfDeals == 1 then
+                --    value = 1
+                --elseif sum_quantity == 0 then
+                    value = trade.value
+                --else
+                --    value = trade.qty
+                --end
                 
-                --myLog("clasterQty "..tostring(clasterQty).." bigDealSize "..tostring(SecData[trade.sec_code]["bigDealSize"]))
-            
-                if SecData[trade.sec_code]["bigDealSize"]~=0 and clasterQty >= SecData[trade.sec_code]["bigDealSize"] then
-                    myLog("big deal "..trade.sec_code.." qnt "..tostring(clasterQty).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
-                    if lastClaster["buyVol"]>lastClaster["sellVol"] then
-                        lastClaster["isSell"] = false
-                    elseif lastClaster["buyVol"]>lastClaster["sellVol"] then
-                        lastClaster["isSell"] = true
-                    end                                
-                    addBigDealLabel(trade.sec_code, lastClaster)
-                end
-                lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell, sellVol = 0, buyVol = 0} -- time, qty, vol, wvap
-            end
-            
-            lastClaster["qty"] = lastClaster["qty"] + trade.qty
-            lastClaster["value"] = lastClaster["value"] + trade.value
-            lastClaster["price"] = lastClaster["price"] + trade.value*trade.price
-            if itsSell then --sell
-                lastClaster["sellVol"] = lastClaster["sellVol"] + trade.value
-            else
-                lastClaster["buyVol"] = lastClaster["buyVol"] + trade.value
-            end
+                local itsSell = bit.band(trade.flags, 0x1) ~= 0
 
-            --if lastClaster == nil then
-            --    lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell} -- time, qty, vol, wvap
-            --elseif lastClaster["mcs"] ~= trade.datetime.mcs then
-            --    lastClaster["price"] = lastClaster["price"]/lastClaster["value"]
-            --    local clasterQty = lastClaster["qty"]
-            --    if SecData[trade.sec_code]["bigDealSize"]~=0 and clasterQty >= SecData[trade.sec_code]["bigDealSize"] then
-            --        myLog("big deal "..trade.sec_code.." qnt "..tostring(clasterQty).." deal n:"..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
-            --        addBigDealLabel(trade.sec_code, lastClaster)
-            --    end
-            --    lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell} -- time, qty, vol, wvap
-            --end
-            --
-            --lastClaster["qty"] = lastClaster["qty"] + trade.qty
-            --lastClaster["value"] = lastClaster["value"] + trade.value
-            --lastClaster["price"] = lastClaster["price"] + trade.value*trade.price
-            
-            addTradeStat(trade, value)
+                --myLog("deal "..trade.sec_code.." qnt "..tostring(trade.qty).." deal n:"..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
+                
+                if lastClaster == nil then
+                    lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell, sellVol = 0, buyVol = 0} -- time, qty, vol, wvap
+                end
+                local needNewClaster = false
+                if SecData[trade.sec_code]["clasterTime"] == 0 and lastClaster["mcs"] ~= trade.datetime.mcs then
+                    needNewClaster = true
+                elseif SecData[trade.sec_code]["clasterTime"] ~= 0 and ((trade.datetime.sec-lastClaster["datetime"].sec+1) > SecData[trade.sec_code]["clasterTime"] or lastClaster["datetime"].min ~= trade.datetime.min or lastClaster["datetime"].hour ~= trade.datetime.hour) then
+                    needNewClaster = true
+                end
+
+                --myLog("needNewClaster "..tostring(needNewClaster))
+
+                if needNewClaster then
+                    if lastClaster["value"]~=0 then
+                        lastClaster["price"] = lastClaster["price"]/lastClaster["value"]
+                    else
+                        lastClaster["price"] = trade.price
+                    end
+                    local clasterQty = lastClaster["qty"]
+
+                    --myLog("clasterQty "..tostring(clasterQty).." bigDealSize "..tostring(SecData[trade.sec_code]["bigDealSize"]))
+                
+                    if SecData[trade.sec_code]["bigDealSize"]~=0 and clasterQty >= SecData[trade.sec_code]["bigDealSize"] then
+                        myLog("big deal "..trade.sec_code.." qnt "..tostring(clasterQty).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
+                        if lastClaster["buyVol"]>lastClaster["sellVol"] then
+                            lastClaster["isSell"] = false
+                        elseif lastClaster["buyVol"]>lastClaster["sellVol"] then
+                            lastClaster["isSell"] = true
+                        end                                
+                        addBigDealLabel(trade.sec_code, lastClaster)
+                    end
+                    lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell, sellVol = 0, buyVol = 0} -- time, qty, vol, wvap
+                end
+
+                lastClaster["qty"] = lastClaster["qty"] + trade.qty
+                lastClaster["value"] = lastClaster["value"] + trade.value
+                lastClaster["price"] = lastClaster["price"] + trade.value*trade.price
+                if itsSell then --sell
+                    lastClaster["sellVol"] = lastClaster["sellVol"] + trade.value
+                else
+                    lastClaster["buyVol"] = lastClaster["buyVol"] + trade.value
+                end
+
+                --if lastClaster == nil then
+                --    lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell} -- time, qty, vol, wvap
+                --elseif lastClaster["mcs"] ~= trade.datetime.mcs then
+                --    lastClaster["price"] = lastClaster["price"]/lastClaster["value"]
+                --    local clasterQty = lastClaster["qty"]
+                --    if SecData[trade.sec_code]["bigDealSize"]~=0 and clasterQty >= SecData[trade.sec_code]["bigDealSize"] then
+                --        myLog("big deal "..trade.sec_code.." qnt "..tostring(clasterQty).." deal n:"..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
+                --        addBigDealLabel(trade.sec_code, lastClaster)
+                --    end
+                --    lastClaster = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell} -- time, qty, vol, wvap
+                --end
+                --
+                --lastClaster["qty"] = lastClaster["qty"] + trade.qty
+                --lastClaster["value"] = lastClaster["value"] + trade.value
+                --lastClaster["price"] = lastClaster["price"] + trade.value*trade.price
+                
+                addTradeStat(trade, value)
+            end
         end
-		
     end
 
     if SecData[sec_code]["showHourVWAP"] == 1 then
@@ -728,7 +743,7 @@ function rescanBigDeals(sec_code, class_code)
         addPriceLabel(sec_code, SecData[sec_code]["vwap"], 5, -2)
     end
 
-    if curDate.wday>5 then
+    if curDate.wday==1 or curDate.wday==7 then
         updateSecs()
     end
 
