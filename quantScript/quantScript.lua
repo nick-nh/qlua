@@ -512,6 +512,8 @@ function addTradeStat(trade, value)
     
     local dayIndex = (trade.datetime.year*10000+trade.datetime.month*100+trade.datetime.day)*10000
     local timeIndex = (trade.datetime.hour)*100+(trade.datetime.min)
+    local hourIndex = (trade.datetime.day)*100+(trade.datetime.hour)
+    
     SecData[trade.sec_code]["timeDelta"][dayIndex] = true
 
     if SecData[trade.sec_code]["timeDelta"][dayIndex+timeIndex] == nil then
@@ -533,13 +535,13 @@ function addTradeStat(trade, value)
     SecData[trade.sec_code]["vwap"].price = SecData[trade.sec_code]["vwap"].vprice/SecData[trade.sec_code]["vwap"].vol
     SecData[trade.sec_code]["vwap"].datetime = trade.datetime
     
-    if SecData[trade.sec_code]["h_vwap"][trade.datetime.hour] == nil then
-        SecData[trade.sec_code]["h_vwap"][trade.datetime.hour] = {datetime, price = 0, vprice = 0, vol = 0, labelId = nil}
+    if SecData[trade.sec_code]["h_vwap"][hourIndex] == nil then
+        SecData[trade.sec_code]["h_vwap"][hourIndex] = {datetime, price = 0, vprice = 0, vol = 0, labelId = nil}
     end
-    SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].vprice = SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].vprice + value*trade.price
-    SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].vol =    SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].vol + value
-    SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].price =  SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].vprice/SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].vol
-    SecData[trade.sec_code]["h_vwap"][trade.datetime.hour].datetime = trade.datetime
+    SecData[trade.sec_code]["h_vwap"][hourIndex].vprice = SecData[trade.sec_code]["h_vwap"][hourIndex].vprice + value*trade.price
+    SecData[trade.sec_code]["h_vwap"][hourIndex].vol =    SecData[trade.sec_code]["h_vwap"][hourIndex].vol + value
+    SecData[trade.sec_code]["h_vwap"][hourIndex].price =  SecData[trade.sec_code]["h_vwap"][hourIndex].vprice/SecData[trade.sec_code]["h_vwap"][hourIndex].vol
+    SecData[trade.sec_code]["h_vwap"][hourIndex].datetime = trade.datetime
     --VWAP
 end
 
