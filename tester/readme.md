@@ -26,6 +26,9 @@ PARAMS_FILE_NAME = getScriptPath().."\\testMonitor.csv" -- ИМЯ ЛОГ-ФАЙ�
 
 <a href="http://funkyimg.com/view/2KKnm" target="_blank"><img src="http://funkyimg.com/i/2KKnm.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
+Значения статистических показателей рассчитаны как показано здесь:
+https://www.mql5.com/ru/articles/1492
+
 Чтобы выводить данные на график надо задать ChartId.
 
 <a href="http://funkyimg.com/view/2KKni" target="_blank"><img src="http://funkyimg.com/i/2KKni.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
