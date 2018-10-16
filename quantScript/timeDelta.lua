@@ -14,7 +14,7 @@ Settings =
  {
      Name = "*timeDelta",
 	 showVolume=0,
-	 inverse = 0,
+	 inverse = 1,
 	 showdelta=1,
 	 delta_koeff = 0.1,
 	 ChartId = "testGraphSi",
