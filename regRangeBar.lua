@@ -2,16 +2,16 @@
 -- Glukk Inc ©
 -- индикатор, выводящий диапазоны проторговки
 
---logfile=io.open(getWorkingFolder().."\\LuaIndicators\\qlua_log2.txt", "w")
+--logfile=io.open(getWorkingFolder().."\\LuaIndicators\\regRangeBar.txt", "w")
 
 min_price_step = 0
 
 Settings=
 {
 	Name = "*regRangeBar",
-    bars =9,
+    bars = 14,
     ratioFactor = 1,
-    kstd = 0.5,
+    kstd = 2,
 	line =
 	{		
 		{
@@ -114,7 +114,6 @@ function rangeBar()
 	local cacheL={}
 	local cacheH={}
     local cacheC={}
-    local fx_buffer={}
 	local sx={}
 	local calculated_buffer={}
     local prevRangeStart = {}
@@ -148,7 +147,6 @@ function rangeBar()
 		local ll = 0
 		local nn = 0
 		local sq = 0
-		local i0 = 0
 		
 		local mi = 0
  		local ai={{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}		
@@ -175,7 +173,6 @@ function rangeBar()
             prevRangeStart = {}
             prevRangeStart[index] = nil		
             
-            fx_buffer = {}
             calculated_buffer = {}
             
             lastRange = {}
@@ -183,15 +180,13 @@ function rangeBar()
             lastSignal = {}
             lastSignal[index] = {index, 0}
             
-			fx_buffer[1]= 1
-
 			--- sx 
 			sx={}
 			sx[1] = p+1
 			
 			for mi=1, nn*2-2 do
 				sum=0
-				for n=i0, i0+p do
+				for n=1, p do
 					sum = sum + math.pow(n,mi)
 				end
 			    sx[mi+1]=sum
@@ -200,20 +195,22 @@ function rangeBar()
             return nil
 		end
 		
-		upRange[index] = upRange[index-1] 
-		dwnRange[index] = dwnRange[index-1] 
-        cacheL[index] = cacheL[index-1] 
-        cacheH[index] = cacheH[index-1] 
-        cacheC[index] = cacheC[index-1] 
-        rangeStart[index] = rangeStart[index-1] 
-        prevRangeStart[index] = prevRangeStart[index-1] 
-        lastRange[index] = lastRange[index-1] 
-        lastSignal[index] = lastSignal[index-1] 
+        if calculated_buffer[index] == nil then
+            upRange[index] = upRange[index-1] 
+            dwnRange[index] = dwnRange[index-1] 
+            cacheL[index] = cacheL[index-1] 
+            cacheH[index] = cacheH[index-1] 
+            cacheC[index] = cacheC[index-1] 
+            rangeStart[index] = rangeStart[index-1] 
+            prevRangeStart[index] = prevRangeStart[index-1] 
+            lastRange[index] = lastRange[index-1] 
+            lastSignal[index] = lastSignal[index-1] 
+        end
             
 		if not CandleExist(index) then
 			return nil
 		end
-		if index <= bars then
+		if index <= Size()-500 then
 			return nil
 		end
 
@@ -221,38 +218,36 @@ function rangeBar()
         cacheL[index] = L(index)
         cacheC[index] = C(index)
 		
-	    --WriteLog ("---------------------------------")
-        --WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)).."; T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))," - "))
-	    --WriteLog ("C(index) "..tostring(C(index)))
-	    --WriteLog ("H(index) "..tostring(H(index)))
-	    --WriteLog ("L(index) "..tostring(L(index)))
-        
-        previous = rangeStart[index] or index-bars
-		
-		if not CandleExist(previous) then
-			previous = FindExistCandle(previous)
-		end
-        
-        --WriteLog ("previous "..tostring(previous).." "..isnil(toYYYYMMDDHHMMSS(T(previous))," - "))
-        --WriteLog ("prevRangeStart[index] "..tostring(prevRangeStart[index]))
-        
-        local maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
-        local minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))
-        --WriteLog ("maxC "..tostring(maxC))
-        --WriteLog ("minC "..tostring(minC))
-        
         if calculated_buffer[index] == nil then
+            
+            --WriteLog ("---------------------------------")
+            --WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)).."; T("..index.."); "..isnil(toYYYYMMDDHHMMSS(T(index))," - "))
+            --WriteLog ("C(index) "..tostring(C(index)).." H(index) "..tostring(H(index)).." L(index) "..tostring(L(index)))
+            
+            previous = rangeStart[index] or index-bars
+            
+            if not CandleExist(previous) then
+                previous = FindExistCandle(previous)
+            end
+            
+            --WriteLog ("previous "..tostring(previous).." "..isnil(toYYYYMMDDHHMMSS(T(previous))," - ").." rangeStart[index] "..tostring(rangeStart[index]).." prevRangeStart[index] "..tostring(prevRangeStart[index]))
+            
+            local maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
+            local minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
+            --WriteLog ("maxC "..tostring(maxC).." minC "..tostring(minC))
+
+            local fx_buffer={}
             
             --WriteLog ("----reg")
             --- syx 
-            for mi=1, nn do
+            for mi = 1, nn do
                 sum = 0
-                for n=i0, i0+p do
+                for n=0, p do
                     if CandleExist(index+n-bars) then
                         if mi==1 then
-                        sum = sum + C(index+n-bars)
+                            sum = sum + C(index+n-bars)
                         else
-                        sum = sum + C(index+n-bars)*math.pow(n,mi-1)
+                            sum = sum + C(index+n-bars)*math.pow(n,mi-1)
                         end
                     end
                 end
@@ -316,7 +311,7 @@ function rangeBar()
             end
             
             ---
-            for n=i0, i0+p do
+            for n = 1, p do
                 sum=0
                 for kk=1, degree do
                     sum = sum + x[kk+1]*math.pow(n,kk)
@@ -326,75 +321,83 @@ function rangeBar()
 
             calculated_buffer[index] = true
 
-        end
+            -- Std 
+            sq=0.0
+            for n = 1, p do
+                if CandleExist(index+n-bars) then
+                    sq = sq + math.pow(C(index+n-bars)-fx_buffer[n],2)
+                end
+            end
+            
+            sq = math.sqrt(sq/(p-1))*kstd
 
-		--- Std 
-		sq=0.0
-		for n=i0, i0+p do
-			if CandleExist(index+n-bars) then
-				sq = sq + math.pow(C(index+n-bars)-fx_buffer[n],2)
-			end
-		end
-		   
-		sq = math.sqrt(sq/(p-1))*kstd
+            local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])*100/fx_buffer[1]
+            --WriteLog ("deltaRatio "..tostring(deltaRatio).." sq "..tostring(sq))
+            --WriteLog ("fx_buffer["..tostring(#fx_buffer).."] "..tostring(fx_buffer[#fx_buffer]).." fx_buffer[1] "..tostring(fx_buffer[1]))
+            --WriteLog ('cond '..tostring(deltaRatio < ratioFactor and math.abs(C(index) - fx_buffer[#fx_buffer]) < sq))
+            --WriteLog ('cond '..tostring(deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq))
 
-        local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])/fx_buffer[1]*100
-        --WriteLog ("deltaRatio "..tostring(deltaRatio))
-        --WriteLog ("sq "..tostring(sq))
-        --WriteLog ("fx_buffer[#fx_buffer] "..tostring(fx_buffer[#fx_buffer]))
-        --WriteLog ("fx_buffer[1] "..tostring(fx_buffer[1]))
+            --if deltaRatio < ratioFactor and math.abs(C(index) - fx_buffer[#fx_buffer]) < sq  then
+            if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq then
+                out1 = maxC
+                out2 = minC
+                lastRange[index] = {out1, out2}
 
-        if deltaRatio < ratioFactor and math.abs(C(index) - fx_buffer[#fx_buffer]) < sq  then
-            out1 = maxC
-            out2 = minC
-            lastRange[index] = {out1, out2}
-
-            if rangeStart[index] == nil then
-                rangeStart[index] = previous
-                if prevRangeStart[index]~=nil then
-                    if previous - prevRangeStart[index] < bars then
-                        for i=prevRangeStart[index],previous do
-                            SetValue(i, 1, nil)				
-                            SetValue(i, 2, nil)				
+                if rangeStart[index] == nil then
+                    rangeStart[index] = previous
+                    if prevRangeStart[index]~=nil then
+                        if previous - prevRangeStart[index] < bars then
+                            --WriteLog ("clean previous "..tostring(prevRangeStart[index]).." new "..tostring(previous))
+                            if lastSignal[index][1] > previous and lastSignal[index][2]~=0 then
+                                --WriteLog ("clean lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." new range "..tostring(previous))
+                                SetValue(lastSignal[index][1], 3, nil)				                
+                            end
+                            for i=prevRangeStart[index],previous do
+                                SetValue(i, 1, nil)				
+                                SetValue(i, 2, nil)				
+                            end
+                            prevRangeStart[index] = rangeStart[index]
                         end
                     end
                 end
-            end
-            if lastSignal[index][1] > previous and lastSignal[index][2]~=0 then
-                --WriteLog ("clean lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." new range "..tostring(previous))
-                SetValue(lastSignal[index][1], 3, nil)				                
+
+                lastSignal[index] = {index, 0}
+            else
+                --prevRangeStart[index] = nil    
+                if rangeStart[index] ~=nil then
+                    prevRangeStart[index] = rangeStart[index]    
+                end
+                rangeStart[index] = nil
+                --WriteLog ("clean range")
             end
 
-            lastSignal[index] = {index, 0}
-        else
             if rangeStart[index] ~=nil then
-                prevRangeStart[index] = rangeStart[index]    
+                for i=rangeStart[index],index do
+                    SetValue(i, 1, out1)				
+                    SetValue(i, 2, out2)				
+                end
             end
-            rangeStart[index] = nil
-        end
 
-        if rangeStart[index] ~=nil then
-            for i=rangeStart[index],index do
-                SetValue(i, 1, out1)				
-                SetValue(i, 2, out2)				
+            if lastRange[index]~=nil then
+                if (C(index-1) > lastRange[index][1] and C(index-2) <= lastRange[index][1] and lastSignal[index][2]~=1) then
+                    out3 = O(index)
+                    lastSignal[index] = {index, 1}
+                end
+                if (C(index-1) < lastRange[index][2] and C(index-2) >= lastRange[index][2] and lastSignal[index][2]~=-1) then
+                    out3 = O(index)
+                    lastSignal[index] = {index, -1}
+                end
             end
+            
+            if lastSignal[index][2]~=0 then
+                SetValue(lastSignal[index][1], 3, O(lastSignal[index][1]))				                
+            end
+            
+            --WriteLog ("lastRange "..tostring(lastRange[index][1]).." - "..tostring(lastRange[index][2]))
+            --WriteLog ("out1 "..tostring(out1).." out2 "..tostring(out2).." out3 "..tostring(out3))
+            --WriteLog ("lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]))
         end
-
-        if lastRange[index]~=nil then
-            if (C(index-1) > lastRange[index][1] and C(index-2) <= lastRange[index][1] and lastSignal[index][2]~=1) then
-                out3 = O(index)
-                lastSignal[index] = {index, 1}
-            end
-            if (C(index-1) < lastRange[index][2] and C(index-2) >= lastRange[index][2] and lastSignal[index][2]~=-1) then
-                out3 = O(index)
-                lastSignal[index] = {index, -1}
-            end
-        end
-        
-        --WriteLog ("lastRange "..tostring(lastRange[index][1]).." - "..tostring(lastRange[index][2]))
-		--WriteLog ("out1 "..tostring(out1).." out2 "..tostring(out2).." out3 "..tostring(out3))
-		--WriteLog ("lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]))
-        
+       
 		return out1, out2, out3
 		
 	end
