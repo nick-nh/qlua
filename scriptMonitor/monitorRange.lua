@@ -1,7 +1,7 @@
 rangeSettings = {
-    bars = 9,
+    bars = 14,
     ratioFactor = 1,
-    kstd = 0.5,
+    kstd = 2,
     Size = 300
 }
 
@@ -283,7 +283,8 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                 local maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
                 local minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))
                         
-                if deltaRatio < ratioFactor and math.abs(DS:C(index) - fx_buffer[#fx_buffer]) < sq  then                    
+                --if deltaRatio < ratioFactor and math.abs(DS:C(index) - fx_buffer[#fx_buffer]) < sq  then                    
+                if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq then
                     lastRange[index] = {maxC, minC, previous, index}        
                     --lastSignal[index] = {index, 0}
                     if rangeStart[index] == nil then
@@ -293,19 +294,6 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                     rangeStart[index] = nil
                 end
 
-                --if index == DS:Size() then
-                --    myLog(SEC_CODE.." interval "..tostring(interval).." index "..tostring(index).." previous "..tostring(previous).." "..isnil(toYYYYMMDDHHMMSS(DS:T(previous))," - "))
-                --    myLog("lastRange "..tostring(lastRange[index][1]).." - "..tostring(lastRange[index][2]).." "..isnil(toYYYYMMDDHHMMSS(DS:T(lastRange[index][3]))," - ").." "..isnil(toYYYYMMDDHHMMSS(DS:T(lastRange[index][4]))," - "))
-                --    myLog("maxC "..tostring(maxC).." minC "..tostring(minC))
-                --end
-                --if lastRange[index]~=nil then
-                --    if (DS:C(index-1) > lastRange[index][1] and DS:C(index-2) <= lastRange[index][1] and lastSignal[index][2]~=1) then
-                --        lastSignal[index] = {index, 1}
-                --    end
-                --    if (DS:C(index-1) < lastRange[index][2] and DS:C(index-2) >= lastRange[index][2] and lastSignal[index][2]~=-1) then
-                --        lastSignal[index] = {index, -1}
-                --    end
-                --end
         
             end
         end                
