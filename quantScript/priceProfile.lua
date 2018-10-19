@@ -84,7 +84,9 @@ function getResults()
                 local maxCount = 0 
                 for i, profileItem in pairs(algoResults) do
                     MAXV=math.max(MAXV,profileItem.vol)
-                    maxPrice=math.max(maxPrice,profileItem.price)
+                    if MAXV == profileItem.vol then
+                        maxPrice=profileItem.price
+                    end                    
                     --maxPrice=math.max(maxPrice,profileItem.price)
                     --minPrice=math.max(minPrice,profileItem.price)
                     maxCount = maxCount + 1
@@ -140,4 +142,4 @@ function WriteLog(text)
     logfile:flush();
     LASTLOGSTRING = text;
  
- end
+end
