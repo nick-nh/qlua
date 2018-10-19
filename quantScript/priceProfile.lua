@@ -40,7 +40,6 @@ function getResults()
     local outlines = {}
     local priceProfile = {}
 	local calculated_buffer={}
-    local tmpOutlines = {}
 
     return function(index, Fsettings)
 
@@ -50,16 +49,6 @@ function getResults()
 		if index == 1 then
 			calculated_buffer = {}
             outlines = {}
-            tmpOutlines = {}
-            for i=1,lines do --необходимо вывести все линии хотя бы один раз, чтобы потом они отображались без проблем                  
-                tmpOutlines[i] = O(Size())
-            end
-            return unpack(tmpOutlines)
-        end
-		if index == 2 then
-            for i=1,lines do                  
-                SetValue(1,i,nil)
-            end
             return nil
         end
 
@@ -88,16 +77,22 @@ function getResults()
                 end            
 
                 local MAXV = 0
+                local maxPrice = 0
                 --local maxPrice = 0
                 --local minPrice = H(index)
                 
                 local maxCount = 0 
                 for i, profileItem in pairs(algoResults) do
                     MAXV=math.max(MAXV,profileItem.vol)
+                    maxPrice=math.max(maxPrice,profileItem.price)
                     --maxPrice=math.max(maxPrice,profileItem.price)
                     --minPrice=math.max(minPrice,profileItem.price)
                     maxCount = maxCount + 1
                     priceProfile[maxCount] = {price = profileItem.price, vol = profileItem.vol}
+                end
+                
+                if maxPrice == 0 then
+                   maxPrice = O(index) 
                 end
                 
                 table.sort(priceProfile, function(a,b) return (a['vol'] or 0) > (b['vol'] or 0) end)
@@ -108,25 +103,28 @@ function getResults()
                 --local clasterStep = math.floor((maxPrice - minPrice)*lines)
                 --local profileLines = #priceProfile
 
-                for i=1,math.min(#priceProfile, lines) do                                        
+                for i=1,lines do                                        
+
+                    outlines[i] = {index = index-shift+bars, val = maxPrice}
+
                     if priceProfile[i]~=nil then
+                        
                         --if profileLines>lines then
                         --    priceProfile[i].price = math.floor(priceProfile[i].price/clasterStep)*clasterStep
-                        --end
-                        
-                        outlines[i] = {index = index-shift, val = nil}
-                        priceProfile[i].vol=math.floor(priceProfile[i].vol/MAXV*bars)
-                       
+                        --end       
+
+                        priceProfile[i].vol=math.floor(priceProfile[i].vol/MAXV*bars) 
+
                         if priceProfile[i].vol>0 then
                             outlines[i].index = index-shift+priceProfile[i].vol
                             outlines[i].val = priceProfile[i].price                           
-                        end                       
-                        
-                        SetValue(index-shift,       i, outlines[i].val)
-                        SetValue(outlines[i].index, i, outlines[i].val)
-                        --WriteLog('line '..tostring(i).." price "..tostring(GetValue(index-shift, i)).." - "..tostring(GetValue(outlines[i].index, i)).." vol "..tostring(outlines[i].index-index+shift))
+                        end                                               
                     end                   
+                    SetValue(index-shift,       i, outlines[i].val)
+                    SetValue(outlines[i].index, i, outlines[i].val)
+                    --WriteLog('line '..tostring(i).." price "..tostring(GetValue(index-shift, i)).." - "..tostring(GetValue(outlines[i].index, i)).." vol "..tostring(outlines[i].index-index+shift))
                 end                
+
                 calculated_buffer[index] = true
                 --stv.SetVar('priceProfile', nil)
             end
