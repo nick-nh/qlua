@@ -10,7 +10,7 @@ Settings=
 {
 	Name = "*regRangeBar",
     bars = 14,
-    ratioFactor = 1,
+    ratioFactor = 0.7,
     kstd = 2,
 	line =
 	{		
@@ -339,27 +339,37 @@ function rangeBar()
 
             --if deltaRatio < ratioFactor and math.abs(C(index) - fx_buffer[#fx_buffer]) < sq  then
             if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq then
-                out1 = maxC
-                out2 = minC
-                lastRange[index] = {out1, out2}
+                --out1 = maxC
+                --out2 = minC
+                --lastRange[index] = {out1, out2}
 
                 if rangeStart[index] == nil then
-                    rangeStart[index] = previous
+                    --rangeStart[index] = previous
                     if prevRangeStart[index]~=nil then
                         if previous - prevRangeStart[index] < bars then
-                            --WriteLog ("clean previous "..tostring(prevRangeStart[index]).." new "..tostring(previous))
+                            --WriteLog ("clean previous "..tostring(prevRangeStart[index]).." new "..tostring(previous))                            
                             if lastSignal[index][1] > previous and lastSignal[index][2]~=0 then
                                 --WriteLog ("clean lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." new range "..tostring(previous))
                                 SetValue(lastSignal[index][1], 3, nil)				                
                             end
-                            for i=prevRangeStart[index],previous do
-                                SetValue(i, 1, nil)				
-                                SetValue(i, 2, nil)				
-                            end
-                            prevRangeStart[index] = rangeStart[index]
+                            previous = prevRangeStart[index]
+                            maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
+                            minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
+                            --for i=prevRangeStart[index],previous do
+                            --    --SetValue(i, 1, nil)				
+                            --    --SetValue(i, 2, nil)				
+                            --    SetValue(i, 1, maxC)				
+                            --    SetValue(i, 2, minC)				
+                            --end
+                            --prevRangeStart[index] = rangeStart[index]
                         end
                     end
+                    rangeStart[index] = previous
                 end
+
+                out1 = maxC
+                out2 = minC
+                lastRange[index] = {out1, out2}
 
                 lastSignal[index] = {index, 0}
             else
