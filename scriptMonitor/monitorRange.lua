@@ -1,6 +1,6 @@
 rangeSettings = {
     bars = 14,
-    ratioFactor = 1,
+    ratioFactor = 0.7,
     kstd = 2,
     Size = 300
 }
@@ -45,17 +45,12 @@ function initRangeBar()
     end
 
     calcAlgoValue = nil
-	upRange={}
-	dwnRange={}
 	cacheL={}
 	cacheH={}
     cacheC={}
-    fx_buffer={}
-	sx={}
-	calculated_buffer={}
     rangeStart = {}
+    prevRangeStart = {}
     lastRange = {}
-    --lastSignal = {}
 end
 
 function findRangeSettings(iSec, interval, _settings)
@@ -127,10 +122,6 @@ function rangeBar(iSec, ind, _settings, DS, interval)
 
     calcAlgoValue = {}
     calcAlgoValue[index] = 0
-    upRange = {}
-    upRange[index] = 0
-    dwnRange = {}
-    dwnRange[index] = 0
     cacheL = {}
     cacheL[index] = 0			
     cacheH = {}
@@ -139,14 +130,11 @@ function rangeBar(iSec, ind, _settings, DS, interval)
     cacheC[index] = 0			
     rangeStart = {}
     rangeStart[index] = nil			
+    prevRangeStart = {}
+    prevRangeStart[index] = nil			
     
-    fx_buffer = {}
-    fx_buffer[index]= 1
-
     lastRange = {}
-    lastRange[index] = {0, 0}
-    --lastSignal = {}
-    --lastSignal[index] = {index, 0}
+    lastRange[index] = {0, 0, 0, 0}
     
     --- sx 
     sx={}
@@ -163,14 +151,12 @@ function rangeBar(iSec, ind, _settings, DS, interval)
     for index = ind-Size+1, DS:Size() do
 
         calcAlgoValue[index] = calcAlgoValue[index-1] 
-		upRange[index] = upRange[index-1] 
-		dwnRange[index] = dwnRange[index-1] 
         cacheL[index] = cacheL[index-1] 
         cacheH[index] = cacheH[index-1] 
         cacheC[index] = cacheC[index-1] 
         rangeStart[index] = rangeStart[index-1] 
+        prevRangeStart[index] = prevRangeStart[index-1] 
         lastRange[index] = lastRange[index-1] 
-        --lastSignal[index] = lastSignal[index-1]  
 
         if DS:C(index) ~= nil then       
             if index - (ind-Size) > bars then
@@ -179,15 +165,17 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                 cacheL[index] = DS:L(index)
                 cacheC[index] = DS:C(index)
 
+                local fx_buffer={}
+
                 --- syx 
-                for mi=1, nn do
+                for mi = 1, nn do
                     sum = 0
-                    for n=i0, i0+p do
-                        if DS:C(index+n-bars) ~= nil then
+                    for n=0, p do
+                        if DS:C(index+n-bars)~=nil then
                             if mi==1 then
-                            sum = sum + DS:C(index+n-bars)
+                                sum = sum + DS:C(index+n-bars)
                             else
-                            sum = sum + DS:C(index+n-bars)*math.pow(n,mi-1)
+                                sum = sum + DS:C(index+n-bars)*math.pow(n,mi-1)
                             end
                         end
                     end
@@ -214,7 +202,7 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                     end
                         
                     if ll==0 then
-                        return calcAlgoValue
+                        return nil
                     end
                     if ll~=kk then
 
@@ -251,18 +239,18 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                 end
                 
                 ---
-                for n=i0, i0+p do
+                for n = 1, p do
                     sum=0
                     for kk=1, degree do
                         sum = sum + x[kk+1]*math.pow(n,kk)
                     end
                     fx_buffer[n]=x[1]+sum
                 end
-                    
-                --- Std 
+
+                -- Std 
                 sq=0.0
-                for n=i0, i0+p do
-                    if DS:C(index+n-bars) ~= nil then
+                for n = 1, p do
+                    if DS:C(index+n-bars)~=nil then
                         sq = sq + math.pow(DS:C(index+n-bars)-fx_buffer[n],2)
                     end
                 end
@@ -284,17 +272,33 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                 local minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))
                         
                 --if deltaRatio < ratioFactor and math.abs(DS:C(index) - fx_buffer[#fx_buffer]) < sq  then                    
-                if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq then
-                    lastRange[index] = {maxC, minC, previous, index}        
-                    --lastSignal[index] = {index, 0}
+                if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq then
+                    
+                    --lastRange[index] = {maxC, minC, previous, index}        
+                    --if rangeStart[index] == nil then
+                    --    rangeStart[index] = previous
+                    --end
+
                     if rangeStart[index] == nil then
+                        if prevRangeStart[index]~=nil then
+                            if previous - prevRangeStart[index] < bars then
+                                previous = prevRangeStart[index]
+                                maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
+                                minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
+                            end
+                        end
                         rangeStart[index] = previous
                     end
+    
+                    lastRange[index] = {maxC, minC, previous, index}        
+    
                 else
+                    if rangeStart[index] ~=nil then
+                        prevRangeStart[index] = rangeStart[index]    
+                    end
                     rangeStart[index] = nil
                 end
-
-        
+ 
             end
         end                
     end
