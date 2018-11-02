@@ -152,6 +152,9 @@ function rangeBar()
  		local ai={{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}		
 		local b={}
 		local x={}
+
+        local index = ind-1
+		index = math.max(index, 1)
 		
 		p = bars 
 		nn = degree+1
@@ -178,7 +181,7 @@ function rangeBar()
             lastRange = {}
             lastRange[index] = {0, 0}
             lastSignal = {}
-            lastSignal[index] = {index, 0}
+            lastSignal[index] = {index, 0, nil}
             
 			--- sx 
 			sx={}
@@ -331,6 +334,8 @@ function rangeBar()
             
             sq = math.sqrt(sq/(p-1))*kstd
 
+            lastSignal[index][3] = nil				                
+
             local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])*100/fx_buffer[1]
             --WriteLog ("deltaRatio "..tostring(deltaRatio).." sq "..tostring(sq))
             --WriteLog ("fx_buffer["..tostring(#fx_buffer).."] "..tostring(fx_buffer[#fx_buffer]).." fx_buffer[1] "..tostring(fx_buffer[1]))
@@ -349,8 +354,9 @@ function rangeBar()
                         if previous - prevRangeStart[index] < bars then
                             --WriteLog ("clean previous "..tostring(prevRangeStart[index]).." new "..tostring(previous))                            
                             if lastSignal[index][1] > previous and lastSignal[index][2]~=0 then
-                                --WriteLog ("clean lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." new range "..tostring(previous))
-                                SetValue(lastSignal[index][1], 3, nil)				                
+                                --WriteLog ("clean lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." new range "..tostring(prevRangeStart[index]))
+                                SetValue(lastSignal[index][1], 3, nil)
+                                lastSignal[lastSignal[index][1]][3] = nil				                
                             end
                             previous = prevRangeStart[index]
                             maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
@@ -370,45 +376,52 @@ function rangeBar()
                 out1 = maxC
                 out2 = minC
                 lastRange[index] = {out1, out2}
+                for i=rangeStart[index],index do
+                    SetValue(i, 1, out1)				
+                    SetValue(i, 2, out2)				
+                end
 
-                lastSignal[index] = {index, 0}
+                lastSignal[index] = {index, 0, nil}
             else
                 --prevRangeStart[index] = nil    
                 if rangeStart[index] ~=nil then
                     prevRangeStart[index] = rangeStart[index]    
                 end
                 rangeStart[index] = nil
-                --WriteLog ("clean range")
+                --WriteLog ("out of range, clean range")
             end
 
-            if rangeStart[index] ~=nil then
-                for i=rangeStart[index],index do
-                    SetValue(i, 1, out1)				
-                    SetValue(i, 2, out2)				
-                end
-            end
+            --if rangeStart[index] ~=nil then
+            --    for i=rangeStart[index],index do
+            --        SetValue(i, 1, out1)				
+            --        SetValue(i, 2, out2)				
+            --    end
+            --end
 
             if lastRange[index]~=nil then
                 if (C(index-1) > lastRange[index][1] and C(index-2) <= lastRange[index][1] and lastSignal[index][2]~=1) then
-                    out3 = O(index)
-                    lastSignal[index] = {index, 1}
+                    --out3 = O(index)
+                    lastSignal[index] = {index, 1, O(index)}
+                    SetValue(lastSignal[index][1], 3, lastSignal[index][3])				                
                 end
                 if (C(index-1) < lastRange[index][2] and C(index-2) >= lastRange[index][2] and lastSignal[index][2]~=-1) then
-                    out3 = O(index)
-                    lastSignal[index] = {index, -1}
+                    --out3 = O(index)
+                    lastSignal[index] = {index, -1, O(index)}
+                    SetValue(lastSignal[index][1], 3, lastSignal[index][3])				                
                 end
             end
             
-            if lastSignal[index][2]~=0 then
-                SetValue(lastSignal[index][1], 3, O(lastSignal[index][1]))				                
-            end
+            --if lastSignal[index][2]~=0 then
+            --end
             
             --WriteLog ("lastRange "..tostring(lastRange[index][1]).." - "..tostring(lastRange[index][2]))
             --WriteLog ("out1 "..tostring(out1).." out2 "..tostring(out2).." out3 "..tostring(out3))
-            --WriteLog ("lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]))
+            --WriteLog ("lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." - "..tostring(lastSignal[index][3]))
         end
        
-		return out1, out2, out3
+		--return out1, out2, lastSignal[index][3]
+		--return nil, nil, lastSignal[index][3]
+		return nil
 		
 	end
 end
