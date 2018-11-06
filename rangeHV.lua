@@ -150,6 +150,7 @@ function rangeBar()
 		
         if calculated_buffer[index] == nil then
 			cacheL[index] = cacheL[index-1] 
+			cacheL[index] = cacheL[index-1] 
 			cacheH[index] = cacheH[index-1] 
 			EMA[index] 	  = EMA[index-1] 
 		end
@@ -166,6 +167,9 @@ function rangeBar()
 			return nil
 		end
 
+		if showEMA == 1 then
+			outEMA = EMA[index]
+		end
 		if calculated_buffer[index]~=nil then
 			return calculated_buffer[index], outEMA
 		end
