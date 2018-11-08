@@ -1,90 +1,90 @@
 Settings={
-Name = "*Murrey Levels",
-period=64,
-stepback = 0,
-showOldLevels = 0,
-usegap = 0,
-line={
-{
-Name = "[-2/8]",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(255,0, 255)
-},
-{
-Name = "[-1/8]",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(255,191, 191)
-},
-{
-Name = "[0/8] Ћкончательное сопротивление",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(0,128, 255)
-},
-{
-Name = "[1/8] ‘лабый, место для остановки и разворота",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(218,188, 18)
-},
-{
-Name = "[2/8] ‚ращение, разворот",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(255,0, 128)
-},
-{
-Name = "[3/8] „но торгового диапазона",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(120,220, 235)
-},
-{
-Name = "[4/8] ѓлавный уровень поддержки/сопротивления",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(128,128, 128)--green
-},
-{
-Name = "[5/8] ‚ерх торгового диапазона",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(120,220, 235)
-},
-{
-Name = "[6/8] ‚ращение, разворот",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(255,0, 128)
-},
-{
-Name = "[7/8] ‘лабый, место для остановки и разворота",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(218,188, 18)
-},
-{
-Name = "[8/8] Ћкончательное сопротивление",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(0,128, 255)
-},
-{
-Name = "[+1/8]",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(255,191, 191)
-},
-{
-Name = "[+2/8]",
-Type =TYPE_CANDLE,
-Width = 2,
-Color = RGB(255,0, 255)
-},
-
-}}
+	Name = "*Murrey Levels",
+	period=64,
+	stepback = 0,
+	showOldLevels = 0,
+	usegap = 0,
+	line={
+			{
+				Name = "[-2/8]",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(255,0, 255)
+			},
+			{
+				Name = "[-1/8]",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(255,191, 191)
+			},
+			{
+				Name = "[0/8] Ћкончательное сопротивление",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(0,128, 255)
+			},
+			{
+				Name = "[1/8] ‘лабый, место для остановки и разворота",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(218,188, 18)
+			},
+			{
+				Name = "[2/8] ‚ращение, разворот",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(255,0, 128)
+			},
+			{
+				Name = "[3/8] „но торгового диапазона",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(120,220, 235)
+			},
+			{
+				Name = "[4/8] ѓлавный уровень поддержки/сопротивления",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(128,128, 128)--green
+			},
+			{
+				Name = "[5/8] ‚ерх торгового диапазона",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(120,220, 235)
+			},
+			{
+				Name = "[6/8] ‚ращение, разворот",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(255,0, 128)
+			},
+			{
+				Name = "[7/8] ‘лабый, место для остановки и разворота",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(218,188, 18)
+			},
+			{
+				Name = "[8/8] Ћкончательное сопротивление",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(0,128, 255)
+			},
+			{
+				Name = "[+1/8]",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(255,191, 191)
+			},
+			{
+				Name = "[+2/8]",
+				Type =TYPE_CANDLE,
+				Width = 2,
+				Color = RGB(255,0, 255)
+			}
+		}
+}
 
 
 function Init()
@@ -94,32 +94,23 @@ end
 
 function OnCalculate(index)
 
-	return myMurreyMath(index, Settings.period, Settings.stepback, Settings.usegap, Settings.showOldLevels)
+	return myMurreyMath(index, Settings)
 
 end
 
 function MurreyMath()
 	
-	local Buffer1={}
-	local Buffer2={}
-	local Buffer3={}
-	local Buffer4={}
-	local Buffer5={}
-	local Buffer6={}
-	local Buffer7={}
-	local Buffer8={}
-	local Buffer9={}
-	local Buffer10={}
-	local Buffer11={}
-	local Buffer12={}
-	local Buffer13={}
+	local Buffer={}
+	local cacheL = {}
+	local cacheH = {}
+
+	return function(ind, Fsettings)
 		
-	return function(ind, _p, _s, _g, _sl)
 		local index = ind
-		local period = _p
-		local stepback = _s
-		local usegap = _g
-		local showOldLevels = _sl
+		local period = Fsettings.period or 64
+		local stepback = Fsettings.stepback or 0
+		local usegap = Fsettings.usegap or 0
+		local showOldLevels = Fsettings.showOldLevels or 0
 		
 		local m = 0		
 		local h = 0
@@ -134,66 +125,49 @@ function MurreyMath()
 		
 		if index == 1 then
 			 
-			 Buffer1={}
-			 Buffer2={}
-			 Buffer3={}
-			 Buffer4={}
-			 Buffer5={}
-			 Buffer6={}
-			 Buffer7={}
-			 Buffer8={}
-			 Buffer9={}
-			 Buffer10={}
-			 Buffer11={}
-			 Buffer12={}
-			 Buffer13={}
-			
-			 Buffer1[index]=0
-			 Buffer2[index]=0
-			 Buffer3[index]=0
-			 Buffer4[index]=0
-			 Buffer5[index]=0
-			 Buffer6[index]=0
-			 Buffer7[index]=0
-			 Buffer8[index]=0
-			 Buffer9[index]=0
-			 Buffer10[index]=0
-			 Buffer11[index]=0
-			 Buffer12[index]=0
-			 Buffer13[index]=0
+			cacheL = {}
+			cacheL[index] = 0			
+			cacheH = {}
+			cacheH[index] = 0			
+
+			Buffer={}
+			Buffer[index] = {}
+			for nn = 1, 13 do
+				Buffer[index][nn]=0
+			end			
 			 
-			return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+			return nil
 			
 		end
  		
- 		Buffer1[index] = Buffer1[index-1] 
- 		Buffer2[index] = Buffer2[index-1] 
- 		Buffer3[index] = Buffer3[index-1] 
- 		Buffer4[index] = Buffer4[index-1] 
- 		Buffer5[index] = Buffer5[index-1] 
- 		Buffer6[index] = Buffer6[index-1] 
- 		Buffer7[index] = Buffer7[index-1] 
- 		Buffer8[index] = Buffer8[index-1] 
- 		Buffer9[index] = Buffer9[index-1] 
- 		Buffer10[index] = Buffer10[index-1] 
- 		Buffer11[index] = Buffer11[index-1] 
- 		Buffer12[index] = Buffer12[index-1] 
- 		Buffer13[index] = Buffer13[index-1] 
+		cacheL[index] = cacheL[index-1] 
+		cacheH[index] = cacheH[index-1] 
+
+		Buffer[index] = {}
+		for nn = 1, 13 do
+			Buffer[index][nn] = Buffer[index-1][nn] 
+		end
 		
 		if not CandleExist(index) then
 			return nil
 		end
-      
-		if index < (Size()-3) and showOldLevels == 0 then 
+
+		cacheH[index] = H(index)
+        cacheL[index] = L(index)		
+
+		if (index < (Size()-6) and showOldLevels == 0) or (index <= (period + stepback)) then 
 			return nil 
 		end
 		
 		for nn = 1, 13 do
-			SetValue(Size()-4, nn, nil)
-		end
- 		
-		m = lowestLow(index,(period+stepback))
-		h = highestHigh(index,(period+stepback))
+			SetValue(Size()-6, nn, nil)
+		end		
+
+		--m = lowestLow(index,(period+stepback))
+		--h = highestHigh(index,(period+stepback))
+		m = math.min(unpack(cacheL,index-(period+stepback),index))
+		h = math.max(unpack(cacheH,index-(period+stepback),index))
+
 		fractal = DetermineFractal(h)
 		range = h-m
 		sum = math.floor(math.log(fractal/range)/math.log(2))
@@ -205,106 +179,94 @@ function MurreyMath()
 			mx = mn+octave
 		end
 		
--- calculating xx
---x2
-   local x2=0
-   if ((m>=(3*(mx-mn)/16+mn)) and (h<=(9*(mx-mn)/16+mn))) then
-      x2=mn+(mx-mn)/2
-	end  
---x1
-   local x1=0
-   if ((m>=(mn-(mx-mn)/8)) and (h<=(5*(mx-mn)/8+mn)) and (x2==0)) then
-      x1=mn+(mx-mn)/2
-	end  
+		-- calculating xx
+		--x2
+		local x2=0
+		if ((m>=(3*(mx-mn)/16+mn)) and (h<=(9*(mx-mn)/16+mn))) then
+			x2=mn+(mx-mn)/2
+		end  
+		--x1
+		local x1=0
+		if ((m>=(mn-(mx-mn)/8)) and (h<=(5*(mx-mn)/8+mn)) and (x2==0)) then
+			x1=mn+(mx-mn)/2
+		end  
 
---x4
-   local x4=0
-   if ((m>=(mn+7*(mx-mn)/16)) and (h<=(13*(mx-mn)/16+mn))) then
-      x4=mn+3*(mx-mn)/4
-	end  
+		--x4
+		local x4=0
+		if ((m>=(mn+7*(mx-mn)/16)) and (h<=(13*(mx-mn)/16+mn))) then
+			x4=mn+3*(mx-mn)/4
+		end  
 
---x5
-   local x5=0
-   if ((m>=(mn+3*(mx-mn)/8)) and (h<=(9*(mx-mn)/8+mn)) and (x4==0)) then
-      x5=mx
-	end  
+		--x5
+		local x5=0
+		if ((m>=(mn+3*(mx-mn)/8)) and (h<=(9*(mx-mn)/8+mn)) and (x4==0)) then
+			x5=mx
+		end  
 
---x3
-   local x3=0
-   if ((m>=(mn+(mx-mn)/8)) and (h<=(7*(mx-mn)/8+mn)) and (x1==0) and (x2==0) and (x4==0) and (x5==0)) then
-      x3=mn+3*(mx-mn)/4
-	end  
+		--x3
+		local x3=0
+		if ((m>=(mn+(mx-mn)/8)) and (h<=(7*(mx-mn)/8+mn)) and (x1==0) and (x2==0) and (x4==0) and (x5==0)) then
+			x3=mn+3*(mx-mn)/4
+		end  
 
---x6
-   local x6=0
-   if (x1+x2+x3+x4+x5)==0 then
-      x6=mx
-	end  
+		--x6
+		local x6=0
+		if (x1+x2+x3+x4+x5)==0 then
+			x6=mx
+		end  
 
-   local finalH=x1+x2+x3+x4+x5+x6
--- calculating yy
---y1
-   local y1=0
-   if x1>0 then
-      y1=mn
-	end  
+		local finalH=x1+x2+x3+x4+x5+x6
+		-- calculating yy
+		--y1
+		local y1=0
+		if x1>0 then
+			y1=mn
+		end  
 
---y2
-   local y2=0
-   if x2>0 then
-      y2=mn+(mx-mn)/4
-	end  
+		--y2
+		local y2=0
+		if x2>0 then
+			y2=mn+(mx-mn)/4
+		end  
 
---y3
-   local y3=0
-   if x3>0 then
-      y3=mn+(mx-mn)/4
-	end  
+		--y3
+		local y3=0
+		if x3>0 then
+			y3=mn+(mx-mn)/4
+		end  
 
---y4
-   local y4=0
-   if x4>0 then
-      y4=mn+(mx-mn)/2
-	end  
+		--y4
+		local y4=0
+		if x4>0 then
+			y4=mn+(mx-mn)/2
+		end  
 
---y5
-   local y5=0
-   if x5>0 then
-      y5=mn+(mx-mn)/2
-	end  
+		--y5
+		local y5=0
+		if x5>0 then
+			y5=mn+(mx-mn)/2
+		end  
 
---y6
-   local y6=0
-   if finalH>0 and (y1+y2+y3+y4+y5)==0 then
-      y6=mn
- 	end  
-  
-   local finalL = y1+y2+y3+y4+y5+y6
-   
-   local dmml = (finalH-finalL)/8
-   
-    
-   Buffer1[index]=(finalL-dmml*2) ---2/8
-   
-   Buffer2[index]=Buffer1[index]+dmml
-   Buffer3[index]=Buffer2[index]+dmml
-   Buffer4[index]=Buffer3[index]+dmml
-   Buffer5[index]=Buffer4[index]+dmml
-   Buffer6[index]=Buffer5[index]+dmml
-   Buffer7[index]=Buffer6[index]+dmml
-   Buffer8[index]=Buffer7[index]+dmml
-   Buffer9[index]=Buffer8[index]+dmml
-   Buffer10[index]=Buffer9[index]+dmml
-   Buffer11[index]=Buffer10[index]+dmml
-   Buffer12[index]=Buffer11[index]+dmml
-   Buffer13[index]=Buffer12[index]+dmml
-
-   if usegap and Buffer1[index-1]~=nil and Buffer1[index] ~= Buffer1[index-1] then
-		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
-   end
-   
-	return Buffer1[index], Buffer2[index], Buffer3[index], Buffer4[index], Buffer5[index], Buffer6[index], Buffer7[index], Buffer8[index], Buffer9[index], Buffer10[index], Buffer11[index], Buffer12[index], Buffer13[index]   
+		--y6
+		local y6=0
+		if finalH>0 and (y1+y2+y3+y4+y5)==0 then
+			y6=mn
+		end  
 		
+		local finalL = y1+y2+y3+y4+y5+y6
+		
+		local dmml = (finalH-finalL)/8		
+			
+		Buffer[index][1]=(finalL-dmml*2) ---2/8
+		for nn = 2, 13 do
+			Buffer[index][nn]=Buffer[index][nn-1]+dmml
+		end
+
+		if usegap and Buffer[index-1][1]~=nil and Buffer[index][1] ~= Buffer[index-1][1] then
+			return nil
+		end
+		
+		return unpack(Buffer[index])
 				
 	end
 end
