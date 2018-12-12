@@ -39,6 +39,8 @@ LastReadDeals = 0
 rescanSec = nil
 rescanning = false
 
+dirTradeType = 2 -- 1 - направление из ТОС, 2 - напрвление считается как дельта от прошлой цены. Если цена снизилась, то продажа, если повысилась, то покупка
+
 SecData = {}
 OpenSec = nil
 
@@ -101,6 +103,7 @@ function OnInit()
             SecData[SEC_CODE]["VolAsk"] = 0
             SecData[SEC_CODE]["VolBid"] = 0
             SecData[SEC_CODE]["allDelta"] = 0
+            SecData[SEC_CODE]["lastDealPrice"] = 0
             SecData[SEC_CODE]["timeDelta"] = {}
             SecData[SEC_CODE]["quantTrades"] = {}
             SecData[SEC_CODE]["lastClaster"] = nil
@@ -139,6 +142,7 @@ function OnInit()
         SetCell(t_id, i, 2, format_num(allVol,2), allVol) 
         SetCell(t_id, i, 5, tostring(SecData[SEC_CODE]["clasterTime"]), SecData[SEC_CODE]["clasterTime"])
         SetCell(t_id, i, 6, tostring(SecData[SEC_CODE]["bigDealSize"]), SecData[SEC_CODE]["bigDealSize"])
+        SetCell(t_id, i, 10, tostring(SecData[SEC_CODE]["ChartId"]))
         --DS:SetUpdateCallback(function(...) dsCallback(...) end)
     end
 
@@ -174,7 +178,9 @@ function updateSecs()
         end
         SetCell(t_id, i, 4, format_num(SecData[SEC_CODE]["vwap"].price, SecData[SEC_CODE]["scale"]), SecData[SEC_CODE]["vwap"].price)
         
-        if SecData[SEC_CODE]["showDayVWAP"] == 1 then
+        local isScan = string.find(secString, SEC_CODE..";") ~= nil
+
+        if SecData[SEC_CODE]["showDayVWAP"] == 1 and isScan then
             addPriceLabel(SEC_CODE, SecData[SEC_CODE]["vwap"], 5, -2)
         end
 
@@ -184,7 +190,7 @@ function updateSecs()
             hh = tonumber(mysplit(ss,":")[1])
         end
         --myLog("SEC_CODE "..SEC_CODE.." "..tostring(hh).." "..tostring(SecData[SEC_CODE]["h_vwap"][hh]))
-        if SecData[SEC_CODE]["showHourVWAP"] == 1 then
+        if SecData[SEC_CODE]["showHourVWAP"] == 1 and isScan then
             if SecData[SEC_CODE]["h_vwap"][hh]~=nil then
                 addPriceLabel(SEC_CODE, SecData[SEC_CODE]["h_vwap"][hh], 3, 0) 
             end 
@@ -269,9 +275,10 @@ function CreateTable() -- Функция создает таблицу
     AddColumn(t_id, 7, "", true, QTABLE_STRING_TYPE, 15)
     AddColumn(t_id, 8, "", true, QTABLE_STRING_TYPE, 15)
     AddColumn(t_id, 9, "", true, QTABLE_STRING_TYPE, 20)
+    AddColumn(t_id, 10, "chartID", true, QTABLE_STRING_TYPE, 20)
 
     tbl = CreateWindow(t_id) 
-    SetWindowPos(t_id, 90, 120, 870, #SEC_CODES['names']*20)
+    SetWindowPos(t_id, 90, 120, 970, #SEC_CODES['names']*20)
     SetWindowCaption(t_id, "Quant scan") -- Устанавливает заголовок
     
     -- Добавляет строки
@@ -306,6 +313,16 @@ function event_callback(t_id, msg, par1, par2)
     if (msg==QTABLE_CLOSE) then
         isRun = false
     end
+    if msg == QTABLE_CHAR then --ChartID
+        if tostring(par2) == "8" then
+            local newString = string.sub(GetCell(t_id, par1, 10).image, 1, string.len(GetCell(t_id, par1, 10).image)-1)
+            SetCell(t_id, par1, 10, newString)
+        else
+           local inpChar = string.char(par2)
+           local newString = GetCell(t_id, par1, 10).image..string.char(par2)            
+           SetCell(t_id, par1, 10, newString)
+        end
+    end    
     if msg == QTABLE_LBUTTONDBLCLK then         
         if par2 == 3 then
             OpenSec = SEC_CODES['sec_codes'][par1]
@@ -344,7 +361,7 @@ function event_callback(t_id, msg, par1, par2)
                     secString = secString..SEC_CODE..";"
                 end
 
-                resetSec(SEC_CODE)
+                resetSec(SEC_CODE, par1)
                 SecData[SEC_CODE]["clasterTime"] = GetCell(t_id, par1, 5).value
                 SecData[SEC_CODE]["bigDealSize"] = GetCell(t_id, par1, 6).value
                 rescanSec = par1
@@ -360,7 +377,7 @@ function event_callback(t_id, msg, par1, par2)
         end
         if par2 == 9 then
             local SEC_CODE = SEC_CODES['sec_codes'][par1]
-            resetSec(SEC_CODE)
+            resetSec(SEC_CODE, par1)
             SecData[SEC_CODE]["clasterTime"] = GetCell(t_id, par1, 5).value
             SecData[SEC_CODE]["bigDealSize"] = GetCell(t_id, par1, 6).value
             rescanSec = par1
@@ -457,7 +474,7 @@ function filterQuantity(qty, filterString)
 	
 end 
 
-function resetSec(SEC_CODE)
+function resetSec(SEC_CODE, line)
     SecData[SEC_CODE]["VolAsk"] = 0
     SecData[SEC_CODE]["VolBid"] = 0
     SecData[SEC_CODE]["allDelta"] = 0
@@ -467,11 +484,12 @@ function resetSec(SEC_CODE)
     SecData[SEC_CODE]["priceProfile"] = {}
     SecData[SEC_CODE]["vwap"] = {datetime, price = 0, vprice = 0, vol = 0, labelId = nil}
     SecData[SEC_CODE]["h_vwap"] = {}
+    SecData[SEC_CODE]["ChartId"] = GetCell(t_id, line, 10).image
 end
 
-function addTradeStat(trade, value)
+function addTradeStat(trade, value, itsSell)
     -- trade stats                        
-    local itsSell = bit.band(trade.flags, 0x1) ~= 0
+    --local itsSell = bit.band(trade.flags, 0x1) ~= 0
 
     if SecData[trade.sec_code]["collectStats"] == 1 then
     
@@ -571,17 +589,22 @@ function ReadTrades(firstindex)
                     local datetime = os.time(trade.datetime)
                                                     
                     local value = 0                                                               
-                    --myLog("i "..tostring(i).." deal "..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))
+                    --myLog("sec "..tostring(trade.sec_code).." i "..tostring(i).." deal "..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))
                     --if CountQuntOfDeals == 1 then
                     --    value = 1
                     --elseif sum_quantity == 0 then
-                        value = trade.value
+                    --    value = trade.value
                     --else
-                    --    value = trade.qty
+                        value = trade.qty
                     --end
                      
                     local itsSell = bit.band(trade.flags, 0x1) ~= 0
-                    
+                    if dirTradeType == 2 and SecData[trade.sec_code]["lastDealPrice"]~=0 and trade.price~=SecData[trade.sec_code]["lastDealPrice"] then
+                        --myLog("itsSell "..tostring(itsSell).." ".."lastDealPrice "..tostring(SecData[trade.sec_code]["lastDealPrice"]).." ".."trade.price "..tostring(trade.price).." ".."new type "..tostring(trade.price<SecData[trade.sec_code]["lastDealPrice"]))
+                        itsSell = trade.price<SecData[trade.sec_code]["lastDealPrice"] 
+                    end
+                    SecData[trade.sec_code]["lastDealPrice"] = trade.price
+
                     -- clastering
                     if SecData[trade.sec_code]["lastClaster"] == nil then
                         SecData[trade.sec_code]["lastClaster"] = {datetime = trade.datetime, mcs = trade.datetime.mcs, qty = 0, value = 0, price = 0, isSell = itsSell, sellVol = 0, buyVol = 0} -- time, qty, vol, wvap
@@ -612,13 +635,13 @@ function ReadTrades(firstindex)
                     SecData[trade.sec_code]["lastClaster"]["value"] = SecData[trade.sec_code]["lastClaster"]["value"] + trade.value
                     SecData[trade.sec_code]["lastClaster"]["price"] = SecData[trade.sec_code]["lastClaster"]["price"] + trade.value*trade.price
                     if itsSell then --продажа
-                        SecData[trade.sec_code]["lastClaster"]["sellVol"] = SecData[trade.sec_code]["lastClaster"]["sellVol"] + trade.value
+                        SecData[trade.sec_code]["lastClaster"]["sellVol"] = SecData[trade.sec_code]["lastClaster"]["sellVol"] + trade.qty
                     else
-                        SecData[trade.sec_code]["lastClaster"]["buyVol"] = SecData[trade.sec_code]["lastClaster"]["buyVol"] + trade.value
+                        SecData[trade.sec_code]["lastClaster"]["buyVol"] = SecData[trade.sec_code]["lastClaster"]["buyVol"] + trade.qty
                     end
                     -- clastering
                     
-                    addTradeStat(trade, value)
+                    addTradeStat(trade, value, itsSell)
                                                             
 				end
 			end
@@ -663,12 +686,16 @@ function rescanBigDeals(sec_code, class_code)
                 --if CountQuntOfDeals == 1 then
                 --    value = 1
                 --elseif sum_quantity == 0 then
-                    value = trade.value
+                --    value = trade.value
                 --else
-                --    value = trade.qty
+                    value = trade.qty
                 --end
                 
                 local itsSell = bit.band(trade.flags, 0x1) ~= 0
+                if dirTradeType == 2 and SecData[trade.sec_code]["lastDealPrice"]~=0 and trade.price~=SecData[trade.sec_code]["lastDealPrice"] then
+                    itsSell = trade.price<SecData[trade.sec_code]["lastDealPrice"] 
+                end
+                SecData[trade.sec_code]["lastDealPrice"] = trade.price
 
                 --myLog("deal "..trade.sec_code.." qnt "..tostring(trade.qty).." deal n:"..tostring(trade.trade_num).." "..isnil(toYYYYMMDDHHMMSS(trade.datetime)))                            
                 
@@ -710,9 +737,9 @@ function rescanBigDeals(sec_code, class_code)
                 lastClaster["value"] = lastClaster["value"] + trade.value
                 lastClaster["price"] = lastClaster["price"] + trade.value*trade.price
                 if itsSell then --sell
-                    lastClaster["sellVol"] = lastClaster["sellVol"] + trade.value
+                    lastClaster["sellVol"] = lastClaster["sellVol"] + trade.qty
                 else
-                    lastClaster["buyVol"] = lastClaster["buyVol"] + trade.value
+                    lastClaster["buyVol"] = lastClaster["buyVol"] + trade.qty
                 end
 
                 --if lastClaster == nil then
@@ -731,7 +758,7 @@ function rescanBigDeals(sec_code, class_code)
                 --lastClaster["value"] = lastClaster["value"] + trade.value
                 --lastClaster["price"] = lastClaster["price"] + trade.value*trade.price
                 
-                addTradeStat(trade, value)
+                addTradeStat(trade, value, itsSell)
             end
         end
     end
