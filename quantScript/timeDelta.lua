@@ -1,4 +1,4 @@
---logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
+--logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\timeDelta.txt", "w")
 
 require("StaticVar")
 
@@ -6,6 +6,7 @@ SEC_CODE = "";
 CLASS_CODE = ""; 
 DSInfo = nil;
 Vol_Coeff = 1;
+interval = 0
 
 startTrade = 1000
 endTrade = 2345
@@ -16,8 +17,8 @@ Settings =
 	 showVolume=0,
 	 inverse = 1,
 	 showdelta=1,
-	 delta_koeff = 0.1,
-	 ChartId = "testGraphSi",
+	 delta_koeff = 1,
+	 ChartId = "Sheet11",
 	 line =
      {
          {
@@ -104,6 +105,7 @@ function OnCalculate(index)
 		SEC_CODE = DSInfo.sec_code
 		CLASS_CODE = DSInfo.class_code
 		Vol_Coeff = getLotSizeBySecCode(DSInfo.sec_code)
+		interval = DSInfo.interval
 		stv.UseNameSpace(Settings.ChartId)
 	end
           
@@ -155,7 +157,7 @@ function Vol()
 		local dayIndex = (T(index).year*10000+T(index).month*100+T(index).day)*10000
 		local hourIndex = (T(index).hour)*100
 		local minIndex = T(index).min
-		local endIndex = (T(Size()).hour)*100+(T(Size()).min)
+		local endIndex = (T(Size()).hour)*100+(T(Size()).min+interval)
 		
 		if index ~= Size() then
 			endIndex = (T(index+1).hour)*100+(T(index+1).min)
@@ -184,7 +186,7 @@ function Vol()
 						minIndex = 0
 						hourIndex = hourIndex+100
 					end
-					if hourIndex+minIndex == endIndex or (hourIndex+minIndex == 2400) then
+					if hourIndex+minIndex >= endIndex or (hourIndex+minIndex == 2400) then
 						stopCount = true
 					end	
 				end
