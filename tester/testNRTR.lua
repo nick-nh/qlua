@@ -1,2295 +1,967 @@
--- nick-h@yandex.ru
--- Glukk Inc ©
+-------------------------
+--NRTR
+NRTRSettings = {
+    Length    = 0,                   
+    Kv = 0,                  
+    Switch = 0,             
+    zShift = 0,             
+    barShift = 0,              
+    deviation = 0,              
+	ATRfactor = 0,
+	numberOfMovesForTargetZone = 0,
+    StepSize = 0,              
+    adaptive = 0,
+    alpha = 0,
+    Percentage = 0,
+    Size = 0
+}
 
---local w32 = require("w32")
-require("StaticVar")
-
-dofile (getScriptPath().."\\testNRTR.lua") --stepNRTR алгоритм
-dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
-dofile (getScriptPath().."\\testShiftEMA.lua") --ShiftEMA алгоритм
-dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
-dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
-
-SEC_CODES = {}
-scale = 2
-
-FILE_LOG_NAME = getScriptPath().."\\testMonitorLog.txt" -- ИМЯ ЛОГ-ФАЙЛА
-PARAMS_FILE_NAME = getScriptPath().."\\testMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
-
-soundFileName = "c:\\windows\\media\\Alarm03.wav"
-
-INTERVAL = INTERVAL_M5 -- --текущий интервал
-RFR = 0 --7.42 --безрискова ставка для расчета коэфф. Шарпа
-
-
-ALGORITHMS = {}
-
---/*РАБОЧИЕ ПЕРЕМЕННЫЕ РОБОТА (менять не нужно)*/
-IsRun = true -- Флаг поддержания работы скрипта
-is_Connected = 0
-g_previous_time = os.time() -- помещение в переменную времени сервера в формате HHMMSS 
-fixResColumnCount = 0
-fixAlgoColumnCount = 0
-stopSignal = false
-shortProfit = 0
-longProfit = 0
-lastDealPrice = 0
-lastStopShiftIndex = 0
-slPrice = 0
-tpPrice = 0
-slIndex = 0
-TransactionPrice = 0
-lastTradeDirection = 0
-dealsCount = 0
-dealsLongCount = 0
-dealsShortCount = 0
-algoResults = nil
-chartResults = nil
-profitDealsLongCount = 0
-profitDealsShortCount = 0
-slDealsLongCount = 0
-tpDealsLongCount = 0
-slDealsShortCount = 0
-tpDealsShortCount = 0
-ratioProfitDeals = 0
-initalAssets = 0
-leverage = 1
-deals = {}
-openedDS = {}
-idResColumn = 0
-resultsTables = {} -- таблица результата
-
-kATR = 0.95
-ATR = {}
-barsATR = 20
-kawgATR = 2/(barsATR+1)
-iterateSLTP = true
-maxStop = 90
---iterateSettings = {}
-
-lineTask = nil
-calculateTask = nil
-iSecTask = nil
-cellTask = nil
-settingsTask = nil
-dsTask = nil
-
-t_id = nil
-tres_id = nil
-tv_id = nil
-
-function mycallbackforallstocks(i,cell,index)
-    local ds = SEC_CODES['DS'][i][cell]
-    local seccode = SEC_CODES['sec_codes'][i]          
-    local classcode = SEC_CODES['class_codes'][i]          
-    local intervalName = ALGORITHMS['names'][cell] 
-    if ds:size() > SEC_CODES['lastIndexCalculated'][i][cell] then       
-        myLog("mycallbackforallstocks Size "..tostring(DS:Size()).." class "..classcode.." sec "..seccode.." interval "..intervalName.." index "..tostring(index-1).." Close "..ds:C(index-1))
-    end
+function initStepNRTR()
+    NRTR=nil
+    smax1=nil
+    smin1=nil
+    trend=nil
 end
 
-function DataSource(i)
-
-    local seccode = SEC_CODES['sec_codes'][i]          
-    local classcode = SEC_CODES['class_codes'][i]          
-    --local interval = SEC_CODES['interval'][i]          
-    local interval = GetCell(t_id, i, 4).value or SEC_CODES['interval'][i]
+function initStepNRTRParams()
     
-    if openedDS[seccode] == nil then
-        openedDS[seccode] = {}
-    end
+    param1Min = 6
+    param1Max = 64
+    param1Step = 1
 
-    if openedDS[seccode][interval] ~= nil then
-        return openedDS[seccode][interval]
-    end
-    ds = CreateDataSource(classcode,seccode,interval)
-    if ds == nil then
-        message('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-        myLog('NRTR monitor: ОШИБКА получения доступа к свечам! '..Error)
-        -- Завершает выполнение скрипта
-        IsRun = false
-        return
-    end
-    if ds:Size() == 0 then 
-        ds:SetEmptyCallback()
-    end
-    openedDS[seccode][interval] = ds
-    --ds:SetUpdateCallback(function(...) mycallbackforallstocks(i,cell,interval,...) end)
-    return ds
-end
+    param2Min = 0.7
+    param2Max = 1.7
+    param2Step = 0.1
 
-function OnInit()
-
-    logFile = io.open(FILE_LOG_NAME, "w") -- открывает файл 
+    param3Min = 0
+    param3Max = 1
+    param3Step = 1
     
-    local ParamsFile = io.open(PARAMS_FILE_NAME,"r")
-    if ParamsFile == nil then
-        IsRun = false
-        message("Не удалость прочитать файл настроек!!!")
-        return false
-    end
-
-    is_Connected = isConnected()
-
-    if is_Connected ~= 1 then
-        --IsRun = false
-        message("Нет подключения к серверу!!!")
-        --return false
-    end
-
-    ALGORITHMS = {
-        ["names"] =                 {"NRTR"                 , "ShiftEMA"         , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"         },
-        ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams },
-        ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR       },
-        ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR         },
-        ["calcAlgorithms"] =        {stepNRTR               , shiftEMA           , THV         , SAR           , Reg         , RangeNRTR           },
-        ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade        , simpleTrade , simpleTrade   , simpleTrade , simpleTrade         },
-        ["settings"] =              {NRTRSettings           , shiftEMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings        },
-    }    
-        
-    SEC_CODES['class_codes'] =           {} -- CLASS_CODE
-    SEC_CODES['names'] =                 {} -- имена бумаг
-    SEC_CODES['sec_codes'] =             {} -- коды бумаг
-    SEC_CODES['isLong'] =                {} -- доступен Long
-    SEC_CODES['isShort'] =               {} -- доступен Short
-    SEC_CODES['ChartId'] =               {} -- имя графика для вывода сделок
-    SEC_CODES['Algorithm'] =             {} -- имя алгоритма для расчета из таблицы алгоритмов
-    SEC_CODES['beginIndex'] =            {} -- индекс первой свечки для расчета
-    SEC_CODES['Size'] =                  {} -- число свечек для расчета, от конца или от начального индекса, если он заполнен
-    SEC_CODES['interval'] =              {} -- интервал расчета
-    SEC_CODES['lastIndexCalculated'] =   {} -- свеча последнего рассчета
-    SEC_CODES['interval'] =              {} -- интервал расчета
-    SEC_CODES['lastIndexCalculated'] =   {} -- свеча последнего рассчета
-    SEC_CODES['SL'] =                    {} -- SL
-    SEC_CODES['TP'] =                    {} -- TP
-
-    myLog("Читаем файл параметров")
-    local lineCount = 0
-    for line in ParamsFile:lines() do
-        myLog("Строка параметров "..line)
-        lineCount = lineCount + 1
-        if lineCount > 1 and line ~= "" then
-            local per1, per2, per3, per4, per5, per6, per7, per8, per9, per10, per11, per12 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
-            SEC_CODES['class_codes'][lineCount-1] = per1 
-            SEC_CODES['names'][lineCount-1] = per2
-            SEC_CODES['sec_codes'][lineCount-1] = per3
-            SEC_CODES['isLong'][lineCount-1] = tonumber(per4)
-            SEC_CODES['isShort'][lineCount-1] = tonumber(per5)
-            SEC_CODES['ChartId'][lineCount-1] = per6
-            SEC_CODES['Algorithm'][lineCount-1] = per7
-            SEC_CODES['beginIndex'][lineCount-1] = tonumber(per8)
-            SEC_CODES['Size'][lineCount-1] = tonumber(per9)
-            SEC_CODES['interval'][lineCount-1] = tonumber(per10)
-            SEC_CODES['lastIndexCalculated'][lineCount-1] = {} 
-            SEC_CODES['SL'][lineCount-1] = tonumber(per11)
-            SEC_CODES['TP'][lineCount-1] = tonumber(per12) 
-        end
-    end
-
-    ParamsFile:close()
-
-    CreateTable() -- Создает таблицу
-    SetTableNotificationCallback(t_id, tAlgo_event_callback)
-    SetTableNotificationCallback(tv_id, volume_event_callback)
-    SetTableNotificationCallback(tres_id, tRes_event_callback)
-
-    myLog("Algorithms "..tostring(#ALGORITHMS["names"]))
-    myLog("Sec codes "..tostring(#SEC_CODES['sec_codes']))
-    --myLog("initParams "..tostring(ALGORITHMS['initParams'][5]))
-    --myLog("calcAlgorithms "..tostring(#ALGORITHMS['calcAlgorithms']))
-    
-    local line = 0
-    for i,SEC_CODE in ipairs(SEC_CODES['sec_codes']) do      
-                   
-        for cell,INTERVAL in pairs(ALGORITHMS["names"]) do                    
-                        
-            if ALGORITHMS["names"][cell] == SEC_CODES['Algorithm'][i] then
-                line = line + 1
-
-                myLog("================================================")
-                InsertRow(t_id, line)
-                SetCell(t_id, line, 0, SEC_CODES['names'][i], i)  --count строка, 0 - колонка, v - значение 
-                SetCell(t_id, line, 1, ALGORITHMS['names'][cell], cell)  --i строка, 1 - колонка, v - значение
-                SetCell(t_id, line, 4, tostring(SEC_CODES['interval'][i]), SEC_CODES['interval'][i])  --i строка, 1 - колонка, v - значение
-                
-                local ds = DataSource(line)
-                SEC_CODES['lastIndexCalculated'][i][cell] = ds:Size()            
-                                
-                --Size = findFirstEmptyCandle(DS)
-                local Size = math.min(math.max(SEC_CODES['Size'][i], ds:Size()), SEC_CODES['Size'][i]) 
-                SetCell(t_id, line, 2, tostring(SEC_CODES['beginIndex'][i]), SEC_CODES['beginIndex'][i])  --i строка, 1 - колонка, v - значение
-                SetCell(t_id, line, 3, tostring(Size), Size)  --i строка, 1 - колонка, v - значение
-                --SetCell(t_id, i, 18, "Stop")  --count строка, 0 - колонка, v - значение 
-                --SetColor(t_id, i, 18, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
-                
-                myLog("Всего свечей ".. SEC_CODE..", интервала "..ALGORITHMS["names"][cell].." "..tostring(ds:Size()))
-            end
-
-        end
-    end
-
-    lineTask = nil
-
-    myLog("================================================")
-    myLog("Initialization finished")
-
-end 
-
--- Функция ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK при остановке скрипта
-function OnStop()
-    IsRun = false
-    stopSignal = true
-    myLog("Script Stoped") 
-    if t_id~= nil then
-        DestroyTable(t_id)
-    end
-    if tres_id~= nil then
-        DestroyTable(tres_id)
-    end
-    if tv_id~= nil then
-        DestroyTable(tv_id)
-    end
-    if logFile~=nil then logFile:close() end    -- Закрывает файл 
-end
-
-function main() -- Функция, реализующая основной поток выполнения в скрипте    
-    while IsRun do -- Цикл будет выполнятся, пока IsRun == true         
-        if IsRun == false then break end
-        
-        if calculateTask ~= nil then
-            calculateTask(iSecTask, cellTask)
-            calculateTask = nil
-        end        
-        if ChartIdTask ~= nil and dsTask ~= nil then
-            DelAllLabels(ChartIdTask);
-            addDeals(deals, ChartIdTask, dsTask)
-            stv.UseNameSpace(ChartIdTask)
-            stv.SetVar('algoResults', chartResults)
-            ChartIdTask = nil
-            dsTask = nil
-        end
-        if calculateTask == nil then
-            SetCell(t_id, lineTask, 5, "100%", 100)
-            --lineTask = nil
-            iSecTask = nil
-            cellTask = nil
-            settingsTask = nil   
-        end        
-        
-        sleep(100)
-    end
-end
-
-function addDeals(deals, ChartId, DS)
-
-    local equity = {}
-    local equitySum = initalAssets or 0
-
-    label = 
-    {
-        DATE = 0, 
-        TIME = 0, 
-        TEXT="***********",
-        HINT="",
-        FONT_FACE_NAME = "Arial",
-        FONT_HEIGHT = 10,
-        R = 64,
-        G = 192,
-        B = 64,
-        TRANSPARENT_BACKGROUND = 1,
-        YVALUE = 0,
-    }
-
-    equity[1] = equitySum
-
-    if deals == nil then
-        return
-    end
-
-    for i,index in pairs(deals["index"]) do                    
-        
-        --myLog("deal index "..tostring(index))
-        local tt = DS:T(index)
-        equity[index] = equitySum
-
-        label.DATE = (tt.year*10000+tt.month*100+tt.day)
-        label.TIME = ((tt.hour)*10000+(tt.min)*100)            
-        --myLog("DATE "..tostring(label.DATE))
-        --myLog("TIME "..tostring(label.TIME))
-        --myLog("openLong "..tostring(deals["openLong"][i]))
-        --myLog("openShort "..tostring(deals["openShort"][i]))
-        --myLog("closeLong "..tostring(deals["closeLong"][i]))
-        --myLog("closeShort "..tostring(deals["closeShort"][i]))
-        
-        if deals["openLong"][i] ~=nil then
-            label.YVALUE = deals["openLong"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_buy.bmp'
-            ALIGNMENT = "BOTTOM"
-            label.R = 0
-            label.G = 0
-            label.B = 0
-            if deals["dealProfit"][i] ~= nil then
-                label.TEXT = tostring(deals["dealProfit"][i])
-                equitySum = equitySum + deals["dealProfit"][i]
-                equity[index] = equitySum 
-                if deals["dealProfit"][i] > 0 then
-                    label.R = 0
-                    label.G = 128
-                    label.B = 128
-                elseif deals["dealProfit"][i] < 0 then   
-                    label.R = 227
-                    label.G = 264
-                    label.B = 64
-                end
-            else
-                label.TEXT = "open Long "..tostring(deals["openLong"][i])
-            end
-            label.HINT = "open Long "..tostring(deals["openLong"][i]).." - "..toYYYYMMDDHHMMSS(tt)
-        elseif deals["openShort"][i] ~=nil then
-            label.YVALUE = deals["openShort"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_sell.bmp'
-            label.R = 0
-            label.G = 0
-            label.B = 0
-            ALIGNMENT = "TOP"
-            if deals["dealProfit"][i] ~= nil then
-                label.TEXT = tostring(deals["dealProfit"][i])
-                equitySum = equitySum + deals["dealProfit"][i]
-                equity[index] = equitySum 
-                if deals["dealProfit"][i] > 0 then
-                    label.R = 0
-                    label.G = 128
-                    label.B = 128
-                elseif deals["dealProfit"][i] < 0 then   
-                    label.R = 227
-                    label.G = 264
-                    label.B = 64
-                end
-            else
-                label.TEXT = "open Short "..tostring(deals["openShort"][i])
-            end
-            label.HINT = "open Short "..tostring(deals["openShort"][i]).." - "..toYYYYMMDDHHMMSS(tt)
-        elseif deals["closeLong"][i] ~=nil then
-            label.YVALUE = deals["closeLong"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_sell.bmp'
-            ALIGNMENT = "TOP"
-            label.R = 0
-            label.G = 0
-            label.B = 0
-            if deals["dealProfit"][i] ~= nil then
-                label.TEXT = tostring(deals["dealProfit"][i])
-                equitySum = equitySum + deals["dealProfit"][i]
-                equity[index] = equitySum 
-                if deals["dealProfit"][i] > 0 then
-                    label.R = 0
-                    label.G = 128
-                    label.B = 128
-                elseif deals["dealProfit"][i] < 0 then   
-                    label.R = 227
-                    label.G = 264
-                    label.B = 64
-                end
-            else
-                label.TEXT = "close Long "..tostring(deals["closeLong"][i])
-            end
-            label.HINT = "close Long "..tostring(deals["closeLong"][i]).." - "..toYYYYMMDDHHMMSS(tt)
-        elseif deals["closeShort"][i] ~=nil then
-            label.YVALUE = deals["closeShort"][i]
-            label.IMAGE_PATH = getScriptPath()..'\\Pictures\\МоиСделки_buy.bmp'
-            ALIGNMENT = "BOTTOM"
-            label.R = 0
-            label.G = 0
-            label.B = 0
-            if deals["dealProfit"][i] ~= nil then
-                label.TEXT = tostring(deals["dealProfit"][i])
-                equitySum = equitySum + deals["dealProfit"][i]
-                equity[index] = equitySum 
-                if deals["dealProfit"][i] > 0 then
-                    label.R = 0
-                    label.G = 128
-                    label.B = 128
-                elseif deals["dealProfit"][i] < 0 then   
-                    label.R = 227
-                    label.G = 264
-                    label.B = 64
-                end
-            else
-                label.TEXT = "close Short "..tostring(deals["closeShort"][i])
-            end
-            label.HINT = "close Short "..tostring(deals["closeShort"][i]).." - "..toYYYYMMDDHHMMSS(tt)
-        end
-        
-        AddLabel(ChartId, label)
-
-    end
-
-    for i=2,DS:Size() do
-        if equity[i] == nil then
-            equity[i] = equity[i-1]
-        end
-    end
-
-    stv.UseNameSpace(ChartId)
-    stv.SetVar('equity', equity)
-end
-
-function regression(arr)
-									
-    local degree = 1
-    local kstd = 1
-        
-    local p = 0
-    local n = 0
-    local f = 0
-    local qq = 0
-    local mm = 0
-    local tt = 0
-    local ii = 0
-    local jj = 0
-    local kk = 0
-    local ll = 0
-    local nn = 0
-    
-    local mi = 0
-    local ai={{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}		
-    local b={}
-    local x={}
-    
-    p = #arr 
-    nn = degree+1
-        
-    fx_buffer = {}
-    fx_buffer[1]= 0
-
-    --- sx 
-    sx={}
-    sx[1] = p+1
-    
-    for mi=1, nn*2-2 do
-        sum=0
-        for n=1, p do
-            sum = sum + math.pow(n,mi)
-        end
-        sx[mi+1]=sum
-    end
-                                    
-    --- syx 
-    for mi=1, nn do
-        sum = 0
-		for n=0, p do
-			if arr[n] ~= nil then
-                if mi==1 then
-                   sum = sum + arr[n]
-                else
-                   sum = sum + arr[n]*math.pow(n,mi-1)
-                end
-            end
-        end
-        b[mi]=sum
-    end
-         
-    --- Matrix 
-    for jj=1, nn do
-        for ii=1, nn do
-            kk=ii+jj-1
-            ai[ii][jj]=sx[kk]
-        end
-    end
-         
-    --- Gauss 
-    for kk=1, nn-1 do
-        ll=0
-        mm=0
-        for ii=kk, nn do
-            if math.abs(ai[ii][kk])>mm then
-                mm=math.abs(ai[ii][kk])
-                ll=ii
-            end
-        end
-            
-        if ll==0 then
-            return algoVal
-        end
-        if ll~=kk then
-
-            for jj=1, nn do
-                tt=ai[kk][jj]
-                ai[kk][jj]=ai[ll][jj]
-                ai[ll][jj]=tt
-            end
-            tt=b[kk]
-            b[kk]=b[ll]
-            b[ll]=tt
-        end
-        for ii=kk+1, nn do
-            qq=ai[ii][kk]/ai[kk][kk]
-            for jj=1, nn do
-                if jj==kk then
-                    ai[ii][jj]=0
-                else
-                    ai[ii][jj]=ai[ii][jj]-qq*ai[kk][jj]
-                end
-            end
-            b[ii]=b[ii]-qq*b[kk]
-        end
-    end
-       
-     x[nn]=b[nn]/ai[nn][nn]
-       
-    for ii=nn-1, 1, -1 do
-        tt=0
-        for jj=1, nn-ii do
-            tt=tt+ai[ii][ii+jj]*x[ii+jj]
-            x[ii]=(1/ai[ii][ii])*(b[ii]-tt)
-        end
-    end
-       
-    for n=1, p do
-        sum=0
-        for kk=1, degree do
-            sum = sum + x[kk+1]*math.pow(n,kk)
-        end
-        fx_buffer[n]=x[1]+sum
-    end
-             
-    return fx_buffer
+    param4Min = 0
+    param4Max = 0.15
+    param4Step = 0.05
     
 end
 
-function correlation(regArr, arr)
+function iterateNRTR(iSec, cell)
     
-    local mArr = 0
-    local mReg = 0
-    local p = #arr
+    iterateSLTP = false
 
-    local sq=0.0
-    for n=1, p do
-        if arr[n] ~= nil then
-            sq = sq + math.pow(arr[n]-regArr[n],2)
-            mArr = mArr + arr[n]
-            mReg = mReg + regArr[n]
-        end
-    end
-       
-    local LRE = math.sqrt(sq/(p-2))
+    param1Min = 5
+    param1Max = 64
+    param1Step = 1
+
+    param2Min = 1
+    param2Max = 4
+    param2Step = 0.1
+
+    param3Min = 0
+    param3Max = 1
+    param3Step = 1
     
-    mArr = mArr/p
-    mReg = mReg/p
+    param4Min = 0
+    param4Max = 1
+    param4Step = 1
+
+    param5Min = 6
+    param5Max = 6
+    param5Step = 1
     
-    --myLog("mArr "..tostring(mArr).." mReg "..tostring(mReg))
-
-    --ковариация
-    local cov = 0
-    local sqArr = 0
-    local sqReg = 0
-
-    for n=1, p do
-        if arr[n] ~= nil then
-            sqArr = sqArr + math.pow(arr[n]-mArr,2)
-            sqReg = sqReg + math.pow(regArr[n]-mReg,2)
-            cov = cov + (arr[n]-mArr)*(regArr[n]-mReg)
-        end
-    end
-
-    cov = cov/p
-    local LRC = cov/(math.sqrt(sqArr/p)*math.sqrt(sqReg/p))
-
-    return LRE, LRC
-
-end
-
-function calculateSigma(deals)
- 
-    local sigma = 0
-    local avg = 0
-    local maxDrawDown = 0
-    local equity = initalAssets or 0
-    local maxEquity = initalAssets or 0
-    local profitRatio = 0
-    local dispDeals = {}
-    local maxDelta = 0
+    --param4Min = 0.02
+    --param4Max = 0.3
+    --param4Step = 0.01
     
-    --Sharpe ratio
-    local sharpe = 0
-    local HPRDeals = {}
-    local sigmaHPR = 0
-    local avgHPR = 0
-
-    local dealsCount = 0
-
-    local seriesCount = 0
-    local lastProfit = nil
-    local ZCount = 0
-
-    local dealsArrEquity = {}
-    local dealsArrProfit = {}
-    local dealsArrMAE = {}
-    local dealsArrMFE = {}
-
-    local avgMAE = 0
-    local avgMFE = 0
-    --myLog("--------------------------------------------------")
-    --myLog("equity "..tostring(equity))
-
-    for i,index in pairs(deals["index"]) do                           
-        if deals["dealProfit"][i] ~= nil then
-            dealsCount = dealsCount + 1
-            avg = avg + deals["dealProfit"][i]
-            dispDeals[i] = deals["dealProfit"][i]           
-            
-            local oldEquity = equity
-            equity = equity + deals["dealProfit"][i]
-
-            dealsArrEquity[dealsCount]      = equity
-            dealsArrProfit[dealsCount]      = deals["dealProfit"][i]
-            dealsArrMAE[dealsCount]         = deals["MAE"][i]
-            dealsArrMFE[dealsCount]         = deals["MFE"][i]
-
-            avgMAE = avgMAE + deals["MAE"][i]
-            avgMFE = avgMFE + deals["MFE"][i]
-
-            --myLog("index "..tostring(index).." profit "..tostring(deals["dealProfit"][i]).." MAE "..tostring(deals["MAE"][i]).." MFE "..tostring(deals["MFE"][i]))
-            
-            if oldEquity > 0 and equity < 0 then
-                HPRDeals[i] = 0
-            elseif oldEquity < 0 and equity > 0 then    
-                HPRDeals[i] = 1000
-            else    
-                HPRDeals[i] = equity/oldEquity
-            end
-            --myLog("HPRDeals[i] "..tostring(HPRDeals[i]))
-            avgHPR = avgHPR + HPRDeals[i]
-
-            maxEquity = math.max(maxEquity, equity)
-            --myLog("maxEquity "..tostring(maxEquity))
-            if equity < maxEquity then
-                maxDelta = math.max(maxEquity - equity, maxDelta)
-                maxDrawDown = math.max(round(maxDelta*100/maxEquity, 2), maxDrawDown)
-                --myLog("maxDrawDown "..tostring(maxDrawDown))
-            end
-
-            if lastProfit ~= nil then
-                if lastProfit > 0 and deals["dealProfit"][i] <= 0 then
-                    seriesCount = seriesCount + 1
-                elseif lastProfit <= 0 and deals["dealProfit"][i] > 0 then
-                    seriesCount = seriesCount + 1
-                end      
-            end            
-            lastProfit = deals["dealProfit"][i] 
-                
-        end        
+    --init Parameters
+    local initP = ALGORITHMS["initParams"][cell]
+     if initP~=nil then        
+        initP()
     end
-
-    if dealsCount > 0 then
-        avg = round(avg/dealsCount, 5)
-        avgHPR = round(avgHPR/dealsCount, 5)
-        avgMAE = round(avgMAE/dealsCount, 5)
-        avgMFE = round(avgMFE/dealsCount, 5)
-    else 
-        avg = 0
-        avgHPR = 0
-    end
-    --myLog("avgHPR "..tostring(avgHPR))
-
-    for i,_ in pairs(dispDeals) do                           
-        sigma = sigma + math.pow(dispDeals[i] - avg, 2)
-        sigmaHPR = sigmaHPR + math.pow(HPRDeals[i] - avgHPR, 2)
-        --myLog("HPR_Avg "..tostring(math.pow(HPRDeals[i] - avgHPR, 2)))
-    end
-    --myLog("DispHPR "..tostring(sigmaHPR))
-
-    if dealsCount > 1 then
-        sigma = round(math.sqrt(sigma/(dealsCount-1)), 2)
-        sigmaHPR = round(math.sqrt(sigmaHPR/(dealsCount-1)), 5)
-        --myLog("sigmaHPR "..tostring(sigmaHPR))
-        sharpe = round((avgHPR - (1 + RFR/100))/sigmaHPR, 2)
-    else 
-        sigma = 0
-        sigmaHPR = 0
-    end
-
-    if initalAssets ~= 0 then
-        profitRatio = round((equity - initalAssets)*100/initalAssets, 2)
-    end
-
-    if seriesCount > 0 then
-        local P = 2*(profitDealsLongCount + profitDealsShortCount)*(dealsLongCount - profitDealsLongCount + dealsShortCount - profitDealsShortCount)
-        ZCount=round((dealsCount*(seriesCount-0.5)-P)/math.sqrt((P*(P-dealsCount))/(dealsCount-1)), 2)
-    end
-
-    local regArr = regression(dealsArrEquity)
-    local LRE, LRC = correlation(regArr, dealsArrEquity)
-
-    --local _, MAE = correlation(dealsArrProfit, dealsArrMAE)
-    --local _, MFE = correlation(dealsArrProfit, dealsArrMFE)
-
-    return profitRatio, round(avg, scale), sigma, maxDrawDown, sharpe, round(avgHPR, 2), ZCount, round(avgMAE,2), round(avgMFE,2), round(LRE,2), round(LRC,2)
-end
-
-function CreateTable() -- Функция создает таблицу
     
-    t_id = AllocTable() -- Получает доступный id для создания
-    
-    -- Добавляет колонки
-    AddColumn(t_id, 0, "Инструмент", true, QTABLE_INT_TYPE, 22)
-    AddColumn(t_id, 1, "Алгоритм", true, QTABLE_INT_TYPE, 20)
-    AddColumn(t_id, 2, "beginIndex", true, QTABLE_INT_TYPE, 10)
-    AddColumn(t_id, 3, "Size", true, QTABLE_INT_TYPE, 10)
-    AddColumn(t_id, 4, "interval", true, QTABLE_INT_TYPE, 10)
-    AddColumn(t_id, 5, "done", true, QTABLE_INT_TYPE, 10)
-    AddColumn(t_id, 6, "Best", true, QTABLE_DOUBLE_TYPE, 15)
-    AddColumn(t_id, 7, "profit(%)", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 8, "long", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 9, "short", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 10, "L/P", true, QTABLE_INT_TYPE, 9)
-    AddColumn(t_id, 11, "S/P", true, QTABLE_INT_TYPE, 9)
-    AddColumn(t_id, 12, "L SL/TP", true, QTABLE_INT_TYPE, 12)
-    AddColumn(t_id, 13, "S SL/TP", true, QTABLE_INT_TYPE, 12)
-    AddColumn(t_id, 14, "%Pr", true, QTABLE_DOUBLE_TYPE, 10)
-    AddColumn(t_id, 15, "avgDeal", true, QTABLE_DOUBLE_TYPE, 10)
-    AddColumn(t_id, 16, "Sigma", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 17, "maxD(%)", true, QTABLE_DOUBLE_TYPE, 13)
-    AddColumn(t_id, 18, "Sharpe", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 19, "AHPR", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 20, "ZCount", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 21, "MAE", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 22, "MFE", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 23, "LRE", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(t_id, 24, "LRC", true, QTABLE_DOUBLE_TYPE, 10)
-    fixAlgoColumnCount = 25
-
-    t = CreateWindow(t_id) -- Создает таблицу
-    SetWindowCaption(t_id, "Test") -- Устанавливает заголовок
-    SetWindowPos(t_id, 0, 60, 1600, 500) -- Задает положение и размеры окна таблицы
-    
-    tv_id = AllocTable() -- таблица ввода значения
+    --adaptivePeriod = CyberCycle()
+    adaptivePeriod = cached_ZZ()
         
-    tres_id = AllocTable() -- таблица результатов
-    AddColumn(tres_id, 0, "Инструмент", true, QTABLE_INT_TYPE, 15)
-    AddColumn(tres_id, 1, "Алгоритм", true, QTABLE_INT_TYPE, 15)
-    AddColumn(tres_id, 2, "all", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 3, "profit(%)", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 4, "long", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 5, "short", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 6, "L/P", true, QTABLE_INT_TYPE, 9)
-    AddColumn(tres_id, 7, "S/P", true, QTABLE_INT_TYPE, 9)
-    AddColumn(tres_id, 8, "L SL/TP", true, QTABLE_INT_TYPE, 12)
-    AddColumn(tres_id, 9, "S SL/TP", true, QTABLE_INT_TYPE, 12)
-    AddColumn(tres_id, 10, "%Pr", true, QTABLE_DOUBLE_TYPE, 10)
-    AddColumn(tres_id, 11, "avgDeal", true, QTABLE_DOUBLE_TYPE, 10)
-    AddColumn(tres_id, 12, "Sigma", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 13, "maxD(%)", true, QTABLE_DOUBLE_TYPE, 13)
-    AddColumn(tres_id, 14, "Sharpe", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 15, "AHPR", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 16, "ZCount", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 17, "MAE", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 18, "MFE", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 19, "LRE", true, QTABLE_DOUBLE_TYPE, 12)
-    AddColumn(tres_id, 20, "LRC", true, QTABLE_DOUBLE_TYPE, 10)
-    fixResColumnCount = 21
-    
-end
-
-function CreateResTable(iSec) -- Функция создает таблицу
-        
-    local seccode = SEC_CODES['sec_codes'][iSec]          
-
-    if resultsTables[seccode] == nil then
-        resultsTables[seccode] = {}
-    end
-
-    return resultsTables[seccode]
-
-end
-
-function clearResultsTable(iSec, cell)
-
-    local seccode = SEC_CODES['sec_codes'][iSec]          
-    if resultsTables[seccode] ~= nil then        
-        for i = #resultsTables[seccode], 1, -1 do
-            local secT = resultsTables[seccode][i][2]
-            local cellT = resultsTables[seccode][i][3]
-            if secT == iSec and cellT == cell then
-                table.remove(resultsTables[seccode], i)
-            end
-        end
-    end    
-        
-end
-
-function volume_event_callback(tv_id, msg, par1, par2)
-    if par1 == -1 then
-        return
-    end
-    if msg == QTABLE_CHAR then
-        if tostring(par2) == "8" then
-            local newPrice = string.sub(GetCell(tv_id, par1, 0).image, 1, string.len(GetCell(tv_id, par1, 0).image)-1)
-            SetCell(tv_id, par1, 0, tostring(newPrice))
-            SetCell(t_id, tstr, tcell, GetCell(tv_id, par1, 0).image, tonumber(GetCell(tv_id, par1, 0).image))
-        else
-           local inpChar = string.char(par2)
-           local newPrice = GetCell(tv_id, par1, 0).image..string.char(par2)            
-           SetCell(tv_id, par1, 0, tostring(newPrice))
-           SetCell(t_id, tstr, tcell, GetCell(tv_id, par1, 0).image, tonumber(GetCell(tv_id, par1, 0).image))
-       end
-    end
-end
-
-function tAlgo_event_callback(t_id, msg, par1, par2)
-
-    if msg == QTABLE_LBUTTONDBLCLK then
-        if par2>1 and par2<=3 and IsWindowClosed(tv_id) then --Вводим Size
-            tstr = par1
-            tcell = par2
-            AddColumn(tv_id, 0, "Значение", true, QTABLE_INT_TYPE, 25)
-            tv = CreateWindow(tv_id) 
-            SetWindowCaption(tv_id, "Введите значение")
-            SetWindowPos(tv_id, 290, 260, 250, 100)                                
-            InsertRow(tv_id, 1)
-            SetCell(tv_id, 1, 0, GetCell(t_id, par1, par2).image, GetCell(t_id, par1, par2).value)  --i строка, 0 - колонка, v - значение 
-        elseif par2 > 4 then --переоткрыть результат
-            iSec = GetCell(t_id, par1, 0).value
-            cell = GetCell(t_id, par1, 1).value 
-            local settingTable = ALGORITHMS['settings'][cell]
-            idResColumn = 0
-            openResults(CreateResTable(iSec), settingTable)
-        elseif par2 == 21 then --stop
-            stopSignal = true
-        else
-            iSec = GetCell(t_id, par1, 0).value
-            cell = GetCell(t_id, par1, 1).value 
-            local iterf = ALGORITHMS["itetareAlgorithms"][cell]
-            if iterf~=nil then
-                stopSignal = false
-                lineTask = par1
-                iSecTask = iSec
-                cellTask = cell
-                calculateTask = iterf
-                --iterf(par1, cell)
-            end 
-        end
-    end
-    if (msg==QTABLE_CLOSE) then --закрытие окна
-        IsRun = false
-    end
-    
-end
-
-function tRes_event_callback(tres_id, msg, par1, par2)
-
-    --myLog("par1 "..tostring(par1))
-    --myLog("par2 "..tostring(par2))
-    if msg == QTABLE_LBUTTONDBLCLK then 
-            myLog("lineTask "..tostring(lineTask))
-        
-        if par2 <= 1 then
-            iSec = GetCell(tres_id, par1, 0).value
-            cell = GetCell(tres_id, par1, 1).value
-
-            --myLog("columns "..tostring(columns))
-            local resultString = resultsTables[SEC_CODES['sec_codes'][iSec]][GetCell(tres_id, par1, idResColumn).value]
-            if resultString == nil then
-                message('Не удалось получить таблицу результата. Данные не рассчитаны. Sec '..tostring(SEC_CODES['sec_codes'][iSec])..' tres line '..tostring(GetCell(tres_id, par1, idResColumn).value))
-                return
-            end
-            local settings = resultString[1]
-            
-            if settings.beginIndex == nil or settings.beginIndex == 0 then
-                settings.beginIndex = GetCell(t_id, lineTask, 2).value
-                settings.Size = GetCell(t_id, lineTask, 3).value
-            end
-            
-            initalAssets = 0 
-            dealsCount = 0
-            dealsLongCount = 0
-            dealsShortCount = 0
-            profitDealsLongCount = 0
-            profitDealsShortCount = 0
-            slDealsLongCount = 0
-            tpDealsLongCount = 0
-            slDealsShortCount = 0
-            tpDealsShortCount = 0
-            ratioProfitDeals = 0
-            allProfit = 0
-            shortProfit = 0
-            longProfit = 0
-            lastDealPrice = 0
-            lastStopShiftIndex = 0
-            slPrice = 0
-            slIndex = 0
-            tpPrice = 0
-            
-            iSecTask = iSec
-            cellTask = cell
-            ChartIdTask = SEC_CODES['ChartId'][iSec]
-            myLog("iSecTask "..tostring(iSecTask).." cellTask "..tostring(cellTask).." ChartId "..ChartIdTask)
-            myLog("beginIndex "..tostring(settings.beginIndex).." Size "..tostring(settings.Size))
-            settingsTask = settings
-            dsTask = DataSource(iSec)            
-            if settings.beginIndex == 0 then
-                settings.beginIndex = dsTask:Size()-settings.Size
-                settings.endIndex = dsTask:Size()
-            else
-                settings.endIndex = math.min(dsTask:Size(), settings.beginIndex + settings.Size)
-            end
-
-            calculateTask = calculateAlgorithm
-        end
-        if par2 >= 2 then
-            iSec = GetCell(tres_id, par1, 0).value
-            cell = GetCell(tres_id, par1, 1).value
-
-            local newResult = CreateResTable(iSec)
-            --table.sort(newResult, function(a,b) return a[par2+1]<b[par2+1] end)     
-            --local resultString = newResult[#newResult]
-            local resultString = resultsTables[SEC_CODES['sec_codes'][iSec]][par1]
-            --local settings = resultString[#resultString]
-            local settings = ALGORITHMS['settings'][cell]
-            idResColumn = 0
-            openResults(newResult, settings, par2+2)
-        end
-    end
-    
-end
-
-function getResFile(settingTable, RESULTS_FILE_NAME)
-    
-    local resFile = io.open(RESULTS_FILE_NAME,"w")
-    if resFile == nil then
-        message("Не удалость прочитать файл результатов!!!")
-        return nil
-    end
-
-    local firstString = "SEC;INTERVAL;allProfit;profitRatio;longProfit;shortProfit;dealsL;dealsLP;dealsS;dealsSP;longSL;longTP;shortSL;shorTP;ratioProfitDeals;avg;sigma;maxDrawDown;sharpe;AHPR;ZCount;MAE;MFE;LRE;LRC"
-
-    for k,v in pairs(settingTable) do
-        if type(v) == 'table' then
-            for kkk,vvv in pairs(v) do
-                firstString = firstString..";"..kkk
-            end
-        else
-            firstString = firstString..";"..k
-        end
-    end
-    resFile:write(firstString.."\n")
-    resFile:flush()
-
-    return resFile
-
-end
-
-function writeResString(SecCode, interval, resFile, settingTable, settings, allProfit, profitRatio, longProfit, shortProfit, dealsL, dealsLP, dealsS, dealsSP, longSL, longTP, shortSL, shortTP, ratioProfitDeals, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount, MAE, MFE, LRE, LRC)
-
-    local stringLine = SecCode..';'..interval..';'..
-    string.gsub(tostring(allProfit),'[\.]+', ',')..';'..string.gsub(tostring(profitRatio),'[\.]+', ',')..';'..string.gsub(tostring(longProfit),'[\.]+', ',')..';'..
-    string.gsub(tostring(shortProfit),'[\.]+', ',')..';'..string.gsub(tostring(dealsL),'[\.]+', ',')..';'..string.gsub(tostring(dealsLP),'[\.]+', ',')..';'..string.gsub(tostring(dealsS),'[\.]+', ',')..';'..string.gsub(tostring(dealsSP),'[\.]+', ',')..';'..
-    string.gsub(tostring(longSL),'[\.]+', ',')..';'..string.gsub(tostring(longTP),'[\.]+', ',')..';'..string.gsub(tostring(shortSL),'[\.]+', ',')..';'..string.gsub(tostring(shortTP),'[\.]+', ',')..';'..
-    string.gsub(tostring(ratioProfitDeals),'[\.]+', ',')..';'..string.gsub(tostring(avg),'[\.]+', ',')..';'..string.gsub(tostring(sigma),'[\.]+', ',')..';'..string.gsub(tostring(maxDrawDown),'[\.]+', ',')..';'..
-    string.gsub(tostring(sharpe),'[\.]+', ',')..';'..string.gsub(tostring(AHPR),'[\.]+', ',')..';'..string.gsub(tostring(ZCount),'[\.]+', ',')..';'..string.gsub(tostring(MAE),'[\.]+', ',')..';'..
-    string.gsub(tostring(MFE),'[\.]+', ',')..';'..string.gsub(tostring(LRE),'[\.]+', ',')..';'..string.gsub(tostring(LRC),'[\.]+', ',')
-
-    for k,v in pairs(settingTable) do
-        if type(v) == 'table' then
-            for kkk,vvv in pairs(v) do
-                stringLine = stringLine..";"..string.gsub(tostring(settings[kkk]),'[\.]+', ',')
-            end
-        else
-            stringLine = stringLine..";"..string.gsub(tostring(settings[k]),'[\.]+', ',')
-        end
-    end
-    resFile:write(stringLine.."\n")
-    resFile:flush()
-    
-end
-
-function iterateTable(iSec, cell, settingsTable, resultsTable, settingTable, beginIndex, endIndex, Size, resFile)
-    
-    local SecCode = SEC_CODES['sec_codes'][iSec] 
-    local interval = ALGORITHMS['names'][cell].." "..tostring(GetCell(t_id, lineTask, 4).value)
-
-    local allCount = #settingsTable
-    local localCount = 0
-    local done = 0
-    local rescount = #resultsTable
-
-    --local beginBar = toYYYYMMDDHHMMSS(DS:T(beginIndex))
-    --local endBar = toYYYYMMDDHHMMSS(DS:T(endIndex))
-
-    for i,v in ipairs(settingsTable) do
-
-        if stopSignal then
-            break
-        end
-
-        localCount = localCount + 1
-        done = round(localCount*100/allCount, 0)
-        SetCell(t_id, lineTask, 5, tostring(done).."%", done)
-
-        allProfit = 0
-        shortProfit = 0
-        longProfit = 0
-        lastDealPrice = 0
-        lastStopShiftIndex = 0
-        dealsCount = 0
-        dealsLongCount = 0
-        dealsShortCount = 0
-        profitDealsLongCount = 0
-        profitDealsShortCount = 0
-        slDealsLongCount = 0
-        tpDealsLongCount = 0
-        slDealsShortCount = 0
-        tpDealsShortCount = 0
-        slIndex = 0
-        ratioProfitDeals = 0
-        initalAssets = 0
-                
-        settingsTask = v
-        settingsTask.Size = Size
-        
-        if beginIndex == 0 then
-            settingsTask.beginIndex = math.max(endIndex - Size, 1)
-            settingsTask.endIndex = endIndex
-        else
-            settingsTask.beginIndex = math.max(beginIndex, 1)
-            settingsTask.endIndex = math.min(endIndex, beginIndex + Size)
-        end
-        settingsTask.beginIndexToCalc = math.max(1, settingsTask.beginIndex - 1000)
-
-        if settingsTask.TPSec == nil and SEC_CODES['TP'][iSec] ~= 0 then
-            settingsTask.TPSec = SEC_CODES['TP'][iSec]
-        end
-        if settingsTask.SLSec == nil and SEC_CODES['SL'][iSec] ~= 0 then
-            settingsTask.SLSec = SEC_CODES['SL'][iSec]
-        end
-    
-        myLog("================================================")
-        myLog('beginIndex '..tostring(settingsTask.beginIndex)..' endIndex '..tostring(settingsTask.endIndex)..' beginIndexToCalc '..tostring(settingsTask.beginIndexToCalc))
-        myLog('SL '..tostring(settingsTask.SLSec)..' TP '..tostring(settingsTask.TPSec))
-
-        calculateAlgorithm(iSec, cell)
-        local profitRatio, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount, MAE, MFE, LRE, LRC = calculateSigma(deals)
-
-        --myLog("--------------------------------------------------")
-        --myLog("Прибыль по лонгам "..tostring(longProfit))
-        --myLog("Прибыль по шортам "..tostring(shortProfit))
-        --myLog("Прибыль всего "..tostring(allProfit))
-        --myLog("================================================")
-        if resFile ~= nil then
-            writeResString(SecCode, interval, resFile, settingTable, settingsTask, allProfit, profitRatio, longProfit, shortProfit, dealsLongCount, profitDealsLongCount, dealsShortCount, profitDealsShortCount, slDealsLongCount, tpDealsLongCount, slDealsShortCount, tpDealsShortCount, ratioProfitDeals, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount, MAE, MFE, LRE, LRC)        
-        end
-
-        local dealsLP = tostring(dealsLongCount).."/"..tostring(profitDealsLongCount)
-        local dealsSP = tostring(dealsShortCount).."/"..tostring(profitDealsShortCount)
-        if dealsLongCount + dealsShortCount > 0 then
-            ratioProfitDeals = round((profitDealsLongCount + profitDealsShortCount)*100/(dealsLongCount + dealsShortCount), 2)
-        end
-        
-        local longSL_TP = tostring(slDealsLongCount).."/"..tostring(tpDealsLongCount)
-        local shortSL_TP = tostring(slDealsShortCount).."/"..tostring(tpDealsShortCount)
-        
-        if profitRatio > 10 then
-            rescount = rescount + 1
-            resultsTable[rescount] = {settingsTask, iSec, cell, allProfit, profitRatio, longProfit, shortProfit, dealsLP, dealsSP, longSL_TP, shortSL_TP, ratioProfitDeals, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount, MAE, MFE, LRE, LRC}
-
-            if maxProfit == nil or maxProfit<allProfit then
-                maxProfit = allProfit
-                maxProfitIndex = count
-                maxProfitDeals = deals
-                maxProfitAlgoResults = chartResults
-                SetCell(t_id, lineTask, 6, tostring(allProfit), allProfit)
-                SetCell(t_id, lineTask, 7, tostring(profitRatio), profitRatio)
-                SetCell(t_id, lineTask, 8, tostring(longProfit), longProfit)
-                SetCell(t_id, lineTask, 9, tostring(shortProfit), shortProfit)
-                SetCell(t_id, lineTask, 10, tostring(dealsLP), 0)
-                SetCell(t_id, lineTask, 11, tostring(dealsSP), 0)
-                SetCell(t_id, lineTask, 12, longSL_TP, 0)
-                SetCell(t_id, lineTask, 13, shortSL_TP, 0)
-                SetCell(t_id, lineTask, 14, tostring(ratioProfitDeals), ratioProfitDeals)
-                SetCell(t_id, lineTask, 15, tostring(avg), avg)
-                SetCell(t_id, lineTask, 16, tostring(sigma), sigma)
-                SetCell(t_id, lineTask, 17, tostring(maxDrawDown), maxDrawDown)
-                SetCell(t_id, lineTask, 18, tostring(sharpe), sharpe)
-                SetCell(t_id, lineTask, 19, tostring(AHPR), AHPR)
-                SetCell(t_id, lineTask, 20, tostring(ZCount), ZCount)
-                SetCell(t_id, lineTask, 21, tostring(MAE), MAE)
-                SetCell(t_id, lineTask, 22, tostring(MFE), MFE)
-                SetCell(t_id, lineTask, 23, tostring(LRE), LRE)
-                SetCell(t_id, lineTask, 24, tostring(LRC), LRC)
-            end
-        
-        end
-        
-    end
-
-    return resultsTable
-end
-
-function iterateAlgorithm(iSec, cell, settingsTable)
-    
-    Clear(tres_id)
-
-    local SecCode = SEC_CODES['sec_codes'][iSec] 
-    local interval = ALGORITHMS['names'][cell].." "..tostring(GetCell(t_id, lineTask, 4).value)
-
-    myLog("================================================")
-    myLog("iSec "..tostring(iSec).." Sec code "..SecCode..' '..interval)
-
-    --local settings = ALGORITHMS["settings"][cell]
-    local beginIndex = GetCell(t_id, lineTask, 2).value or 0
-    local Size = GetCell(t_id, lineTask, 3).value or SEC_CODES['Size'][iSec]
-    --resultsTable = {}
-    clearResultsTable(iSec, cell)
-    local resultsTable = CreateResTable(iSec)    
-    local settingTable = ALGORITHMS['settings'][cell]
-
-    if settingTable.TPSec == nil and SEC_CODES['TP'][iSec] ~= 0 then
-        settingTable.TPSec = SEC_CODES['TP'][iSec]
-    end
-    if settingTable.SLSec == nil and SEC_CODES['SL'][iSec] ~= 0 then
-        settingTable.SLSec = SEC_CODES['SL'][iSec]
-    end
-
-    myLog("Interval "..interval)
-    
-    local ChartId = SEC_CODES['ChartId'][iSec]
-    myLog("ChartId "..ChartId)
-    if ChartId ~= nil then
-        DelAllLabels(ChartId);
-    end
-    myLog("================================================")
-    
-    local timeStamp = os.date("%Y-%m-%d %H.%M.%S", os.time())
-
-    RESULTS_FILE_NAME = getScriptPath().."\\"..SecCode..'_'..interval..'_'..timeStamp..".csv" -- ИМЯ res-ФАЙЛА
-    local resFile = getResFile(settingTable, RESULTS_FILE_NAME)
-
-    DS = DataSource(iSec)
-    
-    local beginIndex = GetCell(t_id, lineTask, 2).value or 0
-    local Size = GetCell(t_id, lineTask, 3).value or SEC_CODES['Size'][iSec]
-    --beginIndex = 31510    
-    local endIndex = DS:Size()
-
-    maxProfitIndex = 0
-    maxProfit = nil
-    maxProfitDeals = nil
-    maxProfitAlgoResults = nil
-
-    resultsTable = iterateTable(iSec, cell, settingsTable, resultsTable, settingTable, beginIndex, endIndex, Size, resFile)
-
-    SetCell(t_id, lineTask, 5, "100%", 100)
-
-    if iterateSLTP then
-        if #resultsTable > 1 then
-            table.sort(resultsTable, function(a,b) return a[4]<b[4] end)
-        end
-        
-        if #resultsTable > 0 then
-            if SEC_CODES['SL'][iSec]~=0 or SEC_CODES['TP'][iSec]~=0 then
-                local lines = math.min(25, #resultsTable)
-                local settingsTableSLTP = getSettingsSLTP(iSec, resultsTable, lines)
-                local i = 1
-                while i <= lines do
-                    table.remove(resultsTable, #resultsTable)
-                    i = i+1
-                end
-                resultsTable = iterateTable(iSec, cell, settingsTableSLTP, resultsTable, settingTable, beginIndex, endIndex, Size, resFile)
-            end
-        end
-    end
-    
-    resultsTables[SecCode] = resultsTable
-
-    SetCell(t_id, lineTask, 5, "100%", 100)
-
-    if resFile ~= nil then
-        resFile:close()
-    end
-
-    idResColumn = 0
-    openResults(resultsTable, settingTable)
-
-    if ChartId ~= nil then
-        addDeals(maxProfitDeals, ChartId, DS)
-        stv.UseNameSpace(ChartId)
-        stv.SetVar('algoResults', maxProfitAlgoResults)
-    end
-
-end
-
-function getSettingsSLTP(iSec, resultsTable, lines)
-
-    local param4Min = SEC_CODES['SL'][iSec]
-    local param4Max = SEC_CODES['SL'][iSec]
-    local param4Step = 5  
-
-    local param5Min = SEC_CODES['TP'][iSec]
-    local param5Max = SEC_CODES['TP'][iSec]
-    local param5Step = 5
-
-    if SEC_CODES['SL'][iSec]~=0 then
-        param4Min = 25
-        param4Max = 75
-        param4Step = 5  
-    end
-
-    if SEC_CODES['TP'][iSec]~=0 then
-        param5Min = 75
-        param5Max = 230
-        param5Step = 5
-    end
-    
-    local settingsTable = {}
     local allCount = 0
-
-    for i=0,math.min(#resultsTable-1, lines) do
-
-        for param4 = param4Min, param4Max, param4Step do                               
-            for param5 = param5Min, param5Max, param5Step do           
-                allCount = allCount + 1
-                settingsTable[allCount] = {}
-                for i,v in pairs(resultsTable[#resultsTable - i][1]) do
-                    settingsTable[allCount][i] = v
+    local settingsTable = {}
+	
+    for param1 = param1Min, param1Max, param1Step do
+        for param2 = param2Min, param2Max, param2Step do
+            for param3 = param3Min, param3Max, param3Step do
+                for param4 = param4Min, param4Max, param4Step do                    
+                    for param5 = param5Min, param5Max, param5Step do                    
+                                
+                        allCount = allCount + 1                
+                        settingsTable[allCount] = {
+                            Length    = param1,                   
+                            Kv = param2,                  
+                            zShift = param2,                  
+                            Switch = param3,             
+                            barShift = 0,             
+                            deviation = param1,             
+                            ATRfactor = param4,                  
+                            numberOfMovesForTargetZone = param5,                  
+                            StepSize = 0,              
+                            adaptive = 0,
+                            alpha = 0,
+                            Percentage = 0,
+                            Size = Size,
+                            endIndex = endIndex
+                        }
+                    end
                 end
-                settingsTable[allCount].SLSec = param4
-                settingsTable[allCount].TPSec = param5
-                --myLog('**** SL '..tostring(settingsTable[allCount].SLSec)..' TP '..tostring(settingsTable[allCount].TPSec))
             end
         end
     end
-    
-    return settingsTable
-        
+                            
+    iterateAlgorithm(iSec, cell, settingsTable)
+
 end
 
-function calculateAlgorithm(iSec, cell)
-     
-    if iSec == nil then return end
+function stepNRTR(index, settings, DS)
 
-    SEC_CODE = SEC_CODES['sec_codes'][iSec]
-    CLASS_CODE =SEC_CODES['class_codes'][iSec]
-    myLog("iSec "..tostring(iSec).." SEC_CODE "..tostring(SEC_CODE).." cell "..tostring(cell).." CLASS_CODE "..tostring(CLASS_CODE))
-    scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
+    local Length = settings.Length or 29            -- perios        
+    local Kv = settings.Kv or 1                     -- miltiply
+    local StepSize = settings.StepSize or 0         -- fox stepSize
+    local ATRfactor = settings.ATRfactor or 0.15		
+    local barShift = settings.barShift or 0		
+    local Percentage = settings.Percentage or 0
+    local Switch = settings.Switch or 1             --1 - HighLow, 2 - CloseClose
+    local Size = settings.Size or 2000 
+    local adaptive = settings.adaptive or 1
+    local alpha = settings.alpha or 0.07
+
+    local ratio=Percentage/100.0*SEC_PRICE_STEP
+    local smax0 = 0
+    local smin0 = 0
     
-    -- Получает ШАГ ЦЕНЫ ИНСТРУМЕНТА, последнюю цену, открытые позиции
-    SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
-    STEPPRICE = getParamEx(CLASS_CODE, SEC_CODE, "STEPPRICE").param_value
-    if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
-        leverage = 1
-    else    
-        leverage = STEPPRICE/SEC_PRICE_STEP
-    end
-    myLog("SEC_PRICE_STEP "..tostring(SEC_PRICE_STEP))
-    myLog("STEPPRICE "..tostring(STEPPRICE))
-    myLog("leverage "..tostring(leverage))
+    local indexToCalc = 1000
+    indexToCalc = settings.Size or indexToCalc
+    local beginIndexToCalc = settings.beginIndexToCalc or math.max(1, settings.beginIndex - indexToCalc)
+    local endIndexToCalc = settings.endIndex or DS:Size()
 
-    local logDeals = false
-    if logDeals then
-        myLog("Шаг цены "..tostring(SEC_PRICE_STEP))
-        myLog("Стоимость шага цены "..tostring(STEPPRICE))
-        myLog("Плечо (фьюч.) "..tostring(leverage))
-    end
-    if initalAssets == 0 and CLASS_CODE == "SPBFUT" then
-        initalAssets = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "BUYDEPO").param_value) --*leverage
-        if logDeals then
-            myLog("initial equity "..tostring(initalAssets))
+    if index == nil then index = 1 end
+    
+    adaptive = 0
+    if adaptive == 1 then
+        local aP = adaptivePeriod(index, settings, DS)
+        Length = math.ceil(aP) or Length
+        if Length == 0 then
+            Length = settings.Length or 15
         end
     end
     
-    --myLog("stopSignal "..tostring(stopSignal))
-
-    --DS = SEC_CODES['DS'][iSec][cell]
-    DS = DataSource(iSec)
-    algoResults = nil
-    chartResults = nil
-
-    local initf = ALGORITHMS["initAlgorithms"][cell]
-    local calcf = ALGORITHMS["calcAlgorithms"][cell]
-    local tradef = ALGORITHMS["tradeAlgorithms"][cell]        
-    local Size = settingsTask.Size or SEC_CODES['Size'][iSec]
+    local kawg = 2/(20+1)
     
-    calcATR = false
+    if NRTR == nil then
+        myLog("Показатель Length "..tostring(Length))
+        myLog("Показатель Kv "..tostring(Kv))
+        myLog("Показатель ATRfactor "..tostring(ATRfactor))
+        myLog("Показатель StepSize "..tostring(StepSize))
+        myLog("Показатель Switch "..tostring(Switch))
+        myLog("Показатель barShift "..tostring(barShift))
+        myLog("Показатель adaptive "..tostring(adaptive))
+        myLog("Показатель alpha "..tostring(alpha))
+        myLog("--------------------------------------------------")
+        NRTR = {}
+        NRTR[index] = 0			
+        cache_ATR = {}
+        cache_ATR[index] = 0			
+        emaATR = {}
+        emaATR[index] = 0			
+        emaStep = {}
+        emaStep[index] = 0			
+        smax1 = {}
+        smin1 = {}
+        trend = {}
+        smax1[index] = 0
+        smin1[index] = 0
+        trend[index] = 1
+        
+        cacheL = {}
+        cacheL[index] = 0			
+        cacheH = {}
+        cacheH[index] = 0			
+        fractalL = {}
+        fractalL[index] = 1			
+        fractalH = {}
+        fractalH[index] = 1	
 
-    --if beginIndex == 1 or beginIndex == 0 or beginIndex == nil then
-    --    beginIndex = DS:Size()-Size
-    --end                
-    --if endIndex == 1 or endIndex == 0 or endIndex == nil then
-    --    endIndex = DS:Size()
-    --end                
-    --if beginIndex <= 0 or beginIndex == endIndex then beginIndex = 1 end
+        return NRTR
+    end
+
+    NRTR[index] = NRTR[index-1] 
+    cache_ATR[index] = cache_ATR[index-1] 
+    emaATR[index] = emaATR[index-1] 
+    smax1[index] = smax1[index-1] 
+    smin1[index] = smin1[index-1] 
+    trend[index] = trend[index-1] 
+    emaStep[index] = emaStep[index-1] 
     
-    lastTradeDirection = 0
-    slPrice = 0
-    tpPrice = 0
-    slIndex = 0
-
-    local SLSec = settingsTask.SLSec or SEC_CODES['SL'][iSec]
-    local TPSec = settingsTask.TPSec or SEC_CODES['TP'][iSec]
-
-    if calcf~=nil then
+    cacheL[index] = cacheL[index-1] 
+    cacheH[index] = cacheH[index-1] 
     
-        --init
-        if initf~=nil then
-            initf()
+    if index <= (Length + 3) or index < beginIndexToCalc or index > endIndexToCalc then
+        return NRTR
+    end
+
+    if DS:C(index) ~= nil then        
+        
+        local previous = index-1       
+        if DS:C(previous) == nil then
+            previous = FindExistCandle(previous)
         end
+       
+        cacheH[index] = DS:H(index)
+        cacheL[index] = DS:L(index)
 
-        deals = {
-            ["index"] =      {},
-            ["openLong"] =   {},
-            ["openShort"] =  {},                                   
-            ["closeLong"] =  {},
-            ["closeShort"] = {},                                   
-            ["dealProfit"] = {},                                   
-            ["MAE"] =        {},                                   
-            ["MFE"] =        {}                                   
-        }
+        local smoothStep = 0
+        local Step=StepSizeCalc(Length,Kv,StepSize,Switch,index,DS, smoothStep)
 
-        for index = settingsTask.beginIndexToCalc, settingsTask.endIndex do
-            algoResults, calcTrend, chartResults = calcf(index, settingsTask, DS)
-            tradef(index, algoResults, calcTrend, DS, SEC_CODES['isLong'][iSec], SEC_CODES['isShort'][iSec], deals, settingsTask, logDeals,  SLSec,  TPSec)  
+        cache_ATR[index] = math.max(math.abs(DS:H(index) - DS:L(index)), math.abs(DS:H(index) - DS:C(previous)), math.abs(DS:C(previous) - DS:L(index))) or cache_ATR[index-1]
+		emaATR[index] = kawg*cache_ATR[index]+(1-kawg)*emaATR[index-1]
+        
+        if Step == 0 then Step = SEC_PRICE_STEP end
+        
+        local SizeP=Step*SEC_PRICE_STEP
+        local Size2P=2*SizeP
+                
+        local result		
+        
+        previous = index-barShift       
+        if DS:C(previous) == nil then
+            previous = FindExistCandle(previous)
+        end
+        if Switch == 1 then     
+            smax0=DS:L(previous)+Size2P
+            smin0=DS:H(previous)-Size2P    
+        else   
+            smax0=DS:C(previous)+Size2P
+            smin0=DS:C(previous)-Size2P
+        end
+        
+        --myLog("index "..tostring(index))
+        --myLog("DS:C(index) "..tostring(DS:C(index)))
+        --myLog("smax1[index] "..tostring(smax1[index]))
+        --myLog("trend[index] "..tostring(trend[index]))
+		if DS:C(index)>smax1[index] and (DS:C(index)-smax1[index]) > ATRfactor*emaATR[index] then
+			trend[index] = 1 
+		end
+		if DS:C(index)<smin1[index] and (smin1[index]-DS:C(index)) > ATRfactor*emaATR[index] then
+			trend[index]= -1
+		end
+
+        if trend[index]>0 then
+            if smin0<smin1[index] then smin0=smin1[index] end
+            result=smin0+SizeP
+        else
+            if smax0>smax1[index] then smax0=smax1[index] end
+            result=smax0-SizeP
         end
             
-    end
-
-end
-
-function getTradeSignal(index, calcAlgoValue, calcTrend, DS)
-    
-    local signal = 0
-
-    if calcTrend == nil then
-        local signaltestvalue1 = calcAlgoValue[index-1] or DS:C(index)
-        local signaltestvalue2 = calcAlgoValue[index-2] or DS:C(index)
-        if signaltestvalue1 < DS:C(index-1) and signaltestvalue2 > DS:C(index-2) and DS:O(index) > calcAlgoValue[index] then
-            signal = 1
-        end
-        if signaltestvalue1 > DS:C(index-1) and signaltestvalue2 < DS:C(index-2) and DS:O(index) < calcAlgoValue[index] then
-            signal = -1
-        end
-    else    
-        local signaltestvalue1 = calcTrend[index-1] or 0
-        local signaltestvalue2 = calcTrend[index-2] or 0
-        if signaltestvalue1 > 0 and signaltestvalue2 <= 0 then --тренд сменился на растущий
-            signal = 1
-        end
-        if signaltestvalue1 < 0 and signaltestvalue2 >= 0 then --тренд сменился на падающий
-            signal = -1
-        end
-    end
-    return signal
-end
-
-function getTradeDirection(index, calcAlgoValue, calcTrend, DS)
-    
-    local signal = 0
-
-    if calcTrend == nil then
-        local signaltestvalue = calcAlgoValue[index] or DS:C(index)
-        if signaltestvalue < DS:C(index) then
-            signal = 1
-        end
-        if signaltestvalue > DS:C(index) then
-            signal = -1
-        end
-    else    
-        signal = calcTrend[index]
-    end
-    return signal
-end
-
-function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, settings, logDeals, STOP_LOSS, TAKE_PROFIT)
-
-    if calcATR == false then
-        if index == settings.beginIndexToCalc then
-            ATR = {}
-            ATR[index] = 0			
-        end
-        ATR[index] = ATR[index-1] 
+        smax1[index] = smax0
+        smin1[index] = smin0
         
-        if index<barsATR+settings.beginIndexToCalc then
-            ATR[index] = 0
-        elseif index==barsATR+settings.beginIndexToCalc then
-            local sum=0
-            for i = 1, barsATR do
-                sum = sum + dValue(i)
-            end
-            ATR[index]=sum/barsATR
-        elseif index>barsATR+settings.beginIndexToCalc then
-            --ATR[index]=(ATR[index-1] * (barsATR-1) + dValue(index)) / barsATR
-            ATR[index] = kawgATR*dValue(index)+(1-kawgATR)*ATR[index-1]
+        if trend[index]>0 then
+            NRTR[index]=(result+ratio/Step)-Step*SEC_PRICE_STEP
         end
+        if trend[index]<0 then
+            NRTR[index]=(result+ratio/Step)+Step*SEC_PRICE_STEP		
+        end	
+   
     end
-
-    --//TODO: limit orders and stops
-    --//TODO: smart selection, choose best from every 5
-
-    if index <= settings.beginIndex then return nil end
-
-    local equitySum = initalAssets or 0    
-
-    local t = DS:T(index)
-    local dealTime = false
-    local time = math.ceil((t.hour + t.min/100)*100)
-    if time >= 1021 then 
-        dealTime = true 
-    end    
-    if time >= 1842 then 
-        dealTime = false 
-    end
-    
-    stopShiftIndexWait = 17 --best 17, 21
-
-    if STOP_LOSS == nil then STOP_LOSS = 0 end
-    if TAKE_PROFIT == nil then TAKE_PROFIT = 0 end
-
-    --myLog("time "..tostring(time))
-    --myLog("dealTime "..tostring(dealTime))
-    --myLog("t.hour >= 10 and t.min >= 5 "..tostring(t.hour >= 10 and t.min >= 5))
-    --myLog("t.hour >= 18 and t.min >= 45 "..tostring(t.hour >= 18 and t.min >= 45))
-    if CLASS_CODE == 'QJSIM' or CLASS_CODE == 'TQBR'  then
-        dealTime = true 
-    end
-    
-    tradeSignal = getTradeSignal(index, calcAlgoValue, calcTrend, DS)
-    if not dealTime then
-        lastTradeDirection = getTradeDirection(index, calcAlgoValue, calcTrend, DS)
-        --myLog("lastTradeDirection "..tostring(lastTradeDirection))
-        --myLog("tradeSignal "..tostring(tradeSignal))
-        --myLog("time "..tostring(time))
-        --myLog("time >= 1012 "..tostring(time >= 1012))
-        --myLog("time - 1012 "..tostring(time - 1012))
-    end
-
-    local closeDeal = false
-    if calcTrend ~= nil then
-        closeDeal = calcTrend[index-1] == 0
-    end
-
-    if (not dealTime or closeDeal) and lastDealPrice ~= 0 and (deals["openShort"][dealsCount] ~= nil or deals["openLong"][dealsCount] ~= nil) then
-        
-        if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
-            equitySum = initalAssets
-        end
-        
-        if deals["openShort"][dealsCount] ~= nil then
-            dealsCount = dealsCount + 1
-            if logDeals then
-                myLog("--------------------------------------------------")
-                myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-            end
-            local tradeProfit = round(lastDealPrice - DS:O(index), scale)*leverage
-            shortProfit = shortProfit + tradeProfit            
-            allProfit = allProfit + tradeProfit
-            equitySum = equitySum + tradeProfit
-            if tradeProfit > 0 then
-                profitDealsShortCount = profitDealsShortCount + 1
-            end
-            deals["index"][dealsCount] = index 
-            deals["closeShort"][dealsCount] = DS:O(index) 
-            deals["dealProfit"][dealsCount] = tradeProfit 
-            deals["MAE"][dealsCount] = round(math.max((DS:H(index) - deals["openShort"][dealsCount-1])*leverage, deals["MAE"][dealsCount]), scale)
-            deals["MFE"][dealsCount] = round(math.max((deals["openShort"][dealsCount-1] - DS:O(index))*leverage, deals["MFE"][dealsCount]), scale)
-            if logDeals then
-                myLog("Закрытие шорта "..tostring(deals["openShort"][dealsCount-1]).." по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по шортам "..tostring(shortProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
-                myLog("equity "..tostring(equitySum))
-            end
-            lastDealPrice = 0
-            slPrice = 0
-            slIndex = 0
-            tpPrice = 0
-        end
-        if deals["openLong"][dealsCount] ~= nil then
-            dealsCount = dealsCount + 1
-            if logDeals then
-                myLog("--------------------------------------------------")
-                myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-            end
-            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)*leverage
-            longProfit = longProfit + tradeProfit             
-            allProfit = allProfit + tradeProfit       
-            equitySum = equitySum + tradeProfit
-            if tradeProfit > 0 then
-                profitDealsLongCount = profitDealsLongCount + 1
-            end
-            deals["index"][dealsCount] = index 
-            deals["closeLong"][dealsCount] = DS:O(index) 
-            deals["dealProfit"][dealsCount] = tradeProfit 
-            deals["MAE"][dealsCount] = round(math.max((deals["openLong"][dealsCount-1] - DS:L(index))*leverage, deals["MAE"][dealsCount]),scale)
-            deals["MFE"][dealsCount] = round(math.max((DS:O(index) - deals["openLong"][dealsCount-1])*leverage, deals["MFE"][dealsCount]),scale)
-            if logDeals then
-                myLog("Закрытие лонга "..tostring(deals["openLong"][dealsCount-1]).." по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по лонгам "..tostring(longProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
-                myLog("equity "..tostring(equitySum))
-            end
-            lastDealPrice = 0
-            slPrice = 0
-            slIndex = 0
-            tpPrice = 0
-        end
-    end
-    
-    maxStop = 85
-    reopenDealMaxStop = 75
-    reopenPosAfterStop = 7
-    reopenAfterStop = false
-
-    if dealTime and slIndex ~= 0 and (index - slIndex) == reopenPosAfterStop then
-        if logDeals then
-            myLog("--------------------------------------------------")
-            myLog('index '..tostring(index).." тест после стопа time "..toYYYYMMDDHHMMSS(DS:T(slIndex)))
-        end
-        local currentTradeDirection = getTradeDirection(index, calcAlgoValue, calcTrend, DS)        
-        if currentTradeDirection == 1 and deals["closeLong"][dealsCount]~=nil then
-            if deals["closeLong"][dealsCount]<DS:O(index) then
-                if logDeals then
-                    myLog("переоткрытие лонга после стопа time "..toYYYYMMDDHHMMSS(DS:T(slIndex)))
-                end
-                lastTradeDirection = currentTradeDirection
-                reopenAfterStop = true
-            end
-        end
-        if currentTradeDirection == -1 and deals["closeShort"][dealsCount]~=nil then
-            if deals["closeShort"][dealsCount]>DS:O(index) then
-                if logDeals then
-                    myLog("переоткрытие шорта после стопа time "..toYYYYMMDDHHMMSS(DS:T(slIndex)))
-                end
-                lastTradeDirection = currentTradeDirection
-                reopenAfterStop = true
-            end
-        end
-        slIndex = index
-    end
-
-    if (tradeSignal == 1 or lastTradeDirection == 1) and dealTime and not closeDeal then
-        
-        dealsCount = dealsCount + 1
-        if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
-            equitySum = initalAssets
-        end
-        if logDeals then
-            myLog("--------------------------------------------------")
-            myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-            myLog("tradeSignal "..tostring(tradeSignal).." lastTradeDirection "..tostring(lastTradeDirection).." openShort "..tostring(deals["openShort"][dealsCount-1])..' openLong '..tostring(deals["openLong"][dealsCount-1]))
-        end
-
-        lastTradeDirection = 0
-        if deals["openShort"][dealsCount-1] ~= nil then
-            local tradeProfit = round(lastDealPrice - DS:O(index), scale)*leverage
-            shortProfit = shortProfit + tradeProfit            
-            allProfit = allProfit + tradeProfit
-            equitySum = equitySum + tradeProfit
-            slPrice = 0
-            slIndex = 0
-            tpPrice = 0
-            if tradeProfit > 0 then
-                profitDealsShortCount = profitDealsShortCount + 1
-            end
-            deals["index"][dealsCount] = index 
-            deals["closeShort"][dealsCount] = DS:O(index) 
-            deals["dealProfit"][dealsCount] = tradeProfit 
-            deals["MAE"][dealsCount] = round(math.max((DS:O(index) - deals["openShort"][dealsCount-1])*leverage, deals["MAE"][dealsCount]), scale)
-            deals["MFE"][dealsCount] = round(math.max((deals["openShort"][dealsCount-1] - DS:O(index))*leverage, deals["MFE"][dealsCount]), scale)
-            if logDeals then
-                myLog("Закрытие шорта "..tostring(deals["openShort"][dealsCount-1]).." по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по шортам "..tostring(shortProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
-                myLog("equity "..tostring(equitySum))
-            end
-        end        
-        if isLong == 1 then
-            dealsLongCount = dealsLongCount + 1
-            lastDealPrice = DS:O(index)
-            TransactionPrice = lastDealPrice
-            if STOP_LOSS~=0 then
-                --slPrice = lastDealPrice - STOP_LOSS/leverage
-                local atPrice = calcAlgoValue[index-1]
-                local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                if (atPrice - shiftSL) >= TransactionPrice then
-                    atPrice = TransactionPrice
-                end
-                slPrice = round(atPrice - shiftSL, scale)
-                if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-                if (lastDealPrice - slPrice) > dealMaxStop/leverage then slPrice = lastDealPrice - dealMaxStop/leverage end
-                reopenAfterStop = false
-                slIndex = 0
-                lastStopShiftIndex = index
-            end
-            if TAKE_PROFIT~=0 then
-                tpPrice = round(lastDealPrice + TAKE_PROFIT/leverage, scale)
-            end
-            deals["index"][dealsCount] = index 
-            deals["openLong"][dealsCount] = DS:O(index) 
-            deals["MAE"][dealsCount+1] = 0
-            deals["MFE"][dealsCount+1] = 0
-            if logDeals then
-                myLog("Покупка по цене "..tostring(lastDealPrice).." SL "..tostring(slPrice).." TP "..tostring(tpPrice))
-            end
-        else
-            lastDealPrice = 0
-        end
-    end
-    if (tradeSignal == -1 or lastTradeDirection == -1) and dealTime and not closeDeal then
-        
-        dealsCount = dealsCount + 1
-        if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
-        end
-        if logDeals then
-            myLog("--------------------------------------------------")
-            myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index)))
-            myLog("tradeSignal "..tostring(tradeSignal).." lastTradeDirection "..tostring(lastTradeDirection).." openShort "..tostring(deals["openShort"][dealsCount-1])..' openLong '..tostring(deals["openLong"][dealsCount-1]))
-        end
-        lastTradeDirection = 0
-        if deals["openLong"][dealsCount-1] ~= nil then
-            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)*leverage
-            longProfit = longProfit + tradeProfit             
-            allProfit = allProfit + tradeProfit       
-            equitySum = equitySum + tradeProfit
-            slPrice = 0
-            slIndex = 0
-            tpPrice = 0
-            if tradeProfit > 0 then
-                profitDealsLongCount = profitDealsLongCount + 1
-            end
-            deals["index"][dealsCount] = index 
-            deals["closeLong"][dealsCount] = DS:O(index) 
-            deals["dealProfit"][dealsCount] = tradeProfit 
-            deals["MAE"][dealsCount] = round(math.max((deals["openLong"][dealsCount-1] - DS:O(index))*leverage, deals["MAE"][dealsCount]),scale)
-            deals["MFE"][dealsCount] = round(math.max((DS:O(index) - deals["openLong"][dealsCount-1])*leverage, deals["MFE"][dealsCount]),scale)
-            if logDeals then
-                myLog("Закрытие лонга "..tostring(deals["openLong"][dealsCount-1]).." по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по лонгам "..tostring(longProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
-                myLog("equity "..tostring(equitySum))
-            end
-        end
-        if isShort == 1 then
-            dealsShortCount = dealsShortCount + 1
-            lastDealPrice = DS:O(index)
-            TransactionPrice = lastDealPrice
-            if STOP_LOSS~=0 then
-                --slPrice = lastDealPrice + STOP_LOSS/leverage
-                local atPrice = calcAlgoValue[index-1]
-                local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                if (atPrice + shiftSL) <= TransactionPrice then
-                    atPrice = TransactionPrice
-                end
-                slPrice = round(atPrice + shiftSL, scale)
-                if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-                if (slPrice - lastDealPrice) > dealMaxStop/leverage then slPrice = lastDealPrice + dealMaxStop/leverage end
-                reopenAfterStop = false
-                slIndex = 0
-                lastStopShiftIndex = index
-            end
-            if TAKE_PROFIT~=0 then
-                tpPrice = round(lastDealPrice - TAKE_PROFIT/leverage, scale)
-            end            
-            deals["index"][dealsCount] = index 
-            deals["openShort"][dealsCount] = DS:O(index) 
-            deals["MAE"][dealsCount+1] = 0
-            deals["MFE"][dealsCount+1] = 0
-            if logDeals then
-                myLog("Продажа по цене "..tostring(lastDealPrice).." SL "..tostring(slPrice).." TP "..tostring(tpPrice))
-            end
-        else
-            lastDealPrice = 0
-        end
-    end
-    
-    checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, settings, logDeals, equitySum, STOP_LOSS, TAKE_PROFIT)
-    
-    if deals["openShort"][dealsCount] ~= nil then
-        deals["MAE"][dealsCount+1] = round(math.max((DS:H(index) - deals["openShort"][dealsCount])*leverage, deals["MAE"][dealsCount+1]), scale)
-        deals["MFE"][dealsCount+1] = round(math.max((deals["openShort"][dealsCount] - DS:L(index))*leverage, deals["MFE"][dealsCount+1]), scale)
-    end
-    if deals["openLong"][dealsCount] ~= nil then
-        deals["MAE"][dealsCount+1] = round(math.max((deals["openLong"][dealsCount] - DS:L(index))*leverage, deals["MAE"][dealsCount+1]),scale)
-        deals["MFE"][dealsCount+1] = round(math.max((DS:H(index) - deals["openLong"][dealsCount])*leverage, deals["MFE"][dealsCount+1]),scale)
-    end
-
-    if index == settings.endIndex and (deals["openShort"][dealsCount] ~= nil or deals["openLong"][dealsCount] ~= nil) then
-        
-        if logDeals then
-            myLog("--------------------------------------------------")
-            myLog("last index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index)))
-        end
- 
-        if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
-            equitySum = initalAssets
-        end
-        
-        if deals["openShort"][dealsCount] ~= nil then
-            dealsCount = dealsCount + 1
-            local tradeProfit = round(lastDealPrice - DS:C(index), scale)*leverage
-            shortProfit = shortProfit + tradeProfit            
-            allProfit = allProfit + tradeProfit
-            equitySum = equitySum + tradeProfit
-            if tradeProfit > 0 then
-                profitDealsShortCount = profitDealsShortCount + 1
-            end
-            deals["index"][dealsCount] = index 
-            deals["closeShort"][dealsCount] = DS:C(index) 
-            deals["dealProfit"][dealsCount] = tradeProfit 
-            deals["MAE"][dealsCount] = round(math.max((DS:H(index) - deals["openShort"][dealsCount-1])*leverage, deals["MAE"][dealsCount]), scale)
-            deals["MFE"][dealsCount] = round(math.max((deals["openShort"][dealsCount-1] - DS:L(index))*leverage, deals["MFE"][dealsCount]), scale)
-            if logDeals then
-                myLog("Закрытие шорта "..tostring(deals["openShort"][dealsCount-1]).." по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по шортам "..tostring(shortProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
-                myLog("equity "..tostring(equitySum))
-            end
-        end
-        if deals["openLong"][dealsCount] ~= nil then
-            dealsCount = dealsCount + 1
-            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)*leverage
-            longProfit = longProfit + tradeProfit             
-            allProfit = allProfit + tradeProfit       
-            equitySum = equitySum + tradeProfit
-            if tradeProfit > 0 then
-                profitDealsLongCount = profitDealsLongCount + 1
-            end
-            deals["index"][dealsCount] = index 
-            deals["closeLong"][dealsCount] = DS:C(index) 
-            deals["dealProfit"][dealsCount] = tradeProfit 
-            deals["MAE"][dealsCount] = round(math.max((deals["openLong"][dealsCount-1] - DS:L(index))*leverage, deals["MAE"][dealsCount]),scale)
-            deals["MFE"][dealsCount] = round(math.max((DS:H(index) - deals["openLong"][dealsCount-1])*leverage, deals["MFE"][dealsCount]),scale)
-            if logDeals then
-                myLog("Закрытие лонга "..tostring(deals["openLong"][dealsCount-1]).." по цене "..tostring(DS:O(index)))
-                myLog("Прибыль сделки "..tostring(tradeProfit))
-                myLog("Прибыль по лонгам "..tostring(longProfit))
-                myLog("Прибыль всего "..tostring(allProfit))
-                myLog("equity "..tostring(equitySum))
-            end
-        end
-    end
+            
+    return NRTR, trend, NRTR 
     
 end
 
-function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals, settings, logDeals, equitySum, STOP_LOSS, TAKE_PROFIT)
+function StepSizeCalc(Len, Km, Size, Switch, index, DS, smoothStep)
 
-    if (slPrice~=0 or tpPrice~=0) and lastDealPrice~=0 then
-        
-        if deals["openLong"][dealsCount] ~= nil then
-            if DS:L(index) <= slPrice then 
-                dealsCount = dealsCount + 1
-                local tradeProfit = round(slPrice - lastDealPrice, scale)*leverage
-                longProfit = longProfit + tradeProfit             
-                allProfit = allProfit + tradeProfit       
-                equitySum = equitySum + tradeProfit
-                if tradeProfit > 0 then
-                    profitDealsLongCount = profitDealsLongCount + 1
+    local result
+
+    if smoothStep == 1 then
+        local Range = 0
+        local rangeEMA = {}	
+        local k = 2/(Len+1)
+
+        if Size == 0 then
+            
+            local Range=0.0
+            local ATRmax=-1000000
+            local ATRmin=1000000
+            if DS:C(index-Len-1) ~= nil then				
+                if Switch == 1 then     
+                    Range=DS:H(index-Len-1)-DS:L(index-Len-1)
+                else   
+                    Range=math.abs(DS:O(index-Len-1)-DS:C(index-Len-1))
                 end
-                slDealsLongCount = slDealsLongCount + 1
-                deals["index"][dealsCount] = index 
-                deals["closeLong"][dealsCount] = slPrice 
-                deals["dealProfit"][dealsCount] = tradeProfit 
-                deals["MAE"][dealsCount] = round(math.max((deals["openLong"][dealsCount-1] - slPrice)*leverage, deals["MAE"][dealsCount]),scale)
-                deals["MFE"][dealsCount] = round(math.max((DS:H(index) - deals["openLong"][dealsCount-1])*leverage, deals["MFE"][dealsCount]),scale)
-                slIndex = index
-                if logDeals then
-                    myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("Стоп-лосс лонга "..tostring(deals["openLong"][dealsCount-1]).." по цене "..tostring(slPrice))
-                    myLog("Прибыль сделки "..tostring(tradeProfit))
-                    myLog("Прибыль по лонгам "..tostring(longProfit))
-                    myLog("Прибыль всего "..tostring(allProfit))
-                    myLog("equity "..tostring(equitySum))
-                end
-                lastDealPrice = 0
-                slPrice = 0
-                tpPrice = 0
             end
-            if DS:H(index) >= tpPrice and tpPrice~=0 then 
-                dealsCount = dealsCount + 1
-                local tradeProfit = round(tpPrice - lastDealPrice, scale)*leverage
-                longProfit = longProfit + tradeProfit             
-                allProfit = allProfit + tradeProfit       
-                equitySum = equitySum + tradeProfit
-                if tradeProfit > 0 then
-                    profitDealsLongCount = profitDealsLongCount + 1
-                end
-                tpDealsLongCount = tpDealsLongCount + 1
-                deals["index"][dealsCount] = index 
-                deals["closeLong"][dealsCount] = tpPrice 
-                deals["dealProfit"][dealsCount] = tradeProfit 
-                deals["MAE"][dealsCount] = round(math.max((deals["openLong"][dealsCount-1] - DS:L(index))*leverage, deals["MAE"][dealsCount]),scale)
-                deals["MFE"][dealsCount] = round(math.max((tpPrice - deals["openLong"][dealsCount-1])*leverage, deals["MFE"][dealsCount]),scale)
-                if logDeals then
-                    myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("Тейк-профит лонга "..tostring(deals["openLong"][dealsCount-1]).." по цене "..tostring(tpPrice))
-                    myLog("Прибыль сделки "..tostring(tradeProfit))
-                    myLog("Прибыль по лонгам "..tostring(longProfit))
-                    myLog("Прибыль всего "..tostring(allProfit))
-                    myLog("equity "..tostring(equitySum))
-                end
-                lastDealPrice = 0
-                slPrice = 0
-                slIndex = index
-                tpPrice = 0
-            end
-            --if deals["closeLong"][dealsCount] == nil and DS:H(index) - deals["openLong"][dealsCount] >= STOP_LOSS*0.8/leverage and slPrice < deals["openLong"][dealsCount] then
-            --    if logDeals then
-            --        myLog("--------------------------------------------------")
-            --        myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
-            --    end
-            --    if slPrice~=0 then
-            --        slPrice = round(deals["openLong"][dealsCount] + 0*SEC_PRICE_STEP, scale)
-            --        if logDeals then
-            --            myLog("Сдвиг стоп-лосса в безубыток"..tostring(slPrice))
-            --        end
-            --    end
-            --end
-            local isPriceMove = DS:H(index) - TransactionPrice >= STOP_LOSS/leverage
-            if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeLong"][dealsCount] == nil then
-                lastStopShiftIndex = index
-                local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS/leverage))
-                if logDeals then
-                    myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
-                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS/leverage "..tostring(STOP_LOSS/leverage))
-                end
-                if slPrice~=0 then
-                    local oldStop = slPrice
-                    --slPrice = DS:H(index) - STOP_LOSS/leverage
-                    local atPrice = calcAlgoValue[index-1]
-                    local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                    --TransactionPrice = TransactionPrice+STOP_LOSS/leverage
-                    TransactionPrice = DS:H(index)
-                    if (atPrice - shiftSL) >= TransactionPrice then
-                        atPrice = TransactionPrice
+            rangeEMA[1] = Range
+
+            for iii=1, Len do	
+                if DS:C(index-Len+iii-1) ~= nil then				
+                    
+                    if Switch == 1 then     
+                        Range=DS:H(index-Len+iii-1)-DS:L(index-Len+iii-1)
+                    else   
+                        Range=math.abs(DS:O(index-Len+iii-1)-DS:C(index-Len+iii-1))
                     end
-                    --slPrice = round(atPrice - shiftSL, scale)
-                    slPrice = math.max(round(atPrice - shiftSL, scale), round(deals["openLong"][dealsCount] + 0*SEC_PRICE_STEP, scale))
-                    if (deals["openLong"][dealsCount] - slPrice) > maxStop/leverage then slPrice = deals["openLong"][dealsCount] - maxStop/leverage end
-                    slPrice = math.max(oldStop,slPrice)
-                    if logDeals then
-                        myLog("Сдвиг стоп-лосса "..tostring(slPrice))
-                        myLog("new TransactionPrice "..tostring(TransactionPrice))
-                    end
-                end
-                if slPrice~=0 and tpPrice~=0 and isPriceMove then
-                    tpPrice = round(tpPrice + shiftCounts*STOP_LOSS/leverage/2, scale)
-                    if logDeals then
-                        myLog("Сдвиг тейка "..tostring(tpPrice))
-                    end
+                    rangeEMA[iii+1] = k*Range+(1-k)*rangeEMA[iii]
+                else
+                    rangeEMA[iii+1] = rangeEMA[iii]					
                 end
             end
+
+            result = round(Km*rangeEMA[#rangeEMA]/SEC_PRICE_STEP, nil)
+            
+        else result=Km*Size
         end
-
-        if deals["openShort"][dealsCount] ~= nil then
-            if DS:H(index) >= slPrice then 
-                dealsCount = dealsCount + 1
-                local tradeProfit = round(lastDealPrice - slPrice, scale)*leverage
-                shortProfit = shortProfit + tradeProfit            
-                allProfit = allProfit + tradeProfit
-                equitySum = equitySum + tradeProfit
-                if tradeProfit > 0 then
-                    profitDealsShortCount = profitDealsShortCount + 1
-                end
-                slDealsShortCount = slDealsShortCount + 1
-                deals["index"][dealsCount] = index 
-                deals["closeShort"][dealsCount] = slPrice 
-                deals["dealProfit"][dealsCount] = tradeProfit 
-                deals["MAE"][dealsCount] = round(math.max((slPrice - deals["openShort"][dealsCount-1])*leverage, deals["MAE"][dealsCount]), scale)
-                deals["MFE"][dealsCount] = round(math.max((deals["openShort"][dealsCount-1] - DS:L(index))*leverage, deals["MFE"][dealsCount]), scale)
-                slIndex = index
-                if logDeals then
-                    myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("Стоп-лосс шорта "..tostring(deals["openShort"][dealsCount-1]).." по цене "..tostring(slPrice))
-                    myLog("Прибыль сделки "..tostring(tradeProfit))
-                    myLog("Прибыль по шортам "..tostring(shortProfit))
-                    myLog("Прибыль всего "..tostring(allProfit))
-                    myLog("equity "..tostring(equitySum))
-                end
-                lastDealPrice = 0
-                slPrice = 0
-                tpPrice = 0
-            end
-            if DS:L(index) <= tpPrice and tpPrice~=0 then 
-                dealsCount = dealsCount + 1
-                local tradeProfit = round(lastDealPrice - tpPrice, scale)*leverage
-                shortProfit = shortProfit + tradeProfit            
-                allProfit = allProfit + tradeProfit
-                equitySum = equitySum + tradeProfit
-                if tradeProfit > 0 then
-                    profitDealsShortCount = profitDealsShortCount + 1
-                end
-                tpDealsShortCount = tpDealsShortCount + 1
-                deals["index"][dealsCount] = index 
-                deals["closeShort"][dealsCount] = tpPrice 
-                deals["dealProfit"][dealsCount] = tradeProfit 
-                deals["MAE"][dealsCount] = round(math.max((DS:H(index) - deals["openShort"][dealsCount-1])*leverage, deals["MAE"][dealsCount]), scale)
-                deals["MFE"][dealsCount] = round(math.max((deals["openShort"][dealsCount-1] - tpPrice)*leverage, deals["MFE"][dealsCount]), scale)
-                if logDeals then
-                    myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("Тейк-профит шорта "..tostring(deals["openShort"][dealsCount-1]).." по цене "..tostring(tpPrice))
-                    myLog("Прибыль сделки "..tostring(tradeProfit))
-                    myLog("Прибыль по шортам "..tostring(shortProfit))
-                    myLog("Прибыль всего "..tostring(allProfit))
-                    myLog("equity "..tostring(equitySum))
-                end
-                lastDealPrice = 0
-                slPrice = 0
-                slIndex = index
-                tpPrice = 0
-            end
-            --if deals["closeShort"][dealsCount] == nil and (deals["openShort"][dealsCount] - DS:L(index)) >= STOP_LOSS*0.8/leverage and slPrice > deals["openShort"][dealsCount] then
-            --    if logDeals then
-            --        myLog("--------------------------------------------------")
-            --        myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
-            --    end
-            --    if slPrice~=0 then
-            --        slPrice = round(deals["openShort"][dealsCount] + 0*SEC_PRICE_STEP, scale)
-            --        if logDeals then
-            --            myLog("Сдвиг стоп-лосса в безубыток"..tostring(slPrice))
-            --        end
-            --    end
-            --end
-            local isPriceMove = TransactionPrice - DS:L(index) >= STOP_LOSS/leverage
-            if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeShort"][dealsCount] == nil then
-                lastStopShiftIndex = index
-                local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS/leverage))
-                if logDeals then
-                    myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS/leverage "..tostring(STOP_LOSS/leverage))
-                end
-                if slPrice~=0 then
-                    local oldStop = slPrice
-                    --slPrice = DS:L(index) + STOP_LOSS/leverage
-                    local atPrice = calcAlgoValue[index-1]
-                    local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                    --TransactionPrice = TransactionPrice-STOP_LOSS/leverage
-                    TransactionPrice = DS:L(index)
-                    if (atPrice + shiftSL) <= TransactionPrice then
-                        atPrice = TransactionPrice
-                    end
-                    --slPrice = round(atPrice + shiftSL, scale)
-                    slPrice = math.min(round(atPrice + shiftSL, scale), round(deals["openShort"][dealsCount] - 0*SEC_PRICE_STEP, scale))
-                    if (slPrice-deals["openShort"][dealsCount]) > maxStop/leverage then slPrice =  deals["openShort"][dealsCount] + maxStop/leverage end
-                    slPrice = math.min(oldStop,slPrice)
-
-                    if logDeals then
-                        myLog("Сдвиг стоп-лосса "..tostring(slPrice))
-                        myLog("new TransactionPrice "..tostring(TransactionPrice))
-                    end
-                end
-                if slPrice~=0 and tpPrice~=0 and isPriceMove then
-                    tpPrice = round(tpPrice - shiftCounts*STOP_LOSS/leverage/2, scale)
-                    if logDeals then
-                        myLog("Сдвиг тейка "..tostring(tpPrice))
-                    end
-                end
-            end
-        end
-    end
-
-end
-
-function openResults(resultsTable, settingTable, sortColumn, isSort)
-
-    --myLog("-----------------------------------------------")
-    --myLog("-----------------------------------------------")
-
-    local resultsSortTable = {} 
-    local count = #resultsTable
-    for kk = 1, count do
-        resultsSortTable[kk] = {}
-        local n = 1
-        local keyValueSetting = 0
-        local columns = #resultsTable[kk]
-        local lineSettings = resultsTable[kk][1]
-        for i=1,columns do
-            resultsSortTable[kk][i] = resultsTable[kk][i]
-        end
-        for k,v in pairs(settingTable) do
-            local keyValueSetting = lineSettings[k]
-            if type(keyValueSetting) == 'table' then
-                for kkk,vvv in pairs(keyValueSetting) do
-                    local keyValueSettingT = keyValueSetting[kkk]
-                    resultsSortTable[kk][fixResColumnCount+n+1] = keyValueSettingT
-                    --myLog("number "..tostring(15 + n).." col "..tostring(kkk)..", val "..tostring(keyValueSettingT))
-                    n = n+1
-                end
-            else
-                resultsSortTable[kk][fixResColumnCount+n+1] = keyValueSetting
-                --myLog("number "..tostring(15 + n).." col "..tostring(k)..", val "..tostring(keyValueSetting))
-                n = n+1
-            end
-        end
-        resultsSortTable[kk][fixResColumnCount+n+1] = kk
-    end 
-    if sortColumn == nil then
-        sortColumn = 5
-    end
     
-    if not isSort or true then
-        table.sort(resultsSortTable, function(a,b) return (a[sortColumn] or 0) < (b[sortColumn] or 0) end)
-    end
-
-    if IsWindowClosed(tres_id) then
-        
-        local n = 1
-        for k,v in pairs(settingTable) do
-            if type(v) == 'table' then
-                for kkk,vvv in pairs(v) do
-                    AddColumn(tres_id, fixResColumnCount+n-1, kkk, true, QTABLE_DOUBLE_TYPE, 10)
-                    --myLog("number "..tostring(fixResColumnCount + n)..", val "..tostring(kkk))
-                    n = n+1
-                end
-            else
-                AddColumn(tres_id, fixResColumnCount+n-1, k, true, QTABLE_DOUBLE_TYPE, 10)
-                --myLog("number "..tostring(fixResColumnCount + n)..", val "..tostring(k))
-                n = n+1
-            end
-        end
-
-        idResColumn = fixResColumnCount+n-1
-        AddColumn(tres_id, idResColumn, "id", true, QTABLE_DOUBLE_TYPE, 1)
-        
-        tres = CreateWindow(tres_id)
-        SetWindowCaption(tres_id, "Results") 
-        SetWindowPos(tres_id, 10, 160, 1600, 850)
-
-    end
-    
-    Clear(tres_id)
-    
-    local interval = tostring(GetCell(t_id, lineTask, 4).value) or SEC_CODES['interval'][resultsSortTable[line][2]]
-
-    for kk = 1, count do
-        InsertRow(tres_id, kk)
-        --line = count-kk+1
-        line = kk
-        SetCell(tres_id, kk, 0, SEC_CODES['names'][resultsSortTable[line][2]], resultsSortTable[line][2])
-        SetCell(tres_id, kk, 1, ALGORITHMS['names'][resultsSortTable[line][3]].." "..interval, resultsSortTable[line][3])
-        SetCell(tres_id, kk, 2, tostring(resultsSortTable[line][4]), resultsSortTable[line][4])
-        SetCell(tres_id, kk, 3, tostring(resultsSortTable[line][5]), resultsSortTable[line][5])
-        SetCell(tres_id, kk, 4, tostring(resultsSortTable[line][6]), resultsSortTable[line][6])
-        SetCell(tres_id, kk, 5, tostring(resultsSortTable[line][7]), resultsSortTable[line][7])
-        SetCell(tres_id, kk, 6, tostring(resultsSortTable[line][8]), 0)
-        SetCell(tres_id, kk, 7, tostring(resultsSortTable[line][9]), 0)
-        SetCell(tres_id, kk, 8, tostring(resultsSortTable[line][10]), 0)
-        SetCell(tres_id, kk, 9, tostring(resultsSortTable[line][11]), 0)
-        SetCell(tres_id, kk, 10, tostring(resultsSortTable[line][12]), resultsSortTable[line][12])
-        SetCell(tres_id, kk, 11, tostring(resultsSortTable[line][13]), resultsSortTable[line][13])
-        SetCell(tres_id, kk, 12, tostring(resultsSortTable[line][14]), resultsSortTable[line][14])
-        SetCell(tres_id, kk, 13, tostring(resultsSortTable[line][15]), resultsSortTable[line][15])
-        SetCell(tres_id, kk, 14, tostring(resultsSortTable[line][16]), resultsSortTable[line][16])
-        SetCell(tres_id, kk, 15, tostring(resultsSortTable[line][17]), resultsSortTable[line][17])
-        SetCell(tres_id, kk, 16, tostring(resultsSortTable[line][18]), resultsSortTable[line][18])
-        SetCell(tres_id, kk, 17, tostring(resultsSortTable[line][19]), resultsSortTable[line][19])
-        SetCell(tres_id, kk, 18, tostring(resultsSortTable[line][20]), resultsSortTable[line][20])
-        SetCell(tres_id, kk, 19, tostring(resultsSortTable[line][21]), resultsSortTable[line][21])
-        SetCell(tres_id, kk, 20, tostring(resultsSortTable[line][22]), resultsSortTable[line][22])
-
-        local n = 1
-        local keyValueSetting = 0
-        for k,v in pairs(settingTable) do
-            --keyValueSetting = resultsSortTable[line][#resultsSortTable[line]][k]
-            keyValueSetting = resultsSortTable[line][fixResColumnCount+n+1]
-            if type(v) == 'table' then
-                for kkk,vvv in pairs(v) do
-                    keyValueSetting = resultsSortTable[line][fixResColumnCount+n+1]
-                    SetCell(tres_id, kk, fixResColumnCount+n-1, tostring(keyValueSetting), keyValueSetting)
-                    --myLog("number "..tostring(fixResColumnCount + n).." col "..tostring(kkk)..", val "..tostring(keyValueSetting))
-                    n = n+1
-                end
-            else
-                SetCell(tres_id, kk, fixResColumnCount+n-1, tostring(keyValueSetting), keyValueSetting)
-                --myLog("number "..tostring(fixResColumnCount + n).." col "..tostring(k)..", val "..tostring(keyValueSetting))
-                n = n+1
-            end
-        end
-        SetCell(tres_id, kk, fixResColumnCount+n-1, tostring(resultsSortTable[line][fixResColumnCount+n+1]), resultsSortTable[line][fixResColumnCount+n+1])
-    end        
-
-    SetColor(tres_id, #resultsSortTable, QTABLE_NO_INDEX, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
-    
-end
-
---function PaySoundFile(file_name)
---    w32.mciSendString("CLOSE QUIK_MP3") 
---    w32.mciSendString("OPEN \"" .. file_name .. "\" TYPE MpegVideo ALIAS QUIK_MP3")
---    w32.mciSendString("PLAY QUIK_MP3")
---end
-
-function ArraySortByColl(array, col_number)
-    for j = 1, #array - 1 do
-       for i = 2, #array do
-          if array[i][col_number] < array[i-1][col_number] then
-             local x = array[i-1]
-             array[i-1] = array[i]
-             array[i] = x
-          end
-       end
-    end
-end
-
-function gnomeSort(array, col_number)
-
-    local i = 2
-    local j = 3
-
-    while i <= #array do
-        if array[i-1][col_number] < array[i][col_number] then
-            i = j
-            j = j + 1
-        else
-            local x = array[i]
-            array[i] = array[i-1]
-            array[i-1] = x
-            i = i-1
-            if i == 1 then 
-                i=j
-                j=j+1 
-            end
-
-        end
-    end
-
-end
-
-	----------------------------
-function Median(x, y, z)     
-   return (x+y+z) - math.min(x,math.min(y,z)) - math.max(x,math.max(y,z)) 
-end
-
- -- функция записывает в лог строчку с временем и датой 
-function myLog(str)
-    if logFile==nil then return end
-
-    local current_time=os.time()--tonumber(timeformat(getInfoParam("SERVERTIME"))) -- помещене в переменную времени сервера в формате HHMMSS 
-    if (current_time-g_previous_time)>1 then -- если текущая запись произошла позже 1 секунды, чем предыдущая
-        logFile:write("\n") -- добавляем пустую строку для удобства чтения
-    end
-    g_previous_time = current_time 
-
-    logFile:write(os.date().."; ".. str .. ";\n")
-
-    if str:find("Script Stoped") ~= nil then 
-        logFile:write("======================================================================================================================\n\n")
-        logFile:write("======================================================================================================================\n")
-    end
-    logFile:flush() -- Сохраняет изменения в файле
-end
-
-function dValue(i,param)
-    local v = param or "ATR"
-        
-        if DS:C(i) == nil then
-            return nil
-        end
-        
-        if  v == "O" then
-            return DS:O(i)
-        elseif   v == "H" then
-            return DS:H(i)
-        elseif   v == "L" then
-            return DS:L(i)
-        elseif   v == "C" then
-            return DS:C(i)
-        elseif   v == "V" then
-            return DS:V(i)
-        elseif   v == "M" then
-            return (DS:H(i) + DS:L(i))/2
-        elseif   v == "T" then
-            return (DS:H(i) + DS:L(i)+DS:C(i))/3
-        elseif   v == "W" then
-            return (DS:H(i) + DS:L(i)+2*DS:C(i))/4
-        elseif   v == "ATR" then
-            local previous = math.max(i-1, 1)
-                
-            if DS:C(i) == nil then
-                previous = FindExistCandle(previous)
-            end
-            if previous == 0 then
-                return nil
-            end
-        
-            return math.max(math.abs(DS:H(i) - DS:L(i)), math.abs(DS:H(i) - DS:C(previous)), math.abs(DS:C(previous) - DS:L(i)))
-        else
-            return DS:C(i)
-        end 
-end
-
-function toYYYYMMDDHHMMSS(datetime)
-    if type(datetime) ~= "table" then
-       return ""
     else
-       local Res = tostring(datetime.year)
-       if #Res == 1 then Res = "000"..Res end
-       Res = Res.."."
-       local month = tostring(datetime.month)
-       if #month == 1 then Res = Res.."0"..month else Res = Res..month end
-       Res = Res.."."
-       local day = tostring(datetime.day)
-       if #day == 1 then Res = Res.."0"..day else Res = Res..day end
-       Res = Res.." "
-       local hour = tostring(datetime.hour)
-       if #hour == 1 then Res = Res.."0"..hour else Res = Res..hour end
-       Res = Res..":"
-       local minute = tostring(datetime.min)
-       if #minute == 1 then Res = Res.."0"..minute else Res = Res..minute end
-       Res = Res..":"
-       local sec = tostring(datetime.sec);
-       if #sec == 1 then Res = Res.."0"..sec else Res = Res..sec end
-       return Res
-    end
-end --toYYYYMMDDHHMMSS
 
-function mysplit(inputstr, sep)
-     
-    if sep == nil then
-             sep = "%s"
-     end
-     local t={} 
-     local i=1
-     for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
-             t[i] = str
-             i = i + 1
-     end
-     return t
-end
+        if Size == 0 then
+            
+            local Range=0.0
+            local ATRmax=-1000000
+            local ATRmin=1000000
 
-function round(num, idp)
-    if idp and num then
-    local mult = 10^(idp or 0)
-    if num >= 0 then return math.floor(num * mult + 0.5) / mult
-    else return math.ceil(num * mult - 0.5) / mult end
-    else return num end
-end
+            for iii=1, Len do	
+                if DS:C(index-iii) ~= nil then				
+                    if Switch == 1 then     
+                        Range=DS:H(index-iii)-DS:L(index-iii)
+                    else   
+                        Range=math.abs(DS:O(index-iii)-DS:C(index-iii))
+                    end
+                    if Range>ATRmax then ATRmax=Range end
+                    if Range<ATRmin then ATRmin=Range end
+                end
+            end
 
-function findFirstEmptyCandle(DS)
+            result = round(0.5*Km*(ATRmax+ATRmin)/SEC_PRICE_STEP, nil)
+            
+        else result=Km*Size
+        end
     
-    index = DS:Size()
-    while index > 1 and DS:C(index) ~= nil do
-        index = index - 1
     end
 
-    return index
+    return result
+
 end
 
-function FindExistCandle(I)
+-------------------------
+--NRTR range
 
-    local out = I
-    while DS:C(out) == nil and out > 0 do
-        out = out -1
-    end	
-    return out
+function initRangeNRTR()
+    NRTR=nil
+    cache_HPrice = nil
+    cache_LPrice = nil
+    trend=nil
+    ZZLevels={} -- матрица вершины. 1 - значение, 2 - индекс
+end
 
+function initRangeNRTRParams()
+    
+    param1Min = 2
+    param1Max = 64
+    param1Step = 1
+
+    param2Min = 0
+    param2Max = 2.1
+    param2Step = 0.1
+
+    param3Min = 0
+    param3Max = 1
+    param3Step = 1
+        
+    param4Min = 0
+    param4Max = 0.15
+    param4Step = 0.05
+
+    param5Min = 6
+    param5Max = 6
+    param5Step = 1
+
+end
+
+function RangeNRTR(index, settings, DS)
+
+    local Length = settings.Length or 29            -- perios        
+    local Kv = settings.Kv or 1                     -- miltiply
+    local StepSize = settings.StepSize or 0         -- fox stepSize
+    local ATRfactor = settings.ATRfactor or 0.15		
+    local barShift = settings.barShift or 0		
+    local Percentage = settings.Percentage or 0
+    local Switch = settings.Switch or 1             --1 - HighLow, 2 - CloseClose
+    local Size = settings.Size or 2000 
+    local adaptive = settings.adaptive or 1
+    local alpha = settings.alpha or 0.07
+
+    local ratio=Percentage/100.0*SEC_PRICE_STEP
+    local smax0 = 0
+    local smin0 = 0
+    
+    local indexToCalc = 1000
+    indexToCalc = settings.Size or indexToCalc
+    local beginIndexToCalc = settings.beginIndexToCalc or math.max(1, settings.beginIndex - indexToCalc)
+    local endIndexToCalc = settings.endIndex or DS:Size()
+
+    if index == nil then index = 1 end
+     
+    --ATRfactor = 0
+    
+    local zKv = 1
+    local aP = 0
+    adaptive = 0
+    if adaptive == 1 then
+        local aP = adaptivePeriod(index, settings, DS)
+        Length = math.ceil(aP) or Length
+        if Length == 0 then
+            Length = settings.Length or 15
+        end
+    end
+
+    local kawg = 2/(20+1)
+    --local kawg = 2/(15+1)
+    
+    if NRTR == nil then
+        myLog("Показатель Length "..tostring(Length))
+        myLog("Показатель Kv "..tostring(Kv))
+        myLog("Показатель ATRfactor "..tostring(ATRfactor))
+        myLog("Показатель StepSize "..tostring(StepSize))
+        myLog("Показатель Switch "..tostring(Switch))
+        myLog("Показатель barShift "..tostring(barShift))
+        myLog("Показатель adaptive "..tostring(adaptive))
+        myLog("Показатель alpha "..tostring(alpha))
+        myLog("--------------------------------------------------")
+        NRTR = {}
+        NRTR[index] = 0			
+        emaATR = {}
+        emaATR[index] = 0			
+        cache_ATR = {}
+        cache_ATR[index] = 0			
+        smax1 = {}
+        smin1 = {}
+        trend = {}
+        smax1[index] = 0
+        smin1[index] = 0
+        trend[index] = 1
+        emaKv = {}
+        emaKv[index] = 0			
+        emaStep = {}
+        emaStep[index] = 0			
+        emaRange = {}
+        emaRange[index] = 0			
+        cacheL = {}
+        cacheL[index] = 0			
+        cacheH = {}
+        cacheH[index] = 0			
+        cacheC = {}
+        cacheC[index] = 0			
+        fractalL = {}
+        fractalL[index] = 1			
+        fractalH = {}
+        fractalH[index] = 1			
+        return NRTR
+    end
+
+    NRTR[index] = NRTR[index-1] 
+    cache_ATR[index] = cache_ATR[index-1] 
+    emaATR[index] = emaATR[index-1] 
+    smax1[index] = smax1[index-1] 
+    smin1[index] = smin1[index-1] 
+    trend[index] = trend[index-1] 
+    emaKv[index] = emaKv[index-1] 
+    emaStep[index] = emaStep[index-1] 
+    emaRange[index] = emaRange[index-1] 
+    cacheL[index] = cacheL[index-1] 
+    cacheH[index] = cacheH[index-1] 
+    cacheC[index] = cacheC[index-1] 
+
+    if index <= 100 or index < beginIndexToCalc or index > endIndexToCalc then
+        return NRTR
+    end
+
+    if DS:C(index) ~= nil then        
+                   
+        local previous = index-1
+        if DS:C(previous) == nil then
+            previous = FindExistCandle(previous)
+        end
+
+        cacheH[index] = DS:H(index)
+        cacheL[index] = DS:L(index)
+        cacheC[index] = DS:C(index)
+        
+        cache_ATR[index] = math.max(math.abs(DS:H(index) - DS:L(index)), math.abs(DS:H(index) - DS:C(previous)), math.abs(DS:C(previous) - DS:L(index))) or cache_ATR[index-1]
+		emaATR[index] = kawg*cache_ATR[index]+(1-kawg)*emaATR[index-1]
+        
+        previous = index-barShift
+		
+        if DS:C(previous) == nil then
+            previous = FindExistCandle(previous)
+        end
+
+        if Switch == 1 then     
+            smax0=DS:L(previous)+Kv*emaATR[index]
+            smin0=DS:H(previous)-Kv*emaATR[index]    
+        else   
+            smax0=DS:C(previous)+Kv*emaATR[index]
+            smin0=DS:C(previous)-Kv*emaATR[index]
+        end
+
+		if DS:C(index)>smax1[index] and (DS:C(index)-smax1[index]) > ATRfactor*emaATR[index] then
+			trend[index] = 1 
+		end
+		if DS:C(index)<smin1[index] and (smin1[index]-DS:C(index)) > ATRfactor*emaATR[index] then
+			trend[index]= -1
+		end
+
+        if trend[index]>0 then
+            if smin0<smin1[index] then smin0=smin1[index] end
+            NRTR[index]=smin0
+        else
+            if smax0>smax1[index] then smax0=smax1[index] end
+            NRTR[index]=smax0
+        end
+            
+        smax1[index] = smax0
+        smin1[index] = smin0        
+            
+    end
+            
+    return NRTR, trend, NRTR 
+    
+end
+
+function RangeSizeCalc(Len, Km, Size, Switch, smoothStep, index, DS)
+
+    local result = 0
+      
+    if smoothStep == 1 then
+        
+        local Range = 0
+        local rangeEMA = {}	
+        local k = 2/(Len+1)
+
+        if Size == 0 then
+            
+            local Range=0.0
+            local ATRmax=-1000000
+            local ATRmin=1000000
+            if DS:C(index-Len-1) ~= nil then				
+                if Switch == 1 then     
+                    Range=DS:H(index-Len-1)-DS:L(index-Len-1)
+                else   
+                    Range=math.abs(DS:O(index-Len-1)-DS:C(index-Len-1))
+                end
+            end
+            rangeEMA[1] = Range
+
+            for iii=1, Len do	
+                if DS:C(index-Len+iii-1) ~= nil then				
+                    
+                    if Switch == 1 then     
+                        Range=DS:H(index-Len+iii-1)-DS:L(index-Len+iii-1)
+                    else   
+                        Range=math.abs(DS:O(index-Len+iii-1)-DS:C(index-Len+iii-1))
+                    end
+                    rangeEMA[iii+1] = k*Range+(1-k)*rangeEMA[iii]
+                else
+                    rangeEMA[iii+1] = rangeEMA[iii]					
+                end
+            end
+
+            result = rangeEMA[#rangeEMA]
+            
+        else result=Km*Size
+        end
+
+    else
+
+        if Size == 0 then
+            
+            local Range=0.0
+            local ATRmax=-1000000
+            local ATRmin=1000000
+
+            for iii=1, Len do	
+                if DS:C(index-iii) ~= nil then				
+                    if Switch == 1 then     
+                        Range=DS:H(index-iii)-DS:L(index-iii)
+                    else   
+                        Range=math.abs(DS:O(index-iii)-DS:C(index-iii))
+                    end
+                    if Range>ATRmax then ATRmax=Range end
+                    if Range<ATRmin then ATRmin=Range end
+                    --atrRange[iii] = Range
+                end
+            end
+
+            --result = round(0.5*Km*(ATRmax+ATRmin)/SEC_PRICE_STEP, nil)
+            result = 0.5*(ATRmax+ATRmin)
+            --result = MedianF(atrRange, #atrRange, #atrRange)
+            
+        else result=Km*Size
+        end
+    end
+
+    return result
+
+end
+
+---adaptive period
+function CyberCycle()
+	
+	local Price={}
+	local Smooth={}
+	local Cycle={}
+	local CyclePeriod={}
+	local InstPeriod={}
+	local Q1={}
+	local I1={}
+	local DeltaPhase={}
+    
+	return function(index, Fsettings, DS)
+		
+		local Fsettings=(Fsettings or {})
+		local alpha = (Fsettings.alpha or 0.07)
+				
+		local DC, MedianDelta
+		
+		if index == 1 then
+			
+			Price = {}
+			Smooth={}
+			Cycle={}
+			CyclePeriod={}
+			InstPeriod={}
+			Q1={}
+			I1={}
+			DeltaPhase={}
+			
+			Price[index] = (DS:H(index) + DS:L(index))/2 or 0
+			Smooth[index]=0
+			Cycle[index]=0
+			CyclePeriod[index]=0
+			InstPeriod[index]=0
+			Q1[index]=0
+			I1[index]=0
+			DeltaPhase[index]=0
+			
+			return 29
+		end
+				
+		Price[index] = (DS:H(index) + DS:L(index))/2 or 0
+		
+		if index < 4 then
+			Cycle[index]=0
+			CyclePeriod[index]=0
+			InstPeriod[index]=0
+			Q1[index]=0
+			I1[index]=0
+			DeltaPhase[index]=0
+			return 29
+		end
+		
+		Smooth[index] = (Price[index]+2*Price[index - 1]+2*Price[index - 2]+Price[index - 3])/6.0
+		Cycle[index]=(Price[index]-2.0*Price[index - 1]+Price[index - 2])/4.0
+		
+		if index < 7 then
+			CyclePeriod[index]=0
+			InstPeriod[index]=0
+			Q1[index]=0
+			I1[index]=0
+			DeltaPhase[index]=0
+			return 29
+		end
+					
+		Cycle[index]=(1.0-0.5*alpha) *(1.0-0.5*alpha) *(Smooth[index]-2.0*Smooth[index - 1]+Smooth[index - 2])
+						+2.0*(1.0-alpha)*Cycle[index - 1]-(1.0-alpha)*(1.0-alpha)*Cycle[index - 2]			   
+				        
+		Q1[index] = (0.0962*Cycle[index]+0.5769*Cycle[index-2]-0.5769*Cycle[index-4]-0.0962*Cycle[index-6])*(0.5+0.08*(InstPeriod[index-1] or 0))
+		I1[index] = Cycle[index-3]
+						
+		if Q1[index]~=0.0 and Q1[index-1]~=0.0 then 
+			DeltaPhase[index] = (I1[index]/Q1[index]-I1[index-1]/Q1[index-1])/(1.0+I1[index]*I1[index-1]/(Q1[index]*Q1[index-1]))
+		else DeltaPhase[index] = 0	
+		end
+		if DeltaPhase[index] < 0.1 then
+			DeltaPhase[index] = 0.1
+		end	
+		if DeltaPhase[index] > 0.9 then
+			DeltaPhase[index] = 0.9
+		end
+				
+		MedianDelta = Median(DeltaPhase[index],DeltaPhase[index-1], Median(DeltaPhase[index-2], DeltaPhase[index-3], DeltaPhase[index-4]))
+		--MedianDelta = MedianF(DeltaPhase, index, 5)
+         
+        if MedianDelta == 0.0 then
+            DC = 15.0
+        else
+            DC = 6.28318/MedianDelta + 0.5
+		end	
+        
+        InstPeriod[index] = 0.33 * DC + 0.67 * (InstPeriod[index-1] or 0)
+        CyclePeriod[index] = 0.15 * InstPeriod[index] + 0.85 * CyclePeriod[index-1]
+						
+		P = math.floor(CyclePeriod[index])
+		
+		return P
+	end
+end
+
+function MedianF(arr, index, m_len)     
+   
+	local MedianArr = {}
+	for i = 1, m_len do
+		MedianArr[i] = arr[index-i+1]
+	end
+
+	table.sort(MedianArr)
+
+	if m_len % 2 == 0 then 
+		  result = (MedianArr[m_len/2] + MedianArr[(m_len/2)+1])/2.0
+	else
+		  result = MedianArr[(m_len+1)/2]
+	end
+	
+	return result
+end
+
+function cached_ZZ()
+	
+	local CC={} -- значени¤ закрыти¤ свечей	
+	local CH={} -- значени¤ максимумов
+	local CL={} -- значени¤ минимумов
+	
+	local HighMapBuffer={} -- знечени¤ максимов предшествующего движени¤
+	local LowMapBuffer={} -- знечени¤ минимумов предшествующего движени¤
+		
+	local Peak={}
+	    
+    local lastlow = 0
+    local lasthigh = 0
+    local last_peak = 0
+    local lastindex = -1
+    local peak_count = 0
+
+	return function(ind, Fsettings, DS)
+		
+		local Fsettings=(Fsettings or {})
+		local index = ind
+        
+        local Depth = Fsettings.Depth or 12
+		local deviation = Fsettings.deviation or 5
+		local Backstep = Fsettings.Backstep or 3
+		local endIndex = Fsettings.endIndex or DS:Size()
+		        
+        local searchBoth = 0;
+        local searchPeak = 1;
+        local searchLawn = -1;
+
+		if index == 1 then
+			CC={}
+			CH={}
+			CL={}
+
+			Peak={}
+			
+			HighMapBuffer={}
+			LowMapBuffer={}
+
+			ZZLevels={}
+			------------------
+			CC[index]=0
+			CH[index]=0
+			CL[index]=0
+			
+			Peak[index]=nil
+			
+			HighMapBuffer[index]=0
+			LowMapBuffer[index]=0
+			
+            lastindex = -1;		
+            lastlow = 0;
+            lasthigh = 0;
+            last_peak = 0;
+            peak_count = 0;        
+
+			return nil
+		end
+			
+		CC[index]=CC[index-1]					
+		CH[index]=CH[index-1] 
+        CL[index]=CL[index-1]
+    		
+		if index < Depth or DS:C(index) == nil then
+            HighMapBuffer[index]=HighMapBuffer[index-1]
+            LowMapBuffer[index]=LowMapBuffer[index-1]       
+		    Peak[index]=nil
+			return Peak[index]
+		end
+
+        CC[index]=DS:C(index)
+		CH[index]=DS:H(index) 
+		CL[index]=DS:L(index) 
+        
+		if index < endIndex then
+            HighMapBuffer[index]=HighMapBuffer[index-1]
+            LowMapBuffer[index]=LowMapBuffer[index-1]       
+		    Peak[index]=nil
+			return Peak[index]
+		end
+        
+        local sizeOfZZLevels = #ZZLevels
+        local searchMode = searchBoth;
+                        
+            lastindex = index
+            
+            HighMapBuffer[index]=0 
+            LowMapBuffer[index]=0        
+		    Peak[index]=nil
+            
+            
+            local start;
+            local last_peak;
+            local last_peak_i;
+            
+            start = Depth;
+            
+            i = GetPeak(index, -3, Peak, ZZLevels);
+            
+            if i == -1 then
+                last_peak_i = 0;
+                last_peak = 0;
+            else
+                last_peak_i = i;
+                last_peak = Peak[i];
+                start = i;
+            end
+            
+            for i = start, index, 1 do
+                Peak[i]=nil;
+                LowMapBuffer[i]=0.0;
+                HighMapBuffer[i]=0.0;
+            end
+            
+            searchMode = searchBoth;
+            if LowMapBuffer[start]~=0 then
+                searchMode = searchPeak
+            elseif HighMapBuffer[start]~=0 then
+                searchMode = searchLawn
+            end        
+            
+            for i = start, index-1, 1 do
+                
+                -- fill high/low maps
+                local range = i - Depth + 1;
+                local val;
+                
+                -- get the lowest low for the last depth is
+                val = math.min(unpack(CL, range, i));
+                if val == lastlow then
+                    -- if lowest low is not changed - ignore it
+                    val = nil;
+                else
+                    -- keep it
+                    lastlow = val;
+                    -- if current low is higher for more than Deviation pips, ignore
+                    if (CL[i] - val) > (SEC_PRICE_STEP * deviation) then
+                        val = nil;
+                    else
+                        -- check for the previous backstep lows
+                        for k = i - 1, i - Backstep + 1, -1 do
+                            if (LowMapBuffer[k] ~= 0) and (LowMapBuffer[k] > val) then
+                                LowMapBuffer[k] = 0;
+                            end
+                        end
+                    end
+                end
+                if CL[i] == val then
+                    LowMapBuffer[i] = val;
+                else
+                    LowMapBuffer[i] = 0;
+                end
+                
+                -- get the highest high for the last depth is
+                val = math.max(unpack(CH, range, i));
+                if val == lasthigh then
+                    -- if lowest low is not changed - ignore it
+                    val = nil;
+                else
+                    -- keep it
+                    lasthigh = val;
+                    -- if current low is higher for more than Deviation pips, ignore
+                    if (val - CH[i]) > (SEC_PRICE_STEP * deviation) then
+                        val = nil;
+                    else
+                        -- check for the previous backstep lows
+                        for k = i - 1, i - Backstep + 1, -1 do
+                            if (HighMapBuffer[k] ~= 0) and (HighMapBuffer[k] < val) then
+                                HighMapBuffer[k] = 0;
+                            end
+                        end
+                    end
+                end
+                
+                if CH[i] == val then
+                    HighMapBuffer[i] = val;
+                else
+                    HighMapBuffer[i] = 0
+                end
+                
+            end
+                        
+            peak_count = 0
+            if start ~= Depth then
+                peak_count = - 3;
+            end
+                        
+            for i = start, index-1, 1 do
+                
+                sizeOfZZLevels = #ZZLevels
+                
+                if searchMode == searchBoth then
+                    if (HighMapBuffer[i] ~= 0) then
+                        last_peak_i = i;
+                        last_peak = CH[i]
+                        searchMode = searchLawn;
+                        LowMapBuffer[i] = 0
+                        peak_count = RegisterPeak(i, last_peak, Peak, peak_count, ZZLevels);
+                    elseif (LowMapBuffer[i] ~= 0) then
+                        last_peak_i = i;
+                        last_peak = CL[i] --owBuffer[i];
+                        searchMode = searchPeak;
+                        peak_count = RegisterPeak(i, last_peak, Peak, peak_count, ZZLevels);
+                    end
+                elseif searchMode == searchPeak then
+                    if (LowMapBuffer[i] ~= 0 and LowMapBuffer[i] < last_peak and HighMapBuffer[i] == 0) then
+                        Peak[last_peak_i] = nil
+                        last_peak = LowMapBuffer[i];
+                        last_peak_i = i;
+                        ReplaceLastPeak(i, last_peak, Peak, peak_count, ZZLevels);
+                    end
+                    if HighMapBuffer[i] ~= 0 and LowMapBuffer[i] == 0 then
+                        last_peak = HighMapBuffer[i];
+                        last_peak_i = i;
+                        searchMode = searchLawn;
+                        peak_count = RegisterPeak(i, last_peak, Peak, peak_count, ZZLevels);
+                    end
+                elseif searchMode == searchLawn then
+                    if (HighMapBuffer[i] ~= 0 and HighMapBuffer[i] > last_peak and LowMapBuffer[i] == 0) then
+                        Peak[last_peak_i] = nil
+                        last_peak = HighMapBuffer[i];
+                        last_peak_i = i;
+                        ReplaceLastPeak(i, last_peak, Peak, peak_count, ZZLevels);
+                    end
+                    if LowMapBuffer[i] ~= 0 and HighMapBuffer[i] == 0 then
+                        last_peak = LowMapBuffer[i];
+                        last_peak_i = i;
+                        searchMode = searchPeak;
+                        peak_count = RegisterPeak(i, last_peak, Peak, peak_count, ZZLevels);
+                    end
+                end
+            end
+                                    
+        return Peak[index]
+
+    end
 end
