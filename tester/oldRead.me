@@ -1,25 +1,21 @@
 Простой тестер. Алгоритмы тестирования подключаются через файлы (модули)
 
 dofile (getScriptPath().."\\testNRTR.lua") --stepNRTR алгоритм
-
 dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
-
-dofile (getScriptPath().."\\testShiftEMA.lua") --EMA алгоритм
-
+dofile (getScriptPath().."\\testEMA.lua") --EMA алгоритм
 dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
-
 dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
 
 Список алгоритмов в таблице
 
     ALGORITHMS = {
-        ["names"] =                 {"NRTR"                 , "ShiftEMA"        , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"          },
-        ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams        },
-        ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR        },
-        ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR     },
-        ["calcAlgorithms"] =        {stepNRTR               , shiftEMA        , THV         , SAR           , Reg         , RangeNRTR            },
-        ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade     , simpleTrade , simpleTrade   , simpleTrade , simpleTrade       },
-        ["settings"] =              {NRTRSettings           , shiftEMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings    },
+        ["names"] =                 {"NRTR"                 , "2EMA"        , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"          },
+        ["initParams"] =            {initStepNRTRParams     , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams        },
+        ["initAlgorithms"] =        {initStepNRTR           , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR        },
+        ["itetareAlgorithms"] =     {iterateNRTR            , iterateEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR     },
+        ["calcAlgorithms"] =        {stepNRTR               , allEMA        , THV         , SAR           , Reg         , RangeNRTR            },
+        ["tradeAlgorithms"] =       {simpleTrade            , ema2Trade     , simpleTrade , simpleTrade   , simpleTrade , simpleTrade       },
+        ["settings"] =              {NRTRSettings           , EMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings    },
     }
     
 Файл инструментов и алгоритмов для них    
