@@ -1,144 +1,78 @@
 RegSettings = {
-    bars    = 182,
+    period    = 182,
     degree = 1, -- 1 -линейная, 2 - параболическая, - 3 степени
-    kstd = 3 --отклонение сигма
+    shift = 0.618,
+    kstd = 3, --отклонение сигма
+    Size = 0
 }
 
 function initReg()
     calcAlgoValue = nil     --      Возвращаемая таблица
-    fx_buffer = nil         --      Линия регрессии
-    sql_buffer = nil    --      +Сигма
-    sqh_buffer = nil    --      -Сигма
-    sx = nil
+    calcChartResults = nil     --      Возвращаемая таблица
+    ATR=nil
+    calcATR = true
 end
 
 function iterateReg(iSec, cell)
     
-    Clear(tres_id)
+    iterateSLTP = false
 
-    myLog("================================================")
-    myLog("Sec code "..SEC_CODES['sec_codes'][iSec])
-
-    --local settings = ALGORITHMS["settings"][cell]
-    local Size = GetCell(t_id, lineTask, 2).value or SEC_CODES['Size'][iSec]
-    --resultsTable = {}
-    clearResultsTable(iSec, cell)
-    local resultsTable = CreateResTable(iSec)    
-    local count = #resultsTable
-    local settingTable = ALGORITHMS['settings'][cell]
-
-    myLog("Interval "..ALGORITHMS['names'][cell])
-    myLog("================================================")
-    
-    local param1Min = 4
-    local param1Max = 128
+    local param1Min = 8
+    local param1Max = 38
     local param1Step = 1
+
+    local param2Min = 1
+    local param2Max = 3
+    local param2Step = 1
     
-    local ChartId = SEC_CODES['ChartId'][iSec]
-    if ChartId ~= nil then
-        DelAllLabels(ChartId);
-    end
-   
-    maxProfitIndex = 0
-    maxProfit = nil
-    maxProfitDeals = nil
-    maxProfitAlgoResults = nil
+    local param3Min = 1
+    local param3Max = 38
+    local param3Step = 1
 
-    local localCount = 0
-    local done = 0
+    local settingsTable = {}
+    local allCount = 0
 
-    DS = DataSource(iSec)
-    beginIndex = DS:Size()-Size
-    endIndex = DS:Size()
-
-    local allCount = ((param1Max-param1Min + param1Step)/param1Step)
-
-    for _Period = param1Min, param1Max, param1Step do
+    for param1 = param1Min, param1Max, param1Step do
                 
-        count = count + 1
-        localCount = localCount + 1
-        done = round(localCount*100/allCount, 0)
-        SetCell(t_id, lineTask, 4, tostring(done).."%", done)
-
-        allProfit = 0
-        shortProfit = 0
-        longProfit = 0
-        lastDealPrice = 0
-        dealsCount = 0
-        dealsLongCount = 0
-        dealsShortCount = 0
-        profitDealsLongCount = 0
-        profitDealsShortCount = 0
-        ratioProfitDeals = 0
-        initalAssets = 0
+        for param2 = param2Min, param2Max, param2Step do    
+            local calculatedShift = {}
+            for param3 = param3Min, math.ceil(0.8*param1), param3Step do
+            --for param3 = param3Min, param3Max, param3Step do
+                allCount = allCount + 1
                 
-        settingsTask = {
-            bars    = _Period,
-            degree = 1, -- 1 -линейная, 2 - параболическая, - 3 степени
-            kstd = 3, --отклонение сигма
-            Size = Size
-        }
-        
-        calculateAlgorithm(iSec, cell)
-        local profitRatio, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount = calculateSigma(deals)
-
-        --myLog("--------------------------------------------------")
-        --myLog("Прибыль по лонгам "..tostring(longProfit))
-        --myLog("Прибыль по шортам "..tostring(shortProfit))
-        --myLog("Прибыль всего "..tostring(allProfit))
-        --myLog("================================================")
-        
-        dealsLP = tostring(dealsLongCount).."/"..tostring(profitDealsLongCount)
-        dealsSP = tostring(dealsShortCount).."/"..tostring(profitDealsShortCount)
-        if dealsLongCount + dealsShortCount > 0 then
-            ratioProfitDeals = round((profitDealsLongCount + profitDealsShortCount)*100/(dealsLongCount + dealsShortCount), 2)
+                settingsTable[allCount] = {
+                    period    = param1,
+                    degree = param2, -- 1 -линейная, 2 - параболическая, - 3 степени
+                    shift = param3,
+                    kstd = 3, --отклонение сигма
+                    Size = Size,
+                    endIndex = endIndex
+                    }
+            
+                
+            end
         end
-        
-        resultsTable[count] = {iSec, cell, allProfit, profitRatio, longProfit, shortProfit, dealsLP, dealsSP, ratioProfitDeals, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount, settingsTask}
-
-        if maxProfit == nil or maxProfit<allProfit then
-            maxProfit = allProfit
-            maxProfitIndex = count
-            maxProfitDeals = deals
-            maxProfitAlgoResults = algoResults
-            SetCell(t_id, lineTask, 5, tostring(allProfit), allProfit)
-            SetCell(t_id, lineTask, 6, tostring(profitRatio), profitRatio)
-            SetCell(t_id, lineTask, 7, tostring(longProfit), longProfit)
-            SetCell(t_id, lineTask, 8, tostring(shortProfit), shortProfit)
-            SetCell(t_id, lineTask, 9, tostring(dealsLP), 0)
-            SetCell(t_id, lineTask, 10, tostring(dealsSP), 0)
-            SetCell(t_id, lineTask, 11, tostring(ratioProfitDeals), ratioProfitDeals)
-            SetCell(t_id, lineTask, 12, tostring(avg), avg)
-            SetCell(t_id, lineTask, 13, tostring(sigma), sigma)
-            SetCell(t_id, lineTask, 14, tostring(maxDrawDown), maxDrawDown)
-            SetCell(t_id, lineTask, 15, tostring(sharpe), sharpe)
-            SetCell(t_id, lineTask, 16, tostring(AHPR), AHPR)
-            SetCell(t_id, lineTask, 17, tostring(ZCount), ZCount)
-        end
-    
     end
-       
-    SetCell(t_id, lineTask, 4, "100%", 100)
- 
-    openResults(resultsTable, settingTable)
 
-    if ChartId ~= nil then
-        addDeals(maxProfitDeals, ChartId, DS)
-        stv.UseNameSpace(ChartId)
-        stv.SetVar('algoResults', maxProfitAlgoResults)
-    end
+    iterateAlgorithm(iSec, cell, settingsTable)
 
 end
 
 function Reg(index, settings, DS)
  	        		
-	local bars = settings.bars or 182
+	local period = settings.period or 182
 	local degree = settings.degree or 1
 	local kstd = settings.kstd or 3
+	local shift = settings.shift or 0.618
     
+    local indexToCalc = 1000
+    indexToCalc = settings.Size or indexToCalc
+    local beginIndexToCalc = settings.beginIndexToCalc or math.max(1, settings.beginIndex - indexToCalc)
+    local endIndexToCalc = settings.endIndex or DS:Size()
+
     if index == nil then index = 1 end
 
-    bars = math.min(bars, DS:Size())
+    period = math.min(period, DS:Size())
 	
 	local p = 0
 	local n = 0
@@ -159,22 +93,23 @@ function Reg(index, settings, DS)
 	local b={}
 	local x={}
 	
-	p = bars 
+	p = period 
 	nn = degree+1
  
-    if index == 1 then
-        sql_buffer = {}
-        sqh_buffer = {}
-        fx_buffer = {}
-        
-        sql_buffer[index]= 0
-        sqh_buffer[index]= 0
-        fx_buffer[index]= 0
-        
+    if index == beginIndexToCalc then
+        myLog("Показатель Period "..tostring(period))
+        myLog("Показатель degree "..tostring(degree))
+        myLog("Показатель shift "..tostring(shift))
+        myLog("--------------------------------------------------")
+		
         calcAlgoValue = {}
         calcAlgoValue[index]= 0
+        calcChartResults = {}
+        calcChartResults[index]= {nil,nil}
         trend = {}
         trend[index] = 1
+        ATR = {}
+        ATR[index] = 0			
     
         --- sx 
         sx={}
@@ -185,42 +120,43 @@ function Reg(index, settings, DS)
             for n=i0, i0+p do
                 sum = sum + math.pow(n,mi)
             end
-        sx[mi+1]=sum
+        	sx[mi+1]=sum
         end
         
-        return calcAlgoValue
+        return calcAlgoValue, nil, calcChartResults
     end
             
-    sql_buffer[index] = sql_buffer[index-1]	
-    sqh_buffer[index] = sqh_buffer[index-1]	
-    --fx_buffer[index] = fx_buffer[index-1]
     calcAlgoValue[index] = calcAlgoValue[index-1]
+    calcChartResults[index] = calcChartResults[index-1]
     trend[index] = trend[index-1]
-    
-    if index <= (bars + 1) then
-        return calcAlgoValue
+    ATR[index] = ATR[index-1]
+
+    if index<period then
+        ATR[index] = 0
+    elseif index==period then
+        local sum=0
+        for i = 1, period do
+            sum = sum + dValue(i)
+        end
+        ATR[index]=sum / period
+    elseif index>period then
+        ATR[index]=(ATR[index-1] * (period-1) + dValue(index)) / period
     end
-	--- sx 
-	sx={}
-	sx[1] = p+1
-		
-	for mi=1, nn*2-2 do
-		sum=0
-		for n=i0, i0+p do
-			sum = sum + math.pow(n,mi)
-		end
-		sx[mi+1]=sum
-	end
-           		 
+
+    if index <= beginIndexToCalc + (period + shift + 1) or index > endIndexToCalc then
+        return calcAlgoValue, nil, calcChartResults
+    end
+	
+	local typeVal = 'C'
 	--- syx 
 	for mi=1, nn do
 		sum = 0
 		for n=i0, i0+p do
-			if DS:C(index+n-bars) ~= nil then
+			if DS:C(index+n-period) ~= nil then
 				if mi==1 then
-				   sum = sum + DS:C(index+n-bars)
+				   sum = sum + dValue(index+n-period,typeVal)
 				else
-				   sum = sum + DS:C(index+n-bars)*math.pow(n,mi-1)
+				   sum = sum + dValue(index+n-period,typeVal)*math.pow(n,mi-1)
 				end
 			end
 		end
@@ -283,38 +219,30 @@ function Reg(index, settings, DS)
 		end
 	end
 	   
-	---
-	for n=i0, i0+p do
-		sum=0
-		for kk=1, degree do
-			sum = sum + x[kk+1]*math.pow(n,kk)
-		end
-		fx_buffer[n]=x[1]+sum
- 	end
-		 
-	--- Std 
-    sq=0.0
-	for n=i0, i0+p do
-		if DS:C(index+n-bars) ~= nil then
-			sq = sq + math.pow(DS:C(index+n-bars)-fx_buffer[n],2)
-		end
+	local n = p
+	sum=0
+	for kk=1, degree do
+		sum = sum + x[kk+1]*math.pow(n,kk)
 	end
-	   
-	sq = math.sqrt(sq/(p-1))*kstd
+	local regVal=x[1]+sum
+		  
+    calcAlgoValue[index] = round(regVal, 5)
+    
+    local isUpPinBar = DS:C(index)>DS:O(index) and (DS:H(index)-DS:C(index))/(DS:H(index) - DS:L(index))>=0.5 
+    local isLowPinBar = DS:C(index)<DS:O(index) and (DS:C(index)-DS:L(index))/(DS:H(index) - DS:L(index))>=0.5 
 
-	for n=i0, i0+p do
-		sqh_buffer[index+n-bars]=round(fx_buffer[n]+sq, 5)
-		sql_buffer[index+n-bars]=round(fx_buffer[n]-sq, 5)
- 	end        
-    		
-    calcAlgoValue[index] = round(fx_buffer[p], 5)
-    if calcAlgoValue[index] < DS:C(index) and calcAlgoValue[index-1] >= DS:C(index-1) then
+    local isBuy = (not isUpPinBar and calcAlgoValue[index] > calcAlgoValue[index-shift] and calcAlgoValue[index-1] <= calcAlgoValue[index-shift-1]) 
+    local isSell = (not isLowPinBar and calcAlgoValue[index] < calcAlgoValue[index-shift] and calcAlgoValue[index-1] >= calcAlgoValue[index-shift-1])
+    
+    if isBuy then
         trend[index] = 1
     end
-    if calcAlgoValue[index] > DS:C(index) and calcAlgoValue[index-1] <= DS:C(index-1) then
+    if isSell then
         trend[index] = -1
     end
+    
+    calcChartResults[index] = {calcAlgoValue[index], calcAlgoValue[index-shift-1]}
 
-	return calcAlgoValue, trend
+    return calcAlgoValue, trend, calcChartResults
 	
 end
