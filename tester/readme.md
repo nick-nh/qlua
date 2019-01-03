@@ -1,33 +1,88 @@
-Простой тестер. Алгоритмы тестирования подключаются через файлы (модули)
+Доработанная версия тестера. 
+Основные изменение:
+- добавлены стоп и тейк в тестирование
+- новые статистические показатели
+- сохранение результатов в файл
+- возможность указания начального индекса бара расчета. Тем самым можно тестировать определенный участок графика.
+- если открыта сделка на конец графика, то эквити рассчитывается с ее учетом.
+
+(в очереди на доработку методика Walk-Forward Analysis)
+
+Алгоритмы тестирования подключаются через файлы (модули)
 
 dofile (getScriptPath().."\\testNRTR.lua") --stepNRTR алгоритм
+
 dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
-dofile (getScriptPath().."\\testEMA.lua") --EMA алгоритм
+
+dofile (getScriptPath().."\\testShiftEMA.lua") --EMA алгоритм
+
 dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
+
 dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
 
 Список алгоритмов в таблице
 
     ALGORITHMS = {
-        ["names"] =                 {"NRTR"                 , "2EMA"        , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"          },
-        ["initParams"] =            {initStepNRTRParams     , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams        },
-        ["initAlgorithms"] =        {initStepNRTR           , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR        },
-        ["itetareAlgorithms"] =     {iterateNRTR            , iterateEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR     },
-        ["calcAlgorithms"] =        {stepNRTR               , allEMA        , THV         , SAR           , Reg         , RangeNRTR            },
-        ["tradeAlgorithms"] =       {simpleTrade            , ema2Trade     , simpleTrade , simpleTrade   , simpleTrade , simpleTrade       },
-        ["settings"] =              {NRTRSettings           , EMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings    },
+        ["names"] =                 {"NRTR"                 , "ShiftEMA"        , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"          },
+        ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams        },
+        ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR        },
+        ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR     },
+        ["calcAlgorithms"] =        {stepNRTR               , shiftEMA        , THV         , SAR           , Reg         , RangeNRTR            },
+        ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade     , simpleTrade , simpleTrade   , simpleTrade , simpleTrade       },
+        ["settings"] =              {NRTRSettings           , shiftEMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings    },
     }
     
 Файл инструментов и алгоритмов для них    
 PARAMS_FILE_NAME = getScriptPath().."\\testMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
 
-В файле определен список инструментов, открывать лонг и шорт, иднентификатор графика куда выводить метки и данные,
-размер баров для тестирования от текущей, интервал тестирования.
+В файле определен список инструментов, открывать лонг и шорт, идентификатор графика,куда выводить метки и данные,
+размер баров для тестирования от текущей, интервал тестирования, размер стоп-лосса, тейк профит.
 
 <a href="http://funkyimg.com/view/2KKnm" target="_blank"><img src="http://funkyimg.com/i/2KKnm.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
 Значения статистических показателей рассчитаны как показано здесь:
 https://www.mql5.com/ru/articles/1492
+
+В этой версии добавлен расчет показателей LRE (отклонение значения баланса от прямой), LRC (коэффициент корреляции между графиком баланса и любой прямой линией), MAE (Maximum Adverse Excursion) и MFE (Maximum Favorable Excursion).
+
+Во время расчета данные теста записываются в файл по шалону getScriptPath().."\\"..SecCode..'_'..interval..'_'..timeStamp..".csv" (SiH9_NRTR 3_2019-01-03 19.37.14.csv)
+Данный файл можно открыть в любой программе анализа данных или написать скрипт на питоне и др. для анализа.
+
+Подробнее о стопе и тейке:
+Встроенный алгоритм simpleTrade реализует трейлинг стопа и тейка. Размер стопа и тейка указывается в пунктах цены. Это в
+При входе в сделку открывается стоп по формуле:
+calcAlgoValue[index-1] - (kATR*ATR[index-1] + 40*SEC_PRICE_STEP,
+где calcAlgoValue[index-1] - это расчетное значение алгоритма на прошлом баре. Допустим рассчитанное EMA.
+    kATR = 0.95 (переменная, можно изменить)
+    ATR[index-1] - рассчитанное значение АТР на прошлом баре.
+    SEC_PRICE_STEP - минимальный шаг цены инструмента
+Т.о. стоп рассчитывается и не зависит от стопа, указанного в файле параметров.
+Далее, введена переменная maxStop. Если рассчиатанный стоп превысит максимальный, то он ограничивается.
+
+Конечно, можно переписать функции simpleTrade и checkSL_TP, изменить формулу на простую
+lastDealPrice - STOP_LOSS/leverage. Это будет вариант жесткого стопа от цены открытой сделки.
+
+Тейк профит рассчитывается просто 
+lastDealPrice + TAKE_PROFIT/leverage
+
+Т.е. он фиксируется в пунктах, указанных в настройках
+
+Далее, по мере движения цены происходит сдвиг стопа и тейка. 
+Сдвиг происходит в двух случаях. Первый, если цена прошла размер указанного стопа в пунктах.
+Для примера, вход в сделку по цене 69450, стоп указан в 40 пунктов. Если прошла сделка по цене 69490, то происходит сдвиг.
+Второй, если с момента входа в сделку прошло указанное количество баров в переменной stopShiftIndexWait (по умолчанию = 17).
+Зачем нужен второй случай. Т.к. стоп плавающий, завистит от АТР, то изначально он мог быть большим. Далее снижаетмя волатильность, а цена не двигается, т.е. сдвига по первому типу не произойдет. В этом случае полезно пересчитать стоп т.к. может возникнуть ситуация резкого движения, потрери от которго лучше ограничить с учетом нового значения волатильности.
+
+Первый сдвиг стопа происходит в безубыток. Далее уже по мере движения цены от calcAlgoValue[index-1], т.к. значение алгоритма следует за ценой.
+Тейк сдвигается по формуле
+tpPrice + STOP_LOSS/leverage/2,
+где tpPrice - значение прошлого тейка.
+
+Т.о. по мере движения цены данный алгоритм производит как-бы сужение окна между тейком и стопом.
+
+Если произошло закрытие сделки по тейку или стопу, то реализована возможность переоткрытия сделки через reopenPosAfterStop (по умолчанию = 7). Т.о., если выбило по стопу, то через каждые reopenPosAfterStop будет предпринята попытка открыть сделку при условии, что текущая цена выше или ниже цены закрытой сделки. Это важно. Т.е. если выбила, а цена пошла в нужном направлении, то переоткроется сделка, если цена развернулась так и не развернулась, то сделка не откроется. Тоже самое с тейком. Бывают ситуации когда вышли по тейку, а цена идет дальше, то как раз через reopenPosAfterStop будет открыта сделка заново, в надежде на продолжение движения. 
+
+Данный сложный алгоритм стоп заявок реализован для тестирования моей методики следования сделки. Если стопы не нужны, то можно просто поставить значения = 0 в файле праметров, или переписать процедуры simpleTrade и checkSL_TP.
 
 Чтобы выводить данные на график надо задать ChartId.
 
@@ -40,8 +95,9 @@ https://www.mql5.com/ru/articles/1492
 
 <a href="http://funkyimg.com/view/2KKnh" target="_blank"><img src="http://funkyimg.com/i/2KKnh.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
-После запуска скрипта откроется окно со списоком инструментов. Можно задать размер и интервал прямо из этого окна.
-Для этого надо дважы щелкнуть по колонке с параметром. Для запуска теста надо дважды щелкнуть по колонкам "Инструмент" или "Алгоритм".
+После запуска скрипта откроется окно со списоком инструментов. Можно задать размер, интервал, начальный индекс бара прямо из этого окна. Для этого надо дважы щелкнуть по колонке с параметром. Начальный индекс бара можно узнать, поставив индикатор barIndex. 
+
+Для запуска теста надо дважды щелкнуть по колонкам "Инструмент" или "Алгоритм".
 
 <a href="http://funkyimg.com/view/2KKnk" target="_blank"><img src="http://funkyimg.com/i/2KKnk.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
 
