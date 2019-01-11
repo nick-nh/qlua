@@ -1089,7 +1089,7 @@ function iterateTable(iSec, cell, settingsTable, resultsTable, settingTable, beg
         local longSL_TP = tostring(slDealsLongCount).."/"..tostring(tpDealsLongCount)
         local shortSL_TP = tostring(slDealsShortCount).."/"..tostring(tpDealsShortCount)
         
-        if profitRatio > 10 then
+        if profitRatio > 0 then
             rescount = rescount + 1
             resultsTable[rescount] = {settingsTask, iSec, cell, allProfit, profitRatio, longProfit, shortProfit, dealsLP, dealsSP, longSL_TP, shortSL_TP, ratioProfitDeals, avg, sigma, maxDrawDown, sharpe, AHPR, ZCount, MAE, MFE, LRE, LRC}
 
@@ -1866,7 +1866,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                 local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
+                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount)..' isPriceMove '..tostring(isPriceMove))                        
                     myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
@@ -1882,7 +1882,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                     --slPrice = round(atPrice - shiftSL, scale)
                     slPrice = math.max(round(atPrice - shiftSL, scale), round(deals["openLong"][dealsCount] + 0*SEC_PRICE_STEP, scale))
                     if (deals["openLong"][dealsCount] - slPrice) > maxStop*priceKoeff then slPrice = deals["openLong"][dealsCount] - maxStop*priceKoeff end
-                    slPrice = math.max(oldStop,slPrice)
+                    slPrice = math.min(math.max(oldStop,slPrice), DS:L(index))
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
                         myLog("new TransactionPrice "..tostring(TransactionPrice))
@@ -1974,7 +1974,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                 local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
+                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount)..' isPriceMove '..tostring(isPriceMove))
                     myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
@@ -1990,7 +1990,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                     --slPrice = round(atPrice + shiftSL, scale)
                     slPrice = math.min(round(atPrice + shiftSL, scale), round(deals["openShort"][dealsCount] - 0*SEC_PRICE_STEP, scale))
                     if (slPrice-deals["openShort"][dealsCount]) > maxStop*priceKoeff then slPrice =  deals["openShort"][dealsCount] + maxStop*priceKoeff end
-                    slPrice = math.min(oldStop,slPrice)
+                    slPrice = math.max(math.min(oldStop,slPrice), DS:H(index))
 
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
