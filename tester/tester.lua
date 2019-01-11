@@ -139,7 +139,7 @@ function OnInit()
         --return false
     end
 
-    ALGORITHMS = {		     ALGORITHMS = {
+    ALGORITHMS = {
          ["names"] =                 {"NRTR"                 , "ShiftEMA"         , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"         },
          ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams },
          ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR       },
