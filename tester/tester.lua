@@ -9,7 +9,6 @@ dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
 dofile (getScriptPath().."\\testShiftEMA.lua") --ShiftEMA алгоритм
 dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
 dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
-dofile (getScriptPath().."\\testRangeHV.lua") --RangeHV алгоритм
 
 SEC_CODES = {}
 scale = 2
@@ -140,16 +139,16 @@ function OnInit()
         --return false
     end
 
-    ALGORITHMS = {
-        ["names"] =                 {"NRTR"                 , "ShiftEMA"         , "2EMA"        , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"         , "RangeHV"           },
-        ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams , initRangeHV         },
-        ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR       , initRangeHV         },
-        ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR         , iterateRangeHV      },
-        ["calcAlgorithms"] =        {stepNRTR               , shiftEMA           , allEMA        , THV         , SAR           , Reg         , RangeNRTR           , RangeHV             },
-        ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade        , ema2Trade     , simpleTrade , simpleTrade   , simpleTrade , simpleTrade         , simpleTrade         },
-        ["settings"] =              {NRTRSettings           , shiftEMASettings   , EMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings        , RangeHVSettings     },
-    }    
-        
+    ALGORITHMS = {		     ALGORITHMS = {
+         ["names"] =                 {"NRTR"                 , "ShiftEMA"         , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"         },
+         ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams },
+         ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR       },
+         ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR         },
+         ["calcAlgorithms"] =        {stepNRTR               , shiftEMA           , THV         , SAR           , Reg         , RangeNRTR           },
+         ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade        , simpleTrade , simpleTrade   , simpleTrade , simpleTrade         },
+         ["settings"] =              {NRTRSettings           , shiftEMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings        },
+     }
+		
     SEC_CODES['class_codes'] =           {} -- CLASS_CODE
     SEC_CODES['names'] =                 {} -- имена бумаг
     SEC_CODES['sec_codes'] =             {} -- коды бумаг
