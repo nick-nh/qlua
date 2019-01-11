@@ -1812,6 +1812,7 @@ function SL_TP(AtPrice, Type, qnt)
         end
         --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
         if oldStop~=0 then stopprice2 = math.max(oldStop, stopprice2) end
+        stopprice2 = math.min(stopprice2, DS:L(DS:Size()))
 		--price = stopprice2 - 2*SEC_PRICE_STEP 
 	else -- открыт SELL
 		operation = "B" -- Тейк-профит и Стоп-лосс на покупку(чтобы закрыть SELL, нужно открыть BUY)
@@ -1849,6 +1850,7 @@ function SL_TP(AtPrice, Type, qnt)
         --price = stopprice2 + 2*SEC_PRICE_STEP 
         --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
         if oldStop~=0 then stopprice2 = math.min(oldStop, stopprice2) end
+        stopprice2 = math.max(stopprice2, DS:H(DS:Size()))
 	end
 	-- Заполняет структуру для отправки транзакции на Стоп-лосс и Тейк-профит
    
@@ -3278,7 +3280,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                 local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
+                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount)..' isPriceMove '..tostring(isPriceMove))                        
                     myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
@@ -3294,7 +3296,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                     --slPrice = round(atPrice - shiftSL, scale)
                     slPrice = math.max(round(atPrice - shiftSL, scale), round(deals["openLong"][dealsCount] + 0*SEC_PRICE_STEP, scale))
                     if (deals["openLong"][dealsCount] - slPrice) > maxStop*priceKoeff then slPrice = deals["openLong"][dealsCount] - maxStop*priceKoeff end
-                    slPrice = math.max(oldStop,slPrice)
+                    slPrice = math.min(math.max(oldStop,slPrice), DS:L(index))
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
                         myLog("new TransactionPrice "..tostring(TransactionPrice))
@@ -3370,7 +3372,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                 local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
-                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
+                    myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount)..' isPriceMove '..tostring(isPriceMove))
                     myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
@@ -3386,7 +3388,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                     --slPrice = round(atPrice + shiftSL, scale)
                     slPrice = math.min(round(atPrice + shiftSL, scale), round(deals["openShort"][dealsCount] - 0*SEC_PRICE_STEP, scale))
                     if (slPrice-deals["openShort"][dealsCount]) > maxStop*priceKoeff then slPrice =  deals["openShort"][dealsCount] + maxStop*priceKoeff end
-                    slPrice = math.min(oldStop,slPrice)
+                    slPrice = math.max(math.min(oldStop,slPrice), DS:H(index))
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
                         myLog("new TransactionPrice "..tostring(TransactionPrice))
