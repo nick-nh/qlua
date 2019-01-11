@@ -6,7 +6,7 @@ require("StaticVar")
 
 NAME_OF_STRATEGY = '' -- НАЗВАНИЕ СТРАТЕГИИ (не более 9 символов!)
 
-ACCOUNT           = '777777'        -- Идентификатор счета
+ACCOUNT           = '7777777'        -- Идентификатор счета
 CLIENT_CODE = "777777" -- "Код клиента"
 INTERVAL          = INTERVAL_M3          -- Таймфрейм графика (для построения скользящих)
 ChartId = "Sheet11"
@@ -30,8 +30,11 @@ tradeBegin = false
 
 --/*РАБОЧИЕ ПЕРЕМЕННЫЕ РОБОТА (менять не нужно)*/
 SEC_PRICE_STEP    = 0                    -- ШАГ ЦЕНЫ ИНСТРУМЕНТА
+LOTSIZE = 1
 scale = 0
 leverage = 1
+priceKoeff = 1/leverage
+
 DS                = nil                  -- Источник данных графика (DataSource)
 ROBOT_STATE       ='FIRSTSTART'-- СОСТОЯНИЕ робота ['В ПРОЦЕССЕ СДЕЛКИ', либо 'В ПОИСКЕ ТОЧКИ ВХОДА']
 trans_id          = os.time()            -- Задает начальный номер ID транзакций
@@ -115,6 +118,7 @@ initalAssets = 0
 deals = {}
 resultsTables = {}
 
+--По умолчанию первый пересет
 curPreset = 1
 -----------------------------------------------
 
@@ -175,9 +179,9 @@ function OnInit()
         {
             Name    = "THV M3",                   
             NAME_OF_STRATEGY = 'THV',
-            SEC_CODE = 'MMH9',
-            CLASS_CODE = 'SPBFUT',
-            ChartId = "Sheet11",
+            SEC_CODE = 'SBER',
+            CLASS_CODE = 'TQBR',
+            ChartId = "testGraphTQBR",
             maxStop       = 85,                   
             reopenDealMaxStop       = 75,                   
             stopShiftIndexWait       = 17,                   
@@ -324,8 +328,6 @@ function OnInit()
         }        
     }
     
-    
-    Settings           = presets[curPreset].settingsAlgo
     SEC_CODE           = presets[curPreset].SEC_CODE                   
     CLASS_CODE         = presets[curPreset].CLASS_CODE                   
     ChartId            = presets[curPreset].ChartId                   
@@ -335,13 +337,19 @@ function OnInit()
     stopShiftIndexWait = presets[curPreset].stopShiftIndexWait                   
     INTERVAL           = presets[curPreset].INTERVAL                   
     testSizeBars       = presets[curPreset].testSizeBars
-    
-    --По умолчанию первый пересет
     NAME_OF_STRATEGY    = presets[curPreset].NAME_OF_STRATEGY
+    
     FILE_LOG_NAME = getScriptPath().."\\robot"..NAME_OF_STRATEGY.."_"..SEC_CODE.."Log.txt" -- ИМЯ ЛОГ-ФАЙЛА
     f = io.open(FILE_LOG_NAME, "w") -- открывает файл 
-
     PARAMS_FILE_NAME = getScriptPath().."\\robot"..NAME_OF_STRATEGY.."_"..SEC_CODE.."_int"..tostring(INTERVAL).."_params.csv" -- ИМЯ ЛОГ-ФАЙЛА
+    
+    Settings = {}
+    myLog('Set preset '..presets[curPreset].Name)    
+    for k,v in pairs(presets[curPreset].settingsAlgo) do
+        Settings[k] = v
+        myLog(k..' '..tostring(v))    
+    end
+    
 
     local Error = ''
     DS,Error = CreateDataSource(CLASS_CODE, SEC_CODE, INTERVAL)
@@ -378,10 +386,17 @@ function OnInit()
     SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
     scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
     STEPPRICE = getParamEx(CLASS_CODE, SEC_CODE, "STEPPRICE").param_value
-    if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
+    LOTSIZE = getParamEx(CLASS_CODE, SEC_CODE, "LOTSIZE").param_value
+    if CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then 
+        if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
+            leverage = 1
+        else    
+            leverage = STEPPRICE/SEC_PRICE_STEP
+        end
+        priceKoeff = 1/leverage
+    else
         leverage = 1
-    else    
-        leverage = STEPPRICE/SEC_PRICE_STEP
+        priceKoeff = LOTSIZE/math.pow(10, scale)
     end
 
     if calculateAlgo==nil then
@@ -393,9 +408,12 @@ function OnInit()
     myLog("PRICE STEP: "..tostring(SEC_PRICE_STEP))
     myLog("SCALE: "..tostring(scale))
     myLog("STEP PRICE: "..tostring(STEPPRICE))
+    myLog("LOTSIZE: "..tostring(LOTSIZE))
     myLog("leverage: "..tostring(leverage))
+    myLog("priceKoeff: "..tostring(priceKoeff))
     myLog("STOP_LOSS: "..tostring(Settings.STOP_LOSS))
     myLog("TAKE_PROFIT: "..tostring(Settings.TAKE_PROFIT))
+    myLog("curPreset: "..tostring(curPreset))
     myLog("==================================================")
     myLog("Initialization finished")
  
@@ -466,7 +484,7 @@ function mycallbackforallstocks(index)
     local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
     local maxPrice = DS:H(index)
     local minPrice = DS:L(index)
-    isPriceMove = isPriceMove or (OpenCount < 0 and TransactionPrice - minPrice >= STOP_LOSS/leverage) or (OpenCount > 0 and maxPrice - TransactionPrice >= STOP_LOSS/leverage)
+    isPriceMove = isPriceMove or (OpenCount < 0 and TransactionPrice - last_price >= STOP_LOSS*priceKoeff) or (OpenCount > 0 and last_price - TransactionPrice >= STOP_LOSS*priceKoeff)
 
     --local last_price = DS:C(DS:Size())
     local lp = GetCell(t_id, 2, 0).value or last_price
@@ -626,7 +644,7 @@ end
 
 function checkSLbeforeClearing()
     
-    if SetStop == true and OpenCount ~= 0 then
+    if SetStop == true and OpenCount ~= 0 and CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then 
                         
         if ((serverTime>=1350 and serverTime<1400) or (serverTime>=endTradeTime and serverTime<1845) or (serverTime>=2345 and serverTime<2350)) and StopForbidden == false then
             StopForbidden = true
@@ -670,7 +688,7 @@ function trailStop()
 	if OpenCount ~= 0 and isConnected() then 
          
         local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
-        --isPriceMove = (OpenCount < 0 and TransactionPrice - last_price >= STOP_LOSS/leverage) or (OpenCount > 0 and last_price - TransactionPrice >= STOP_LOSS/leverage)
+        --isPriceMove = (OpenCount < 0 and TransactionPrice - last_price >= STOP_LOSS*priceKoeff) or (OpenCount > 0 and last_price - TransactionPrice >= STOP_LOSS*priceKoeff)
         
         if ROBOT_STATE == 'FIRSTSTART' then
             if not isStopOrder() then
@@ -1092,9 +1110,12 @@ function setParameters()
     
     testSizeBars = GetCell(t_id, 6, 4).value
     ChartId = GetCell(t_id, 6, 5).image
-    STOP_LOSS = GetCell(t_id, 6, 6).value
-    TAKE_PROFIT = tonumber(GetCell(t_id, 6, 7).image)
+    STOP_LOSS = math.ceil(GetCell(t_id, 6, 6).value or 0)
+    TAKE_PROFIT = math.ceil(tonumber(GetCell(t_id, 6, 7).image) or 0)
     INTERVAL = GetCell(t_id, 2, 6).value
+
+    myLog('Установка параметров '..' INTERVAL '..tostring(INTERVAL)..' STOP_LOSS '..tostring(STOP_LOSS)..' TAKE_PROFIT '..tostring(TAKE_PROFIT))
+
 end
 
 function startTrade()
@@ -1272,12 +1293,6 @@ function event_callback(t_id, msg, par1, par2)
 
         if par1 == 4 and par2 <= 5 and not isTrade and not optimizationInProgress then 
             curPreset = par2+1
-            Settings = {}
-            myLog('Set preset '..presets[curPreset].Name)    
-            for k,v in pairs(presets[curPreset].settingsAlgo) do
-                Settings[k] = v
-                myLog(k..' '..tostring(v))    
-            end
             setTableAlgoParams  = presets[curPreset].setTableAlgoParams     
             readTableAlgoParams = presets[curPreset].readTableAlgoParams     
             saveOptimizedParams = presets[curPreset].saveOptimizedParams     
@@ -1300,10 +1315,17 @@ function event_callback(t_id, msg, par1, par2)
                 SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
                 scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
                 STEPPRICE = getParamEx(CLASS_CODE, SEC_CODE, "STEPPRICE").param_value
-                if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
+                LOTSIZE = getParamEx(CLASS_CODE, SEC_CODE, "LOTSIZE").param_value
+                if CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then 
+                    if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
+                        leverage = 1
+                    else    
+                        leverage = STEPPRICE/SEC_PRICE_STEP
+                    end
+                    priceKoeff = 1/leverage
+                else
                     leverage = 1
-                else    
-                    leverage = STEPPRICE/SEC_PRICE_STEP
+                    priceKoeff = LOTSIZE/math.pow(10, scale)
                 end
             end
 
@@ -1312,13 +1334,22 @@ function event_callback(t_id, msg, par1, par2)
             f = io.open(FILE_LOG_NAME, "w") -- открывает файл 
             PARAMS_FILE_NAME = getScriptPath().."\\robot"..NAME_OF_STRATEGY.."_"..SEC_CODE.."_int"..tostring(INTERVAL).."_params.csv" -- ИМЯ ЛОГ-ФАЙЛА
             
+            Settings = {}
+            myLog('Set preset '..presets[curPreset].Name)    
+            for k,v in pairs(presets[curPreset].settingsAlgo) do
+                Settings[k] = v
+                myLog(k..' '..tostring(v))    
+            end
+            
             myLog("NEW SET: "..tostring(presets[curPreset].Name))
             myLog("CLASS_CODE: "..tostring(CLASS_CODE))
             myLog("SEC: "..tostring(SEC_CODE))
             myLog("PRICE STEP: "..tostring(SEC_PRICE_STEP))
             myLog("SCALE: "..tostring(scale))
             myLog("STEP PRICE: "..tostring(STEPPRICE))
+            myLog("LOTSIZE: "..tostring(LOTSIZE))
             myLog("leverage: "..tostring(leverage))
+            myLog("priceKoeff: "..tostring(priceKoeff))
         
             if readOptimizedParams~=nil and not notReadOptimized then
                 readOptimizedParams()
@@ -1749,16 +1780,16 @@ function SL_TP(AtPrice, Type, qnt)
 	if Type == 'BUY' then
 		operation = "S" -- Тейк-профит и Стоп-лосс на продажу(чтобы закрыть BUY, нужно открыть SELL)
         direction = "5" -- Направленность стоп-цены. «5» - больше или равно
-      -- Если не акции
+        -- Если не акции
         if CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then
             price = math.floor(getParamEx(CLASS_CODE, SEC_CODE, 'PRICEMIN').param_value + 200*SEC_PRICE_STEP) -- Цена выставляемой заявки после страбатывания Стопа минимально возможная, чтобы не проскользнуло
             market = "YES"  -- После срабатывания Тейка, или Стопа, заявка сработает НЕ по рыночной цене
         end
         if TakeProfitPrice == 0 then
-            stopprice	= round(AtPrice + TAKE_PROFIT/leverage, scale) -- Уровень цены, когда активируется Тейк-профит
+            stopprice	= round(AtPrice + TAKE_PROFIT*priceKoeff, scale) -- Уровень цены, когда активируется Тейк-профит
         elseif isPriceMove then
             isPriceMove = false
-            stopprice = round(TakeProfitPrice + STOP_LOSS/leverage/2, scale)    -- немного сдвигаем тейк-профит
+            stopprice = round(TakeProfitPrice + STOP_LOSS*priceKoeff/2, scale)    -- немного сдвигаем тейк-профит
         else stopprice = TakeProfitPrice
         end
         if isTrade then
@@ -1768,16 +1799,16 @@ function SL_TP(AtPrice, Type, qnt)
                 slPrice = AtPrice
             end
             local nonLosePrice = round(lastDealPrice + 0*SEC_PRICE_STEP, scale)
-            if (lastDealPrice + math.floor(STOP_LOSS/leverage)) <= AtPrice then
+            if (lastDealPrice + math.floor(STOP_LOSS*priceKoeff)) <= AtPrice then
                 stopprice2	= math.max(round(slPrice - shiftSL, scale), nonLosePrice) -- Уровень цены, когда активируется Стоп-лосс
             else
                 stopprice2	= round(slPrice - shiftSL, scale) -- Уровень цены, когда активируется Стоп-лосс
             end
             if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-            if (lastDealPrice - stopprice2) > dealMaxStop/leverage then stopprice2 = lastDealPrice - dealMaxStop/leverage end
+            if (lastDealPrice - stopprice2) > dealMaxStop*priceKoeff then stopprice2 = lastDealPrice - dealMaxStop*priceKoeff end
             reopenAfterStop = false
         else
-            stopprice2	= round(AtPrice - STOP_LOSS/leverage, scale) -- Уровень цены, когда активируется Стоп-лосс
+            stopprice2	= round(AtPrice - STOP_LOSS*priceKoeff, scale) -- Уровень цены, когда активируется Стоп-лосс
         end
         --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
         if oldStop~=0 then stopprice2 = math.max(oldStop, stopprice2) end
@@ -1791,10 +1822,10 @@ function SL_TP(AtPrice, Type, qnt)
             market = "YES"  -- После срабатывания Тейка, или Стопа, заявка сработает НЕ по рыночной цене
         end
         if TakeProfitPrice == 0 then
-            stopprice	= round(AtPrice - TAKE_PROFIT/leverage, scale) -- Уровень цены, когда активируется Тейк-профит
+            stopprice	= round(AtPrice - TAKE_PROFIT*priceKoeff, scale) -- Уровень цены, когда активируется Тейк-профит
         elseif isPriceMove then
             isPriceMove = false
-            stopprice = round(TakeProfitPrice - STOP_LOSS/leverage/2, scale)  -- немного сдвигаем тейк-профит   
+            stopprice = round(TakeProfitPrice - STOP_LOSS*priceKoeff/2, scale)  -- немного сдвигаем тейк-профит   
         else stopprice = TakeProfitPrice
         end
         if isTrade then
@@ -1804,16 +1835,16 @@ function SL_TP(AtPrice, Type, qnt)
                 slPrice = AtPrice
             end
             local nonLosePrice = round(lastDealPrice - 0*SEC_PRICE_STEP, scale)
-            if (lastDealPrice - math.floor(STOP_LOSS/leverage)) >= AtPrice then
+            if (lastDealPrice - math.floor(STOP_LOSS*priceKoeff)) >= AtPrice then
                 stopprice2	= math.min(round(slPrice + shiftSL, scale), nonLosePrice) -- Уровень цены, когда активируется Стоп-лосс
             else
                 stopprice2	= round(slPrice + shiftSL, scale) -- Уровень цены, когда активируется Стоп-лосс
             end
             if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-            if (stopprice2 - lastDealPrice) > dealMaxStop/leverage then stopprice2 = lastDealPrice + dealMaxStop/leverage end
+            if (stopprice2 - lastDealPrice) > dealMaxStop*priceKoeff then stopprice2 = lastDealPrice + dealMaxStop*priceKoeff end
             reopenAfterStop = false
         else
-            stopprice2	= round(AtPrice + STOP_LOSS/leverage, scale) -- Уровень цены, когда активируется Стоп-лосс
+            stopprice2	= round(AtPrice + STOP_LOSS*priceKoeff, scale) -- Уровень цены, когда активируется Стоп-лосс
         end
         --price = stopprice2 + 2*SEC_PRICE_STEP 
         --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
@@ -2377,11 +2408,14 @@ function iterateTable(settingsTable, resultsTable)
         settingsTask.beginIndex = beginIndex
         settingsTask.endIndex = endIndex
         settingsTask.beginIndexToCalc = math.max(1, beginIndex - 1000)
-        if settingsTask.STOP_LOSS == nil and STOP_LOSS ~= 0 then
-            settingsTask.STOP_LOSS = presets[curPreset].STOP_LOSS
+        --myLog("curPreset: "..tostring(curPreset)..' STOP_LOSS '..tostring(presets[curPreset].settingsAlgo.STOP_LOSS)..' TAKE_PROFIT '..tostring(presets[curPreset].settingsAlgo.TAKE_PROFIT))
+        if settingsTask.STOP_LOSS == nil and presets[curPreset].settingsAlgo.STOP_LOSS ~= 0 then
+            settingsTask.STOP_LOSS = presets[curPreset].settingsAlgo.STOP_LOSS
+            --myLog('Установка '..' STOP_LOSS '..tostring(settingsTask.STOP_LOSS))
         end
-        if settingsTask.TAKE_PROFIT == nil and TAKE_PROFIT ~= 0 then
-            settingsTask.TAKE_PROFIT = presets[curPreset].TAKE_PROFIT
+        if settingsTask.TAKE_PROFIT == nil and presets[curPreset].settingsAlgo.TAKE_PROFIT ~= 0 then
+            settingsTask.TAKE_PROFIT = presets[curPreset].settingsAlgo.TAKE_PROFIT
+            --myLog('Установка '..' TAKE_PROFIT '..tostring(settingsTask.TAKE_PROFIT))
         end
  
         optimizeAlgorithm()
@@ -2453,40 +2487,37 @@ function iterateAlgorithm(settingsTable)
         table.sort(resultsTable, function(a,b) return a[1]<b[1] end)
     end
 
-    if #resultsTable > 0 and iterateSLTP then
-        if STOP_LOSS~=0 or TAKE_PROFIT~=0 then
-
-            myLog("----------------------------------------------------------")
-            myLog("list before iterate SL/TP")
-            for i=0,math.min(#resultsTable-1, 20) do
-                resultString = resultsTable[#resultsTable - i]
-                local settings = resultString[#resultString]
-                paramsString = tostring(INTERVAL).."; "..tostring(testSizeBars)
-                for j=1,4 do
-                    paramsString = paramsString..'; '..tostring(resultString[j])
-                end
-                for k,v in pairs(settings) do
-                    if type(v) == 'table' then
-                        for kkk,vvv in pairs(v) do
-                            paramsString = paramsString..'; '..tostring(vvv)
-                        end
-                    else
-                        paramsString = paramsString..'; '..tostring(v)
+    if #resultsTable > 0 and iterateSLTP and SetStop then
+        myLog("----------------------------------------------------------")
+        myLog("list before iterate SL/TP")
+        for i=0,math.min(#resultsTable-1, 20) do
+            resultString = resultsTable[#resultsTable - i]
+            local settings = resultString[#resultString]
+            paramsString = tostring(INTERVAL).."; "..tostring(testSizeBars)
+            for j=1,4 do
+                paramsString = paramsString..'; '..tostring(resultString[j])
+            end
+            for k,v in pairs(settings) do
+                if type(v) == 'table' then
+                    for kkk,vvv in pairs(v) do
+                        paramsString = paramsString..'; '..tostring(vvv)
                     end
+                else
+                    paramsString = paramsString..'; '..tostring(v)
                 end
-                myLog(paramsString)
             end
-    
-            local lines = math.min(20, #resultsTable)
-            local settingsTableSLTP = getSettingsSLTP(resultsTable, lines)
-            local i = 1
-            while i <= lines do
-                table.remove(resultsTable, #resultsTable)
-                i = i+1
-            end
-            resultsTable = iterateTable(settingsTableSLTP, resultsTable)
-            table.sort(resultsTable, function(a,b) return a[1]<b[1] end)
+            myLog(paramsString)
         end
+
+        local lines = math.min(20, #resultsTable)
+        local settingsTableSLTP = getSettingsSLTP(resultsTable, lines)
+        local i = 1
+        while i <= lines do
+            table.remove(resultsTable, #resultsTable)
+            i = i+1
+        end
+        resultsTable = iterateTable(settingsTableSLTP, resultsTable)
+        table.sort(resultsTable, function(a,b) return a[1]<b[1] end)
     end
  
     if #resultsTable ~=0 then
@@ -2893,19 +2924,6 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
     if not dealTime then
         lastTradeDirection = getTradeDirection(index, calcAlgoValue, calcTrend)
     end
-    if dealTime and slIndex ~= 0 and (index - slIndex) == 7 then
-        local currentTradeDirection = getTradeDirection(index, calcAlgoValue, calcTrend)
-        if currentTradeDirection == 1 and deals["closeLong"][dealsCount]~=nil then
-            if deals["closeLong"][dealsCount]<DS:O(index) then
-                lastTradeDirection = currentTradeDirection
-            end
-        end
-        if currentTradeDirection == -1 and deals["closeShort"][dealsCount]~=nil then
-            if deals["closeShort"][dealsCount]>DS:O(index) then
-                lastTradeDirection = currentTradeDirection
-            end
-        end    
-    end
 
     local closeDeal = false
     if calcTrend ~= nil then
@@ -3047,7 +3065,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
             lastDealPrice = DS:O(index)
             TransactionPrice = lastDealPrice
             if STOP_LOSS~=0 then
-                --slPrice = lastDealPrice - STOP_LOSS/leverage
+                --slPrice = lastDealPrice - STOP_LOSS*priceKoeff
                 local atPrice = calcAlgoValue[index-1]
                 local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
                 if (atPrice - shiftSL) >= TransactionPrice then
@@ -3055,13 +3073,13 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
                 end
                 slPrice = round(atPrice - shiftSL, scale)
                 if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-                if (lastDealPrice - slPrice) > dealMaxStop/leverage then slPrice = lastDealPrice - dealMaxStop/leverage end
+                if (lastDealPrice - slPrice) > dealMaxStop*priceKoeff then slPrice = lastDealPrice - dealMaxStop*priceKoeff end
                 reopenAfterStop = false
                 slIndex = 0
                 lastStopShiftIndex = index
             end
             if TAKE_PROFIT~=0 then
-                tpPrice = round(lastDealPrice + TAKE_PROFIT/leverage, scale)
+                tpPrice = round(lastDealPrice + TAKE_PROFIT*priceKoeff, scale)
             end
             deals["index"][dealsCount] = index 
             deals["openLong"][dealsCount] = DS:O(index) 
@@ -3111,7 +3129,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
             lastDealPrice = DS:O(index)
             TransactionPrice = lastDealPrice
             if STOP_LOSS~=0 then
-                --slPrice = lastDealPrice + STOP_LOSS/leverage
+                --slPrice = lastDealPrice + STOP_LOSS*priceKoeff
                 local atPrice = calcAlgoValue[index-1]
                 local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
                 if (atPrice + shiftSL) <= TransactionPrice then
@@ -3119,13 +3137,13 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
                 end
                 slPrice = round(atPrice + shiftSL, scale)
                 if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-                if (slPrice - lastDealPrice) > dealMaxStop/leverage then slPrice = lastDealPrice + dealMaxStop/leverage end
+                if (slPrice - lastDealPrice) > dealMaxStop*priceKoeff then slPrice = lastDealPrice + dealMaxStop*priceKoeff end
                 reopenAfterStop = false
                 slIndex = 0
                 lastStopShiftIndex = index
             end
             if TAKE_PROFIT~=0 then
-                tpPrice = round(lastDealPrice - TAKE_PROFIT/leverage, scale)
+                tpPrice = round(lastDealPrice - TAKE_PROFIT*priceKoeff, scale)
             end            
             deals["index"][dealsCount] = index 
             deals["openShort"][dealsCount] = DS:O(index) 
@@ -3254,28 +3272,28 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                 slIndex = index
                 tpPrice = 0
             end
-            local isPriceMove = DS:H(index) - TransactionPrice >= STOP_LOSS/leverage
+            local isPriceMove = DS:H(index) - TransactionPrice >= STOP_LOSS*priceKoeff
             if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeLong"][dealsCount] == nil then
                 lastStopShiftIndex = index
-                local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS/leverage))
+                local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
                     myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
-                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS/leverage "..tostring(STOP_LOSS/leverage))
+                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
                     local oldStop = slPrice
-                    --slPrice = DS:H(index) - STOP_LOSS/leverage
+                    --slPrice = DS:H(index) - STOP_LOSS*priceKoeff
                     local atPrice = calcAlgoValue[index-1]
                     local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                    --TransactionPrice = TransactionPrice+STOP_LOSS/leverage
+                    --TransactionPrice = TransactionPrice+STOP_LOSS*priceKoeff
                     TransactionPrice = DS:H(index)
                     if (atPrice - shiftSL) >= TransactionPrice then
                         atPrice = TransactionPrice
                     end
                     --slPrice = round(atPrice - shiftSL, scale)
                     slPrice = math.max(round(atPrice - shiftSL, scale), round(deals["openLong"][dealsCount] + 0*SEC_PRICE_STEP, scale))
-                    if (deals["openLong"][dealsCount] - slPrice) > maxStop/leverage then slPrice = deals["openLong"][dealsCount] - maxStop/leverage end
+                    if (deals["openLong"][dealsCount] - slPrice) > maxStop*priceKoeff then slPrice = deals["openLong"][dealsCount] - maxStop*priceKoeff end
                     slPrice = math.max(oldStop,slPrice)
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
@@ -3283,7 +3301,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                     end
                 end
                 if slPrice~=0 and tpPrice~=0 and isPriceMove then
-                    tpPrice = round(tpPrice + shiftCounts*STOP_LOSS/leverage/2, scale)
+                    tpPrice = round(tpPrice + shiftCounts*STOP_LOSS*priceKoeff/2, scale)
                     if logDeals then
                         myLog("Сдвиг тейка "..tostring(tpPrice))
                     end
@@ -3346,28 +3364,28 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                 slIndex = index
                 tpPrice = 0
             end
-            local isPriceMove = TransactionPrice - DS:L(index) >= STOP_LOSS/leverage
+            local isPriceMove = TransactionPrice - DS:L(index) >= STOP_LOSS*priceKoeff
             if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeShort"][dealsCount] == nil then
                 lastStopShiftIndex = index
-                local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS/leverage))
+                local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
                     myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS/leverage "..tostring(STOP_LOSS/leverage))
+                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
                     local oldStop = slPrice
-                    --slPrice = DS:L(index) + STOP_LOSS/leverage
+                    --slPrice = DS:L(index) + STOP_LOSS*priceKoeff
                     local atPrice = calcAlgoValue[index-1]
                     local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                    --TransactionPrice = TransactionPrice-STOP_LOSS/leverage
+                    --TransactionPrice = TransactionPrice-STOP_LOSS*priceKoeff
                     TransactionPrice = DS:L(index)
                     if (atPrice + shiftSL) <= TransactionPrice then
                         atPrice = TransactionPrice
                     end                   
                     --slPrice = round(atPrice + shiftSL, scale)
                     slPrice = math.min(round(atPrice + shiftSL, scale), round(deals["openShort"][dealsCount] - 0*SEC_PRICE_STEP, scale))
-                    if (slPrice-deals["openShort"][dealsCount]) > maxStop/leverage then slPrice =  deals["openShort"][dealsCount] + maxStop/leverage end
+                    if (slPrice-deals["openShort"][dealsCount]) > maxStop*priceKoeff then slPrice =  deals["openShort"][dealsCount] + maxStop*priceKoeff end
                     slPrice = math.min(oldStop,slPrice)
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
@@ -3375,7 +3393,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                     end
                 end
                 if slPrice~=0 and tpPrice~=0 and isPriceMove then
-                    tpPrice = round(tpPrice - shiftCounts*STOP_LOSS/leverage/2, scale)
+                    tpPrice = round(tpPrice - shiftCounts*STOP_LOSS*priceKoeff/2, scale)
                     if logDeals then
                         myLog("Сдвиг тейка "..tostring(tpPrice))
                     end
