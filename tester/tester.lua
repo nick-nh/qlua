@@ -9,6 +9,7 @@ dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
 dofile (getScriptPath().."\\testShiftEMA.lua") --ShiftEMA алгоритм
 dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
 dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
+dofile (getScriptPath().."\\testRangeHV.lua") --RangeHV алгоритм
 
 SEC_CODES = {}
 scale = 2
@@ -54,6 +55,8 @@ tpDealsShortCount = 0
 ratioProfitDeals = 0
 initalAssets = 0
 leverage = 1
+priceKoeff = 1/leverage
+
 deals = {}
 openedDS = {}
 idResColumn = 0
@@ -138,13 +141,13 @@ function OnInit()
     end
 
     ALGORITHMS = {
-        ["names"] =                 {"NRTR"                 , "ShiftEMA"         , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"         },
-        ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams },
-        ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR       },
-        ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR         },
-        ["calcAlgorithms"] =        {stepNRTR               , shiftEMA           , THV         , SAR           , Reg         , RangeNRTR           },
-        ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade        , simpleTrade , simpleTrade   , simpleTrade , simpleTrade         },
-        ["settings"] =              {NRTRSettings           , shiftEMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings        },
+        ["names"] =                 {"NRTR"                 , "ShiftEMA"         , "2EMA"        , "THV"       , "Sar"         , "Reg"       , "RangeNRTR"         , "RangeHV"           },
+        ["initParams"] =            {initStepNRTRParams     , initShiftEMA       , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTRParams , initRangeHV         },
+        ["initAlgorithms"] =        {initStepNRTR           , initShiftEMA       , initEMA       , initTHV     , initSAR       , initReg     , initRangeNRTR       , initRangeHV         },
+        ["itetareAlgorithms"] =     {iterateNRTR            , iterateShiftEMA    , iterateEMA    , iterateTHV  , iterateSAR    , iterateReg  , iterateNRTR         , iterateRangeHV      },
+        ["calcAlgorithms"] =        {stepNRTR               , shiftEMA           , allEMA        , THV         , SAR           , Reg         , RangeNRTR           , RangeHV             },
+        ["tradeAlgorithms"] =       {simpleTrade            , simpleTrade        , ema2Trade     , simpleTrade , simpleTrade   , simpleTrade , simpleTrade         , simpleTrade         },
+        ["settings"] =              {NRTRSettings           , shiftEMASettings   , EMASettings   , THVSettings , SARSettings   , RegSettings , NRTRSettings        , RangeHVSettings     },
     }    
         
     SEC_CODES['class_codes'] =           {} -- CLASS_CODE
@@ -1274,10 +1277,17 @@ function calculateAlgorithm(iSec, cell)
     -- Получает ШАГ ЦЕНЫ ИНСТРУМЕНТА, последнюю цену, открытые позиции
     SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
     STEPPRICE = getParamEx(CLASS_CODE, SEC_CODE, "STEPPRICE").param_value
-    if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
+    LOTSIZE = getParamEx(CLASS_CODE, SEC_CODE, "LOTSIZE").param_value
+    if CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then 
+        if tonumber(STEPPRICE) == 0 or STEPPRICE == nil then
+            leverage = 1
+        else    
+            leverage = STEPPRICE/SEC_PRICE_STEP
+        end
+        priceKoeff = 1/leverage
+    else
         leverage = 1
-    else    
-        leverage = STEPPRICE/SEC_PRICE_STEP
+        priceKoeff = LOTSIZE/math.pow(10, scale)
     end
     myLog("SEC_PRICE_STEP "..tostring(SEC_PRICE_STEP))
     myLog("STEPPRICE "..tostring(STEPPRICE))
@@ -1430,7 +1440,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
     local t = DS:T(index)
     local dealTime = false
     local time = math.ceil((t.hour + t.min/100)*100)
-    if time >= 1021 then 
+    if time >= 1018 then 
         dealTime = true 
     end    
     if time >= 1842 then 
@@ -1609,7 +1619,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             lastDealPrice = DS:O(index)
             TransactionPrice = lastDealPrice
             if STOP_LOSS~=0 then
-                --slPrice = lastDealPrice - STOP_LOSS/leverage
+                --slPrice = lastDealPrice - STOP_LOSS*priceKoeff
                 local atPrice = calcAlgoValue[index-1]
                 local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
                 if (atPrice - shiftSL) >= TransactionPrice then
@@ -1617,13 +1627,13 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
                 end
                 slPrice = round(atPrice - shiftSL, scale)
                 if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-                if (lastDealPrice - slPrice) > dealMaxStop/leverage then slPrice = lastDealPrice - dealMaxStop/leverage end
+                if (lastDealPrice - slPrice) > dealMaxStop*priceKoeff then slPrice = lastDealPrice - dealMaxStop*priceKoeff end
                 reopenAfterStop = false
                 slIndex = 0
                 lastStopShiftIndex = index
             end
             if TAKE_PROFIT~=0 then
-                tpPrice = round(lastDealPrice + TAKE_PROFIT/leverage, scale)
+                tpPrice = round(lastDealPrice + TAKE_PROFIT*priceKoeff, scale)
             end
             deals["index"][dealsCount] = index 
             deals["openLong"][dealsCount] = DS:O(index) 
@@ -1677,7 +1687,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
             lastDealPrice = DS:O(index)
             TransactionPrice = lastDealPrice
             if STOP_LOSS~=0 then
-                --slPrice = lastDealPrice + STOP_LOSS/leverage
+                --slPrice = lastDealPrice + STOP_LOSS*priceKoeff
                 local atPrice = calcAlgoValue[index-1]
                 local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
                 if (atPrice + shiftSL) <= TransactionPrice then
@@ -1685,13 +1695,13 @@ function simpleTrade(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals
                 end
                 slPrice = round(atPrice + shiftSL, scale)
                 if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-                if (slPrice - lastDealPrice) > dealMaxStop/leverage then slPrice = lastDealPrice + dealMaxStop/leverage end
+                if (slPrice - lastDealPrice) > dealMaxStop*priceKoeff then slPrice = lastDealPrice + dealMaxStop*priceKoeff end
                 reopenAfterStop = false
                 slIndex = 0
                 lastStopShiftIndex = index
             end
             if TAKE_PROFIT~=0 then
-                tpPrice = round(lastDealPrice - TAKE_PROFIT/leverage, scale)
+                tpPrice = round(lastDealPrice - TAKE_PROFIT*priceKoeff, scale)
             end            
             deals["index"][dealsCount] = index 
             deals["openShort"][dealsCount] = DS:O(index) 
@@ -1839,7 +1849,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                 slIndex = index
                 tpPrice = 0
             end
-            --if deals["closeLong"][dealsCount] == nil and DS:H(index) - deals["openLong"][dealsCount] >= STOP_LOSS*0.8/leverage and slPrice < deals["openLong"][dealsCount] then
+            --if deals["closeLong"][dealsCount] == nil and DS:H(index) - deals["openLong"][dealsCount] >= STOP_LOSS*0.8*priceKoeff and slPrice < deals["openLong"][dealsCount] then
             --    if logDeals then
             --        myLog("--------------------------------------------------")
             --        myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
@@ -1851,28 +1861,28 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
             --        end
             --    end
             --end
-            local isPriceMove = DS:H(index) - TransactionPrice >= STOP_LOSS/leverage
+            local isPriceMove = DS:H(index) - TransactionPrice >= STOP_LOSS*priceKoeff
             if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeLong"][dealsCount] == nil then
                 lastStopShiftIndex = index
-                local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS/leverage))
+                local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
                     myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
-                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS/leverage "..tostring(STOP_LOSS/leverage))
+                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." H "..tostring(DS:H(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
                     local oldStop = slPrice
-                    --slPrice = DS:H(index) - STOP_LOSS/leverage
+                    --slPrice = DS:H(index) - STOP_LOSS*priceKoeff
                     local atPrice = calcAlgoValue[index-1]
                     local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                    --TransactionPrice = TransactionPrice+STOP_LOSS/leverage
+                    --TransactionPrice = TransactionPrice+STOP_LOSS*priceKoeff
                     TransactionPrice = DS:H(index)
                     if (atPrice - shiftSL) >= TransactionPrice then
                         atPrice = TransactionPrice
                     end
                     --slPrice = round(atPrice - shiftSL, scale)
                     slPrice = math.max(round(atPrice - shiftSL, scale), round(deals["openLong"][dealsCount] + 0*SEC_PRICE_STEP, scale))
-                    if (deals["openLong"][dealsCount] - slPrice) > maxStop/leverage then slPrice = deals["openLong"][dealsCount] - maxStop/leverage end
+                    if (deals["openLong"][dealsCount] - slPrice) > maxStop*priceKoeff then slPrice = deals["openLong"][dealsCount] - maxStop*priceKoeff end
                     slPrice = math.max(oldStop,slPrice)
                     if logDeals then
                         myLog("Сдвиг стоп-лосса "..tostring(slPrice))
@@ -1880,7 +1890,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                     end
                 end
                 if slPrice~=0 and tpPrice~=0 and isPriceMove then
-                    tpPrice = round(tpPrice + shiftCounts*STOP_LOSS/leverage/2, scale)
+                    tpPrice = round(tpPrice + shiftCounts*STOP_LOSS*priceKoeff/2, scale)
                     if logDeals then
                         myLog("Сдвиг тейка "..tostring(tpPrice))
                     end
@@ -1947,7 +1957,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                 slIndex = index
                 tpPrice = 0
             end
-            --if deals["closeShort"][dealsCount] == nil and (deals["openShort"][dealsCount] - DS:L(index)) >= STOP_LOSS*0.8/leverage and slPrice > deals["openShort"][dealsCount] then
+            --if deals["closeShort"][dealsCount] == nil and (deals["openShort"][dealsCount] - DS:L(index)) >= STOP_LOSS*0.8*priceKoeff and slPrice > deals["openShort"][dealsCount] then
             --    if logDeals then
             --        myLog("--------------------------------------------------")
             --        myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))                        
@@ -1959,28 +1969,28 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
             --        end
             --    end
             --end
-            local isPriceMove = TransactionPrice - DS:L(index) >= STOP_LOSS/leverage
+            local isPriceMove = TransactionPrice - DS:L(index) >= STOP_LOSS*priceKoeff
             if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeShort"][dealsCount] == nil then
                 lastStopShiftIndex = index
-                local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS/leverage))
+                local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS*priceKoeff))
                 if logDeals then
                     myLog("--------------------------------------------------")
                     myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
-                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS/leverage "..tostring(STOP_LOSS/leverage))
+                    myLog("shiftCounts "..tostring(shiftCounts).." TransactionPrice "..tostring(TransactionPrice).." L(index) "..tostring(DS:L(index)).." calcAlgoValue[index-1] "..tostring(calcAlgoValue[index-1]).." STOP_LOSS*priceKoeff "..tostring(STOP_LOSS*priceKoeff))
                 end
                 if slPrice~=0 then
                     local oldStop = slPrice
-                    --slPrice = DS:L(index) + STOP_LOSS/leverage
+                    --slPrice = DS:L(index) + STOP_LOSS*priceKoeff
                     local atPrice = calcAlgoValue[index-1]
                     local shiftSL = (kATR*ATR[index-1] + 40*SEC_PRICE_STEP)
-                    --TransactionPrice = TransactionPrice-STOP_LOSS/leverage
+                    --TransactionPrice = TransactionPrice-STOP_LOSS*priceKoeff
                     TransactionPrice = DS:L(index)
                     if (atPrice + shiftSL) <= TransactionPrice then
                         atPrice = TransactionPrice
                     end
                     --slPrice = round(atPrice + shiftSL, scale)
                     slPrice = math.min(round(atPrice + shiftSL, scale), round(deals["openShort"][dealsCount] - 0*SEC_PRICE_STEP, scale))
-                    if (slPrice-deals["openShort"][dealsCount]) > maxStop/leverage then slPrice =  deals["openShort"][dealsCount] + maxStop/leverage end
+                    if (slPrice-deals["openShort"][dealsCount]) > maxStop*priceKoeff then slPrice =  deals["openShort"][dealsCount] + maxStop*priceKoeff end
                     slPrice = math.min(oldStop,slPrice)
 
                     if logDeals then
@@ -1989,7 +1999,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, DS, isLong, isShort, deals,
                     end
                 end
                 if slPrice~=0 and tpPrice~=0 and isPriceMove then
-                    tpPrice = round(tpPrice - shiftCounts*STOP_LOSS/leverage/2, scale)
+                    tpPrice = round(tpPrice - shiftCounts*STOP_LOSS*priceKoeff/2, scale)
                     if logDeals then
                         myLog("Сдвиг тейка "..tostring(tpPrice))
                     end
