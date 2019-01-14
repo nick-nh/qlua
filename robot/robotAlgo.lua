@@ -6,8 +6,8 @@ require("StaticVar")
 
 NAME_OF_STRATEGY = '' -- НАЗВАНИЕ СТРАТЕГИИ (не более 9 символов!)
 
-ACCOUNT           = '7777777'        -- Идентификатор счета
-CLIENT_CODE = "777777" -- "Код клиента"
+ACCOUNT           = '777777'        -- Идентификатор счета
+CLIENT_CODE = "7777777" -- "Код клиента"
 INTERVAL          = INTERVAL_M3          -- Таймфрейм графика (для построения скользящих)
 ChartId = "Sheet11"
 
@@ -17,6 +17,7 @@ isShort = true
 -----------------------------
 --виртуальная торговля
 virtualTrade = true
+getDOMPrice = true
 vlastDealPrice = 0
 vdealProfit = 0
 vallProfit = 0
@@ -52,10 +53,15 @@ Settings = {}
 isTrade = false
 continue = true
 StopForbidden = false
+manualKillStop = false
 TransactionPrice = 0
 TakeProfitPrice = 0
 CurrentPosAveragePrice = 0 -- Средняя цена текущей позиции
 
+TAKE_PROFIT = 0
+STOP_LOSS = 0
+OFFSET = 2
+SPREAD = 10
 reopenPosAfterStop = 7
 stopShiftIndexWait = 17
 isPriceMove = false
@@ -152,6 +158,9 @@ function OnInit()
         NAME_OF_STRATEGY = 'simple', -- имя стратегии
         SEC_CODE = 'MMH9', -- код инструмента для торговли
         CLASS_CODE = 'SPBFUT', -- класс инструмента
+        QTY_LOTS = 1, -- количество для торговли
+        OFFSET = 2, --(ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+        SPREAD = 10, --Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
         ChartId = "Sheet11", -- индентификатор графика, куда выводить метки сделок и данные алгоритма. 
         maxStop       = 85, -- максимально допустимый стоп в пунктах                  
         reopenDealMaxStop       = 75, -- если сделка переоткрыта после стопа, то максимальный стоп                  
@@ -181,6 +190,9 @@ function OnInit()
             NAME_OF_STRATEGY = 'THV',
             SEC_CODE = 'SBER',
             CLASS_CODE = 'TQBR',
+            QTY_LOTS = 1, -- количество для торговли
+            OFFSET = 2, --(ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+            SPREAD = 10, --Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
             ChartId = "testGraphTQBR",
             maxStop       = 85,                   
             reopenDealMaxStop       = 75,                   
@@ -209,6 +221,9 @@ function OnInit()
             NAME_OF_STRATEGY = 'THV',
             SEC_CODE = 'MMH9',
             CLASS_CODE = 'SPBFUT',
+            QTY_LOTS = 1, -- количество для торговли
+            OFFSET = 2, --(ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+            SPREAD = 10, --Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
             ChartId = "Sheet11",
             maxStop       = 85,                   
             reopenDealMaxStop       = 75,                   
@@ -238,6 +253,9 @@ function OnInit()
             NAME_OF_STRATEGY = 'sEMA',
             SEC_CODE = 'MMH9',
             CLASS_CODE = 'SPBFUT',
+            QTY_LOTS = 1, -- количество для торговли
+            OFFSET = 2, --(ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+            SPREAD = 10, --Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
             ChartId = "Sheet11",
             maxStop       = 85,                   
             reopenDealMaxStop       = 75,                   
@@ -265,6 +283,9 @@ function OnInit()
             NAME_OF_STRATEGY = 'iReg',
             SEC_CODE = 'MMH9',
             CLASS_CODE = 'SPBFUT',
+            QTY_LOTS = 1, -- количество для торговли
+            OFFSET = 2, --(ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+            SPREAD = 10, --Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
             ChartId = "Sheet11",
             maxStop       = 85,                   
             reopenDealMaxStop       = 75,                   
@@ -294,6 +315,9 @@ function OnInit()
             NAME_OF_STRATEGY = 'NRTR',
             SEC_CODE = 'MMH9',
             CLASS_CODE = 'SPBFUT',
+            QTY_LOTS = 1, -- количество для торговли
+            OFFSET = 2, --(ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+            SPREAD = 10, --Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
             ChartId = "Sheet11",
             maxStop       = 85,                   
             reopenDealMaxStop       = 75,                   
@@ -330,6 +354,9 @@ function OnInit()
     
     SEC_CODE           = presets[curPreset].SEC_CODE                   
     CLASS_CODE         = presets[curPreset].CLASS_CODE                   
+    QTY_LOTS           = presets[curPreset].QTY_LOTS                   
+    OFFSET             = presets[curPreset].OFFSET                   
+    SPREAD             = presets[curPreset].SPREAD                   
     ChartId            = presets[curPreset].ChartId                   
     maxStop            = presets[curPreset].maxStop                   
     reopenDealMaxStop  = presets[curPreset].reopenDealMaxStop                   
@@ -337,7 +364,9 @@ function OnInit()
     stopShiftIndexWait = presets[curPreset].stopShiftIndexWait                   
     INTERVAL           = presets[curPreset].INTERVAL                   
     testSizeBars       = presets[curPreset].testSizeBars
-    NAME_OF_STRATEGY    = presets[curPreset].NAME_OF_STRATEGY
+    NAME_OF_STRATEGY   = presets[curPreset].NAME_OF_STRATEGY
+    STOP_LOSS          = presets[curPreset].settingsAlgo.STOP_LOSS
+    TAKE_PROFIT        = presets[curPreset].settingsAlgo.TAKE_PROFIT
     
     FILE_LOG_NAME = getScriptPath().."\\robot"..NAME_OF_STRATEGY.."_"..SEC_CODE.."Log.txt" -- ИМЯ ЛОГ-ФАЙЛА
     f = io.open(FILE_LOG_NAME, "w") -- открывает файл 
@@ -411,6 +440,9 @@ function OnInit()
     myLog("LOTSIZE: "..tostring(LOTSIZE))
     myLog("leverage: "..tostring(leverage))
     myLog("priceKoeff: "..tostring(priceKoeff))
+    myLog("QTY_LOTS: "..tostring(QTY_LOTS))
+    myLog("OFFSET: "..tostring(OFFSET))
+    myLog("SPREAD: "..tostring(SPREAD))
     myLog("STOP_LOSS: "..tostring(Settings.STOP_LOSS))
     myLog("TAKE_PROFIT: "..tostring(Settings.TAKE_PROFIT))
     myLog("curPreset: "..tostring(curPreset))
@@ -419,46 +451,10 @@ function OnInit()
  
     DS:SetUpdateCallback(function(...) mycallbackforallstocks(...) end)
    
+    lastStopShiftIndex = DS:Size()
+    TransactionPrice = DS:C(DS:Size())
+
 end
-
-function GetTotalnet()
-
-    if virtualTrade then
-        return OpenCount
-    end
-
-   -- ФЬЮЧЕРСЫ, ОПЦИОНЫ
-   if CLASS_CODE == 'SPBFUT' or CLASS_CODE == 'SPBOPT' then
-      for i = 0,getNumberOf('futures_client_holding') - 1 do
-         local futures_client_holding = getItem('futures_client_holding',i)
-         if futures_client_holding.sec_code == SEC_CODE then
-            local pos = futures_client_holding.totalnet
-            --SetCell(t_id, 4, 7, tostring(pos), pos) 
-            return pos
-         end
-      end
-   -- АКЦИИ
-   elseif CLASS_CODE == 'TQBR' or CLASS_CODE == 'QJSIM' then
-    local lotsize = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lotsize").param_value)
-    if lotsize == 0 or lotsize == nil then
-        lotsize = 1
-    end
-    for i = 0,getNumberOf('depo_limits') - 1 do
-         local depo_limit = getItem("depo_limits", i)
-         if depo_limit.sec_code == SEC_CODE
-         and depo_limit.trdaccid == ACCOUNT
-         and depo_limit.limit_kind == 1 then         
-            local pos = depo_limit.currentbal/lotsize
-            --SetCell(t_id, 4, 7, tostring(pos), pos) 
-            return pos
-         end
-      end
-   end
- 
-   -- Если позиция по инструменту в таблице не найдена, возвращает 0
-    --SetCell(t_id, 4, 7, tostring(0), 0) 
-    return 0
-end 
 
 function mysplit(inputstr, sep)
      
@@ -484,7 +480,7 @@ function mycallbackforallstocks(index)
     local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
     local maxPrice = DS:H(index)
     local minPrice = DS:L(index)
-    isPriceMove = isPriceMove or (OpenCount < 0 and TransactionPrice - last_price >= STOP_LOSS*priceKoeff) or (OpenCount > 0 and last_price - TransactionPrice >= STOP_LOSS*priceKoeff)
+    isPriceMove = isPriceMove or (OpenCount < 0 and TransactionPrice - last_price >= STOP_LOSS*priceKoeff and STOP_LOSS~=0) or (OpenCount > 0 and last_price - TransactionPrice >= STOP_LOSS*priceKoeff and STOP_LOSS~=0)
 
     --local last_price = DS:C(DS:Size())
     local lp = GetCell(t_id, 2, 0).value or last_price
@@ -644,7 +640,7 @@ end
 
 function checkSLbeforeClearing()
     
-    if SetStop == true and OpenCount ~= 0 and CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then 
+    if SetStop == true and OpenCount ~= 0 and CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' and not manualKillStop then 
                         
         if ((serverTime>=1350 and serverTime<1400) or (serverTime>=endTradeTime and serverTime<1845) or (serverTime>=2345 and serverTime<2350)) and StopForbidden == false then
             StopForbidden = true
@@ -690,19 +686,7 @@ function trailStop()
         local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
         --isPriceMove = (OpenCount < 0 and TransactionPrice - last_price >= STOP_LOSS*priceKoeff) or (OpenCount > 0 and last_price - TransactionPrice >= STOP_LOSS*priceKoeff)
         
-        if ROBOT_STATE == 'FIRSTSTART' then
-            if not isStopOrder() then
-                myLog('Установка стоп-лосса после запуска скрипта')
-                if OpenCount > 0 then
-                    Result = SL_TP(DS:C(DS:Size()), "BUY", OpenCount)
-                elseif OpenCount < 0 then
-                    Result = SL_TP(DS:C(DS:Size()), "SELL", OpenCount)
-                end
-            end
-            TransactionPrice = last_price
-            ROBOT_STATE = 'ОСТАНОВЛЕН'
-            SetCell(t_id, 2, 7, ROBOT_STATE)
-        elseif isPriceMove or (OpenCount~=0 and (DS:Size() - lastStopShiftIndex) > stopShiftIndexWait) then
+        if (isPriceMove or (OpenCount~=0 and (DS:Size() - lastStopShiftIndex) > stopShiftIndexWait)) and not manualKillStop and not StopForbidden and STOP_LOSS~=0 then
 			myLog('Сдвиг стоп-лосса')
 			continue = KillAllStopOrders()
 			sleep(20)
@@ -728,85 +712,6 @@ function trailStop()
         end
             
 	end
-
-end
-
-function CloseAll()
-
-    if OpenCount < 0 then
-        myLog('Закрытие позиции "SELL": '..tostring(OpenCount))
-        continue = KillPos('SELL', -1*OpenCount)
-        if continue ~= true then
-            Run = false
-            message('Закрытие позиции не удалось. Скрипт Algo остановлен')
-            myLog('Закрытие позиции не удалось. Скрипт Algo остановлен')
-        end
-    end
-    if OpenCount > 0 then
-        myLog('Закрытие позиции "BUY": '..tostring(OpenCount))
-        continue = KillPos('BUY', OpenCount)
-        if continue ~= true then
-            Run = false
-            message('Закрытие позиции не удалось. Скрипт Algo остановлен')
-            myLog('Закрытие позиции не удалось. Скрипт Algo остановлен')
-        end
-    end
-    if continue == true and SetStop == true then
-        myLog('Закрытие стоп-лосса')
-        continue = KillAllStopOrders()
-        if continue ~= true then
-            Run = false
-            message('Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
-            myLog('Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
-        end
-    end
-    
-    if continue == true then
-        TakeProfitPrice = 0    
-
-        lastStopShiftIndex = 0
-        tpPrice = 0
-        slPrice = 0
-        oldStop = 0
-        slIndex = 0
-        stopPrice = 0
-        SetCell(t_id, 2, 3, tostring(slPrice), slPrice) 
-        SetCell(t_id, 2, 4, tostring(tpPrice), tpPrice)
-    end
-        
-    --[[
-     local k = #lastSignalIndex
-    if isTrade and k > 2 then
-        
-        local Price1 = DS:O(lastSignalIndex[k])
-        local Price2 = DS:O(lastSignalIndex[k-1])
-        local Price3 = DS:O(lastSignalIndex[k-2])
-        local trend1 = trend[lastSignalIndex[k]-1]
-        local trend2 = trend[lastSignalIndex[k-1]-1]
-        local dealDelta1 = math.abs(Price1 - Price2)
-        local dealDelta2 = math.abs(Price2 - Price3)
-        local isLose1 = (trend1 == 1 and Price1 > Price2) or (trend1 == -1 and Price1 < Price2)
-        local isLose2 = (trend2 == 1 and Price2 > Price3) or (trend2 == -1 and Price2 < Price3)
-
-        if (math.ceil(dealDelta1/SEC_PRICE_STEP) < 20 or isLose1) and (math.ceil(dealDelta2/SEC_PRICE_STEP) < 20 or isLose2) then
-            myLog('Прошли две сделки с убытком или очень малым спредом, проводим реоптимизацию')
-            myLog('dealDelta1 '..tostring(dealDelta1))
-            myLog('dealDelta2 '..tostring(dealDelta2))
-            myLog('isLose1 '..tostring(isLose1))
-            myLog('isLose2 '..tostring(isLose2))
-            
-            needReoptimize = true
-            --ROBOT_STATE = 'РЕОПТИМИЗАЦИЯ'
-            --continue = false
-            --if isTrade then
-            --    isTrade = false
-            --    SetCell(t_id, 2, 7, ROBOT_STATE)
-            --    SetCell(t_id, 3, 4, "START")  --i строка, 0 - колонка, v - значение 
-            --    SetColor(t_id, 3, 4, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
-            --end    
-        end
-    end
-    ]]--    
 
 end
 
@@ -908,7 +813,7 @@ function main()
             end
         else
         
-            OpenCount = GetTotalnet()
+            OpenCount = GetTotalnet(true)
             continue = true 
             local ss = getInfoParam("SERVERTIME")
             if string.len(ss) >= 5 then            
@@ -929,6 +834,8 @@ function main()
                 needReoptimize = true
             end
 
+            local dealQnty = QTY_LOTS
+
             if ROBOT_STATE == 'ПЕРЕВОРОТ' or ROBOT_STATE == 'CLOSEALL' then
                 if CurrentDirect == "AUTO" then
                     if OpenCount > 0 then
@@ -937,14 +844,16 @@ function main()
                         CurrentDirect = "BUY"
                     end
                 end
-                CloseAll()
                 if continue == true and ROBOT_STATE == 'ПЕРЕВОРОТ' then
                     ROBOT_STATE = 'В ПРОЦЕССЕ СДЕЛКИ'
+                    KillAllStopOrders()
+                    dealQnty = math.abs(OpenCount) + QTY_LOTS
                 elseif continue == true then
+                    CloseAll()
                     ROBOT_STATE = 'В ПОИСКЕ ТОЧКИ ВХОДА'
                 end
             end
-
+            
             --Если СОСТОЯНИЕ робота "В ПРОЦЕССЕ СДЕЛКИ"
             if ROBOT_STATE == 'В ПРОЦЕССЕ СДЕЛКИ' then
                     
@@ -962,7 +871,7 @@ function main()
                 
                     -- Совершает СДЕЛКУ указанного типа ["BUY", или "SELL"] по рыночной(текущей) цене размером в 1 лот,
                     --- возвращает цену открытой сделки, либо FALSE, если невозможно открыть сделку
-                    Price = Trade(CurrentDirect, QTY_LOTS)
+                    Price = Trade(CurrentDirect, dealQnty)
                     --Price = DS:C(DS:Size())
 
                     if not Run then return end -- Если скрипт останавливается, не затягивает процесс
@@ -975,26 +884,11 @@ function main()
                         
                         -- Запоминает индекс свечи, на которой была открыта последняя позиция (нужен для того, чтобы после закрытия по стопу тут же не открыть еще одну позицию)
                         --LastOpenBarIndex = DS:Size()
-                        myLog(NAME_OF_STRATEGY..' robot: Открыта сделка '..CurrentDirect..' по цене '..tostring(Price))
+                        OpenCount = GetTotalnet(true)
+                        myLog(NAME_OF_STRATEGY..' robot: Открыта сделка '..CurrentDirect..' по цене '..tostring(Price)..', общее количество '..tostring(OpenCount))
                         
-                        if SetStop == true  and StopForbidden == false then 
-                            
-                            local Result = nil -- Переменная для получения результата выставления и срабатывания СТОП-ЛОСС и ТЕЙК-ПРОФИТ
-                                                    
-                            -- Выставляет СТОП-ЛОСС и ТЕЙК-ПРОФИТ, ЖДЕТ пока он сработает, принимает ЦЕНУ и ТИП ["BUY", или "SELL"] открытой сделки,
-                            --- возвращает FALSE, если не удалось выставить СТОП-ЛОСС и ТЕЙК-ПРОФИТ
-                            myLog(NAME_OF_STRATEGY..' robot: Делает попытку выставить СТОП-ЛОСС и ТЕЙК-ПРОФИТ')
-                            OpenCount = GetTotalnet()
-                            if OpenCount ~= 0 then
-                                Result = SL_TP(Price, CurrentDirect, OpenCount)
-                            else
-                                tpPrice = 0
-                                slPrice = 0
-                                oldStop = 0
-                                lastStopShiftIndex = 0
-                                SetCell(t_id, 2, 3, tostring(slPrice), slPrice) 
-                                SetCell(t_id, 2, 4, tostring(tpPrice), tpPrice)                
-                            end
+                        if SetStop == true  and StopForbidden == false then                             
+                            onChangeOpenCount(Price)
                         end
 
                         -- все выставлено. ждем развортного сигнала
@@ -1013,6 +907,20 @@ function main()
                 end
             end         
 
+            if ROBOT_STATE == 'FIRSTSTART' then
+                myLog('Первоначальный запуск скрипта')
+                if OpenCount~=0 and not isStopOrder(true) then
+                    myLog('Установка стоп-лосса после запуска скрипта')
+                    if OpenCount > 0 then
+                        Result = SL_TP(DS:C(DS:Size()), "BUY", OpenCount)
+                    elseif OpenCount < 0 then
+                        Result = SL_TP(DS:C(DS:Size()), "SELL", OpenCount)
+                    end
+                end
+                TransactionPrice = last_price
+                ROBOT_STATE = 'ОСТАНОВЛЕН'
+                SetCell(t_id, 2, 7, ROBOT_STATE)
+            end            
             if not isTrade and ROBOT_STATE ~= 'ОСТАНОВЛЕН' and ROBOT_STATE ~= 'ОПТИМИЗАЦИЯ' and ROBOT_STATE ~= 'РЕОПТИМИЗАЦИЯ' then 
                 ROBOT_STATE = 'ОСТАНОВЛЕН' 
                 SetCell(t_id, 2, 7, ROBOT_STATE)
@@ -1022,6 +930,19 @@ function main()
         end
 
         sleep(100)			
+    end
+end
+
+-- Функция ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK при остановке скрипта
+function OnStop()
+    Run = false
+    myLog("Script Stoped") 
+    f:close() -- Закрывает файл 
+    if t_id~= nil then
+        DestroyTable(t_id)
+    end
+    if tv_id~= nil then
+        DestroyTable(tv_id)
     end
 end
 
@@ -1061,6 +982,7 @@ function CreateTable() -- Функция создает таблицу
     InsertRow(t_id, 3)
     SetCell(t_id, 3, 0, "START", 0)  --i строка, 0 - колонка, v - значение 
     SetColor(t_id, 3, 0, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
+    SetCell(t_id, 3, 1, 'qnt: '..tostring(QTY_LOTS), QTY_LOTS)  --i строка, 0 - колонка, v - значение 
     SetCell(t_id, 3, 2, "SELL", 0)  --i строка, 0 - колонка, v - значение 
     SetColor(t_id, 3, 2, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
     SetCell(t_id, 3, 3, "BUY", 0)  --i строка, 0 - колонка, v - значение 
@@ -1110,6 +1032,7 @@ function setParameters()
     
     testSizeBars = GetCell(t_id, 6, 4).value
     ChartId = GetCell(t_id, 6, 5).image
+    QTY_LOTS = math.ceil(GetCell(t_id, 3, 1).value or 0)
     STOP_LOSS = math.ceil(GetCell(t_id, 6, 6).value or 0)
     TAKE_PROFIT = math.ceil(tonumber(GetCell(t_id, 6, 7).image) or 0)
     INTERVAL = GetCell(t_id, 2, 6).value
@@ -1198,8 +1121,15 @@ function volume_event_callback(tv_id, msg, par1, par2)
            local inpChar = string.char(par2)
            local newPrice = GetCell(tv_id, par1, 0).image..string.char(par2)            
            SetCell(tv_id, par1, 0, tostring(newPrice))
-           SetCell(t_id, tstr, tcell, GetCell(tv_id, par1, 0).image, tonumber(GetCell(tv_id, par1, 0).image))
+           if tstr == 3 and tcell == 1 then
+               SetCell(t_id, tstr, tcell, 'qnt: '..GetCell(tv_id, par1, 0).image, tonumber(GetCell(tv_id, par1, 0).image))
+           else
+               SetCell(t_id, tstr, tcell, GetCell(tv_id, par1, 0).image, tonumber(GetCell(tv_id, par1, 0).image))
+           end
        end
+    end
+    if (msg==QTABLE_CLOSE) then --закрытие окна
+        setParameters()
     end
 end
 
@@ -1218,7 +1148,7 @@ function event_callback(t_id, msg, par1, par2)
 
     if msg == QTABLE_LBUTTONDBLCLK then
 
-        if ((par1 == 6 or par1 == 8 or par1 == 10) or (par1 == 2 and par2 == 6)) and IsWindowClosed(tv_id) then
+        if ((par1 == 6 or par1 == 8 or par1 == 10) or (par1 == 2 and par2 == 6) or (par1 == 3 and par2 == 1)) and IsWindowClosed(tv_id) then
             tstr = par1
             tcell = par2
             AddColumn(tv_id, 0, "Value", true, QTABLE_DOUBLE_TYPE, 25)
@@ -1226,7 +1156,7 @@ function event_callback(t_id, msg, par1, par2)
             SetWindowCaption(tv_id, "Value") 
             SetWindowPos(tv_id, 290, 260, 250, 100)                                
             InsertRow(tv_id, 1)
-            SetCell(tv_id, 1, 0, GetCell(t_id, par1, par2).image, GetCell(t_id, par1, par2).value)  --i строка, 0 - колонка, v - значение 
+            SetCell(tv_id, 1, 0, tostring(GetCell(t_id, par1, par2).value), GetCell(t_id, par1, par2).value)  --i строка, 0 - колонка, v - значение 
         end
         
         if par1 == 3 and par2 == 0 then -- Start\Stop
@@ -1262,12 +1192,13 @@ function event_callback(t_id, msg, par1, par2)
             TakeProfitPrice = 0
         end
         if par1 == 3 and par2 == 5 then -- All Close
-            OpenCount = GetTotalnet()
+            OpenCount = GetTotalnet(true)
             ROBOT_STATE = 'CLOSEALL'
         end        
         if par1 == 3 and par2 == 6 then -- Close SL
             myLog('Закрытие стоп-лосса')
             continue = KillAllStopOrders()
+            manualKillStop = true
             TakeProfitPrice = 0
             if continue ~= true then
                 Run = false
@@ -1279,6 +1210,7 @@ function event_callback(t_id, msg, par1, par2)
             myLog('Установка стоп-лосса')
             if not isStopOrder() then
                 setParameters()
+                manualKillStop = false
                 TakeProfitPrice = 0
                 TransactionPrice = DS:C(DS:Size())
                 if OpenCount > 0 then
@@ -1293,6 +1225,12 @@ function event_callback(t_id, msg, par1, par2)
 
         if par1 == 4 and par2 <= 5 and not isTrade and not optimizationInProgress then 
             curPreset = par2+1
+            local needScanOpenCountSLTP = false
+
+            if SEC_CODE ~= presets[curPreset].SEC_CODE or CLASS_CODE ~= presets[curPreset].CLASS_CODE then
+                myLog("Смена инструмента торгов")
+                needScanOpenCountSLTP = true
+            end
             setTableAlgoParams  = presets[curPreset].setTableAlgoParams     
             readTableAlgoParams = presets[curPreset].readTableAlgoParams     
             saveOptimizedParams = presets[curPreset].saveOptimizedParams     
@@ -1302,6 +1240,9 @@ function event_callback(t_id, msg, par1, par2)
             NAME_OF_STRATEGY   = presets[curPreset].NAME_OF_STRATEGY
             SEC_CODE           = presets[curPreset].SEC_CODE                   
             CLASS_CODE         = presets[curPreset].CLASS_CODE                   
+            QTY_LOTS           = presets[curPreset].QTY_LOTS                   
+            OFFSET             = presets[curPreset].OFFSET                   
+            SPREAD             = presets[curPreset].SPREAD                   
             INTERVAL           = presets[curPreset].INTERVAL                   
             maxStop            = presets[curPreset].maxStop
             reopenDealMaxStop  = presets[curPreset].reopenDealMaxStop
@@ -1309,7 +1250,9 @@ function event_callback(t_id, msg, par1, par2)
             stopShiftIndexWait = presets[curPreset].stopShiftIndexWait                   
             ChartId            = presets[curPreset].ChartId
             testSizeBars       = presets[curPreset].testSizeBars
-            
+            STOP_LOSS          = presets[curPreset].settingsAlgo.STOP_LOSS
+            TAKE_PROFIT        = presets[curPreset].settingsAlgo.TAKE_PROFIT
+                    
             -- Получает ШАГ ЦЕНЫ ИНСТРУМЕНТА
             if isConnected() then
                 SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
@@ -1350,7 +1293,10 @@ function event_callback(t_id, msg, par1, par2)
             myLog("LOTSIZE: "..tostring(LOTSIZE))
             myLog("leverage: "..tostring(leverage))
             myLog("priceKoeff: "..tostring(priceKoeff))
-        
+            myLog("QTY_LOTS: "..tostring(QTY_LOTS))
+            myLog("OFFSET: "..tostring(OFFSET))
+            myLog("SPREAD: "..tostring(SPREAD))
+                
             if readOptimizedParams~=nil and not notReadOptimized then
                 readOptimizedParams()
             end
@@ -1362,6 +1308,7 @@ function event_callback(t_id, msg, par1, par2)
                 
             SetCell(t_id, 2, 6, tostring(INTERVAL), INTERVAL)  --i строка, 0 - колонка, v - значение 
             
+            SetCell(t_id, 3, 1, 'qnt: '..tostring(QTY_LOTS),    QTY_LOTS)
             SetCell(t_id, 6, 4, tostring(testSizeBars),    testSizeBars)
             SetCell(t_id, 6, 5, ChartId)  --i строка, 0 - колонка, v - значение 
             SetCell(t_id, 6, 6, tostring(Settings.STOP_LOSS), Settings.STOP_LOSS)  --i строка, 0 - колонка, v - значение 
@@ -1379,6 +1326,12 @@ function event_callback(t_id, msg, par1, par2)
 
             if calculateAlgo==nil then
                 calculateAlgo = simpleAlgo    
+            end
+            if needScanOpenCountSLTP then
+                OpenCount = GetTotalnet(true)
+                SetCell(t_id, 2, 3, '', 0) --sl
+                SetCell(t_id, 2, 4, '', 0) --tp
+                ROBOT_STATE       = 'FIRSTSTART'
             end
         end
 
@@ -1420,46 +1373,141 @@ function event_callback(t_id, msg, par1, par2)
     end
 end
 
+--ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ТОРГОВЛИ
+
+function GetTotalnet(getPositionPrice)
+
+    if virtualTrade then
+        return OpenCount
+    end
+
+   -- ФЬЮЧЕРСЫ, ОПЦИОНЫ
+   if CLASS_CODE == 'SPBFUT' or CLASS_CODE == 'SPBOPT' then
+        for i = 0,getNumberOf('futures_client_holding') - 1 do
+            local futures_client_holding = getItem('futures_client_holding',i)
+            if futures_client_holding.sec_code == SEC_CODE then
+                local pos = futures_client_holding.totalnet
+                --myLog(NAME_OF_STRATEGY..' GetTotalnet: OpenCount '..tostring(pos))
+                if getPositionPrice==true then
+                    if pos == 0 then
+                        SetCell(t_id, 2, 2, '', 0)
+                        SetColor(t_id, 2, 2, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
+                    else
+                        SetCell(t_id, 2, 2, tostring(pos)..'/'..tostring(futures_client_holding.avrposnprice), futures_client_holding.avrposnprice)
+                        if pos>0 then
+                            SetColor(t_id, 2, 2, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
+                        else                        
+                            SetColor(t_id, 2, 2, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
+                        end
+                    end
+                end
+                return pos
+            end
+      end
+   -- АКЦИИ
+   elseif CLASS_CODE == 'TQBR' or CLASS_CODE == 'QJSIM' then
+        local lotsize = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"lotsize").param_value)
+        if lotsize == 0 or lotsize == nil then
+            lotsize = 1
+        end
+        for i = 0,getNumberOf('depo_limits') - 1 do
+            local depo_limit = getItem("depo_limits", i)
+            if depo_limit.sec_code == SEC_CODE
+            and depo_limit.trdaccid == ACCOUNT
+            and depo_limit.limit_kind == 1 then         
+                local pos = depo_limit.currentbal/lotsize
+                --myLog(NAME_OF_STRATEGY..' GetTotalnet: OpenCount '..tostring(pos))
+                if getPositionPrice==true then
+                    if pos == 0 then
+                        SetCell(t_id, 2, 2, '', 0)
+                        SetColor(t_id, 2, 2, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
+                    else
+                        SetCell(t_id, 2, 2, tostring(pos)..'/'..tostring(depo_limit.awg_position_price), depo_limit.awg_position_price)
+                        if pos>0 then
+                            SetColor(t_id, 2, 2, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
+                        else                        
+                            SetColor(t_id, 2, 2, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
+                        end
+                    end
+                end
+                return pos
+            end
+        end
+   end
+ 
+    -- Если позиция по инструменту в таблице не найдена, возвращает 0
+    SetCell(t_id, 2, 2, '', 0)
+    SetColor(t_id, 2, 2, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
+    return 0
+end
+
+function onChangeOpenCount(dealPrice)
+
+    if not SetStop then return end
+
+    local isStop = isStopOrder()
+    myLog(NAME_OF_STRATEGY..' onChangeOpenCount, isStop '..tostring(isStop))
+
+    if not isStop and OpenCount~=0 then
+        TakeProfitPrice = 0
+        TransactionPrice = dealPrice
+        if OpenCount > 0 then
+            myLog(NAME_OF_STRATEGY..' Установка стоп-лосса onChangeOpenCount, position '..tostring(OpenCount))
+            Result = SL_TP(dealPrice, "BUY", OpenCount)
+        elseif OpenCount < 0 then
+            myLog(NAME_OF_STRATEGY..' Установка стоп-лосса onChangeOpenCount, position '..tostring(OpenCount))
+            Result = SL_TP(dealPrice, "SELL", OpenCount)
+        end
+    else
+        myLog(NAME_OF_STRATEGY..': Закрытие стоп-лосса onChangeOpenCount')
+        continue = KillAllStopOrders()
+        TakeProfitPrice = 0
+        TransactionPrice = dealPrice
+        if continue ~= true then
+            Run = false
+            message(NAME_OF_STRATEGY..'Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
+            myLog(NAME_OF_STRATEGY..'Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
+        end  
+        if OpenCount > 0 then
+            myLog(NAME_OF_STRATEGY..' Установка стоп-лосса OnFuturesClientHolding, position '..tostring(OpenCount))
+            Result = SL_TP(dealPrice, "BUY", OpenCount)
+        elseif OpenCount < 0 then
+            myLog(NAME_OF_STRATEGY..' Установка стоп-лосса OnFuturesClientHolding, position '..tostring(OpenCount))
+            Result = SL_TP(dealPrice, "SELL", OpenCount)
+        end
+    end
+
+    if OpenCount == 0 then
+        tpPrice = 0
+        slPrice = 0
+        oldStop = 0
+        lastStopShiftIndex = 0
+        SetCell(t_id, 2, 3, '', slPrice) 
+        SetCell(t_id, 2, 4, '', tpPrice)                
+    end
+
+end
+
 function OnFuturesClientHolding(fut_limit)
     
     if fut_limit.sec_code == SEC_CODE then
       
         if ROBOT_STATE == 'В ПОИСКЕ ТОЧКИ ВХОДА' or ROBOT_STATE == 'ОСТАНОВЛЕН' then
         
+            --myLog(NAME_OF_STRATEGY..' OnFuturesClientHolding: OpenCount '..tostring(OpenCount)..', fut_limit.totalnet '..tostring(fut_limit.totalnet))
             -- Если изменился баланс текущей позиции
             if fut_limit.totalnet ~= OpenCount then 
-                
+                --KillAllStopOrders()
                 OpenCount = GetTotalnet()
-                SetCell(t_id, 2, 2, tostring(fut_limit.avrposnprice), fut_limit.avrposnprice)
-                 
-                if not isStopOrder() then
-                    TakeProfitPrice = 0
-                    TransactionPrice = DS:C(DS:Size())
-                    if OpenCount > 0 then
-                        myLog('Установка стоп-лосса OnFuturesClientHolding, position '..tostring(OpenCount))
-                        Result = SL_TP(DS:C(DS:Size()), "BUY", OpenCount)
-                    elseif OpenCount < 0 then
-                        myLog('Установка стоп-лосса OnFuturesClientHolding, position '..tostring(OpenCount))
-                        Result = SL_TP(DS:C(DS:Size()), "SELL", OpenCount)
-                    end
+                SetCell(t_id, 2, 2, tostring(OpenCount)..'/'..tostring(fut_limit.avrposnprice), fut_limit.avrposnprice)
+                if OpenCount>0 then
+                    SetColor(t_id, 2, 2, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
+                elseif OpenCount < 0 then                        
+                    SetColor(t_id, 2, 2, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
                 else
-                    myLog('Закрытие стоп-лосса OnFuturesClientHolding')
-                    continue = KillAllStopOrders()
-                    TakeProfitPrice = 0
-                    TransactionPrice = DS:C(DS:Size())
-                    if continue ~= true then
-                        Run = false
-                        message('Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
-                        myLog('Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
-                    end  
-                    if OpenCount > 0 then
-                        myLog('Установка стоп-лосса OnFuturesClientHolding, position '..tostring(OpenCount))
-                        Result = SL_TP(DS:C(DS:Size()), "BUY", OpenCount)
-                    elseif OpenCount < 0 then
-                        myLog('Установка стоп-лосса OnFuturesClientHolding, position '..tostring(OpenCount))
-                        Result = SL_TP(DS:C(DS:Size()), "SELL", OpenCount)
-                    end
+                    SetColor(t_id, 2, 2, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
                 end
+                onChangeOpenCount(DS:C(DS:Size()))               
             end
         end
     end
@@ -1495,7 +1543,7 @@ function OnStopOrder(stopOrder)
    if bit.band(stopOrder.flags,0x2)==0x0 and bit.band(stopOrder.flags,0x1)==0x0 then
       state="стоп-ордер исполнен"
       slIndex = DS:Size()
-      stopPrice = stop_order.price
+      stopPrice = stopOrder.price
    end
    if bit.band(stopOrder.flags,0x400)==0x1 then
       state="стоп-заявка сработала, но была отвергнута торговой системой"
@@ -1510,36 +1558,86 @@ function OnStopOrder(stopOrder)
    myLog("OnStopOrder(): sec_code="..stopOrder.sec_code.." - "..state..
          "; condition_price="..stopOrder.condition_price.."; transID="..stopOrder.trans_id.."; order_num="..stopOrder.order_num) 
 
-    local condition_price = stopOrder.condition_price
-    local condition_price2 = stopOrder.condition_price2
+   isStopOrder(true)
 
-    if state=="стоп-ордер исполнен" then
-        condition_price2 = 0
-        condition_price = 0
-    end
-    SetCell(t_id, 2, 3, tostring(condition_price2), condition_price2) --sl
-    SetCell(t_id, 2, 4, tostring(condition_price), condition_price) --tp
+end
+
+function isStopOrder(getStopPrice)
     
-    tpPrice = condition_price
-    slPrice = condition_price2
-    oldStop = slPrice
+    function myFind(C,S,F)
+        return (C == CLASS_CODE) and (S == SEC_CODE) and (bit.band(F, 0x1) ~= 0)
+    end
+    local res=1
+    local ord = "stop_orders"
+    local orders = SearchItems(ord, 0, getNumberOf(ord)-1, myFind, "class_code,sec_code,flags")
+    if (orders ~= nil) and (#orders > 0) then
+        if getStopPrice == true then
+            local stop_order = getItem('stop_orders', orders[#orders])
+            if stop_order ~= nil and type(stop_order) == "table" then
+                myLog('Найдена стоп-заявка: '..stop_order.sec_code..' number: '..tostring(stop_order.order_num)..' stop_order_type: '..tostring(stop_order.stop_order_type))                
+                myLog('condition_price: '..tostring(stop_order.condition_price)..' condition_price2: '..tostring(stop_order.condition_price2))                
+                tpPrice = stop_order.condition_price
+                slPrice = stop_order.condition_price2
+                if stop_order.stop_order_type == 1 then
+                    slPrice = stop_order.condition_price
+                    tpPrice = 0
+                elseif stop_order.stop_order_type == 6 then
+                    tpPrice = stop_order.condition_price
+                    slPrice = 0
+                end
+                SetCell(t_id, 2, 3, tostring(slPrice), slPrice) --sl
+                SetCell(t_id, 2, 4, tostring(tpPrice), tpPrice) --tp
+                oldStop = slPrice
+            end
+        end
+        return true
+    end
+    
+    SetCell(t_id, 2, 3, '', 0) --sl
+    SetCell(t_id, 2, 4, '', 0) --tp
+    
+    tpPrice = 0
+    slPrice = 0
+    oldStop = 0
+
+    return false
+
 end
 
--- Функция ВЫЗЫВАЕТСЯ ТЕРМИНАЛОМ QUIK при остановке скрипта
-function OnStop()
-    Run = false
-    myLog("Script Stoped") 
-    f:close() -- Закрывает файл 
-    if t_id~= nil then
-        DestroyTable(t_id)
-    end
-    if tv_id~= nil then
-        DestroyTable(tv_id)
+function GetCorrectPrice(price) -- STRING
+    -- Получает точность цены по инструменту
+    -- Получает минимальный шаг цены инструмента
+    local PriceStep = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value)
+    -- Если после запятой должны быть цифры
+    if scale > 0 then
+       price = tostring(price)
+       -- Ищет в числе позицию запятой, или точки
+       local dot_pos = price:find('.')
+       local comma_pos = price:find(',')
+       -- Если передано целое число
+       if dot_pos == nil and comma_pos == nil then
+          -- Добавляет к числу ',' и необходимое количество нулей и возвращает результат
+          price = price..','
+          for i=1,scale do price = price..'0' end
+          return price
+       else -- передано вещественное число         
+          -- Если нужно, заменяет запятую на точку 
+          if comma_pos ~= nil then price:gsub(',', '.') end
+          -- Округляет число до необходимого количества знаков после запятой
+          price = round(tonumber(price), scale)
+          -- Корректирует на соответствие шагу цены
+          price = round(price/PriceStep)*PriceStep
+          price = string.gsub(tostring(price),'[\.]+', ',')
+          return price
+       end
+    else -- После запятой не должно быть цифр
+       -- Корректирует на соответствие шагу цены
+       price = round(price/PriceStep)*PriceStep
+       return tostring(math.floor(price))
     end
 end
-
 -----------------------------
--- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ --
+-- ОСНОВНЫЕ ФУНКЦИИ ТОРГОВЛИ--
 -----------------------------
 
 -- Совершает СДЕЛКУ указанного типа (Type) ["BUY", или "SELL"] по рыночной(текущей) цене размером в 1 лот,
@@ -1585,15 +1683,17 @@ function Trade(Type, qnt)
         
         
         local dealPrice = DS:C(DS:Size())
-        if Type == 'BUY' then
-            dealPrice = round(tonumber(getParamEx(CLASS_CODE, SEC_CODE, 'offer').param_value), scale)
-        else
-            dealPrice = round(tonumber(getParamEx(CLASS_CODE, SEC_CODE, 'bid').param_value), scale)
-        end
+        if getDOMPrice then
+            if Type == 'BUY' then
+                dealPrice = round(tonumber(getParamEx(CLASS_CODE, SEC_CODE, 'offer').param_value), scale)
+            else
+                dealPrice = round(tonumber(getParamEx(CLASS_CODE, SEC_CODE, 'bid').param_value), scale)
+            end
+       end
          
         if Type == 'BUY' then
             if OpenCount < 0 then
-                vdealProfit = round(vlastDealPrice - dealPrice, 5)*qnt*leverage
+                vdealProfit = round(vlastDealPrice - dealPrice, 5)*qnt/priceKoeff
             elseif OpenCount > 0 then
                 vlastDealPrice = (vlastDealPrice + dealPrice)/2
             end
@@ -1605,7 +1705,7 @@ function Trade(Type, qnt)
             OpenCount = OpenCount + qnt        
         else
             if OpenCount > 0 then
-                vdealProfit = round(dealPrice-vlastDealPrice, 5)*qnt*leverage
+                vdealProfit = round(dealPrice-vlastDealPrice, 5)*qnt/priceKoeff
             elseif OpenCount > 0 then
                 vlastDealPrice = (vlastDealPrice + dealPrice)/2
             end
@@ -1627,7 +1727,14 @@ function Trade(Type, qnt)
         if OpenCount == 0 then
             vlastDealPrice = 0
         end
-        SetCell(t_id, 2, 2, tostring(vlastDealPrice), vlastDealPrice) 
+        SetCell(t_id, 2, 2, tostring(OpenCount)..'/'..tostring(vlastDealPrice), vlastDealPrice) 
+        if OpenCount>0 then
+            SetColor(t_id, 2, 2, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
+        elseif OpenCount < 0 then                        
+            SetColor(t_id, 2, 2, RGB(255,168,164), RGB(0,0,0), RGB(255,168,164), RGB(0,0,0))
+        else
+            SetColor(t_id, 2, 2, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
+        end
 
         vdealProfit = 0
 
@@ -1705,10 +1812,10 @@ function Trade(Type, qnt)
                 break
              end
           end
-          --Если прошло 10 секунд, а заявка не исполнена, значит произошла ошибка
+          --Если прошло 20 секунд, а заявка не исполнена, значит произошла ошибка
           if os.time() - BeginTime > 20 then
              -- Выводит сообщение с ошибкой
-             message(NAME_OF_STRATEGY..' robot: Прошло 20 секунд, а заявка не исполнена, значит произошла ошибка')
+            message(NAME_OF_STRATEGY..' robot: Прошло 20 секунд, а заявка не исполнена, значит произошла ошибка')
     		myLog(NAME_OF_STRATEGY..' robot: Прошло 20 секунд, а заявка не исполнена, значит произошла ошибка')
             -- Возвращает FALSE
              return false
@@ -1725,14 +1832,13 @@ function Trade(Type, qnt)
              --Если сделка по текущей заявке
              if trade.order_num == OrderNum then
                 --Возвращает фАКТИЧЕСКУЮ ЦЕНУ открытой сделки
-                SetCell(t_id, 2, 2, tostring(trade.price), trade.price) 
                 return trade.price
              end
           end
           --Если прошло 10 секунд, а сделка не совершена, значит на счете произошла ошибка
           if os.time() - BeginTime > 9 then
              -- Выводит сообщение с ошибкой
-             message(NAME_OF_STRATEGY..' robot: Прошло 10 секунд, а сделка не совершена, значит на счете произошла ошибка')
+            message(NAME_OF_STRATEGY..' robot: Прошло 10 секунд, а сделка не совершена, значит на счете произошла ошибка')
     		myLog(NAME_OF_STRATEGY..' robot: Прошло 10 секунд, а сделка не совершена, значит на счете произошла ошибка')
              -- Возвращает FALSE
              return -1
@@ -1743,7 +1849,73 @@ function Trade(Type, qnt)
     
     return -1
 
- end
+end
+
+-- Ожидает исполнения заявки по trans_id
+function WaitOrderComplete(trans_id)
+    
+    -- Находит заявку по trans_id
+    local order_line_idx = 0
+    while RUN and order_line_idx == 0 do
+       sleep(100)
+       -- Перебирает таблицу заявок с последней строки к первой
+       local number = getNumberOf('orders')
+       if number > 0 then
+          if number > 1 then
+             for i = number-1,0,-1 do
+                -- Получает строку таблицы
+                local order_line = getItem('orders', i)
+                if order_line.trans_id == trans_id and order_line.sec_code == SEC_CODE then
+                   order_line_idx = i
+                   break
+                end
+             end
+          else
+             -- Получает строку таблицы
+             local order_line = getItem('orders', 0)
+             if order_line.trans_id == trans_id and order_line.sec_code == SEC_CODE then
+                order_line_idx = 0
+             end
+          end
+       end
+    end
+    
+    -- Ждет когда заявка будет полностью исполнена
+    while RUN and getItem('orders', order_line_idx).balance ~= 0 do sleep(100) end 
+  
+    -- Ждет появления всех сделок заявки в таблице сделок (для исключения ошибок дальнейшей обработки события)
+    -- Узнает количество лотов в заявке
+    local qty = getItem('orders', order_line_idx).qty
+    -- Счетчик найденных лотов
+    local lots_counter = 0
+    local dealPrice = 0
+
+    -- Индекс строки последней обработанной сделки
+    local last_complete_index = -1
+    while RUN and lots_counter ~= qty do      
+       -- Перебирает еще не обработанные строки таблицы сделок
+       local last_index = getNumberOf('trades')-1
+       local tmp_index = 0
+       if last_complete_index + 1 <= last_index then
+          for i = last_complete_index + 1, last_index do
+             -- Получает строку таблицы
+             local trade_line = getItem('trades', i)
+             -- Если сделка с нужным ID, и сделка по нужному инструменту
+             if trade_line.trans_id == trans_id and trade_line.sec_code == SEC_CODE then
+                -- Увеличивает счетчик
+                lots_counter = lots_counter + trade_line.qty
+                -- Если найдены все сделки
+                if lots_counter == qty then
+                   break
+                end        
+             end
+             tmp_index = i
+          end
+          last_complete_index = tmp_index
+       end
+       sleep(100)
+    end
+end
 
 -- Выставляет СТОП-ЛОСС и ТЕЙК-ПРОФИТ, принимает ЦЕНУ (Price) и ТИП (Type) ["BUY", или "SELL"] открытой сделки,
 --- возвращает FALSE, если не удалось выставить СТОП-ЛОСС и ТЕЙК-ПРОФИТ
@@ -1751,6 +1923,9 @@ function SL_TP(AtPrice, Type, qnt)
 
     if isConnected() == false then
         return false
+    end
+    if manualKillStop then
+        return true
     end
 
     -- ID транзакции
@@ -1782,98 +1957,113 @@ function SL_TP(AtPrice, Type, qnt)
         direction = "5" -- Направленность стоп-цены. «5» - больше или равно
         -- Если не акции
         if CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then
-            price = math.floor(getParamEx(CLASS_CODE, SEC_CODE, 'PRICEMIN').param_value + 200*SEC_PRICE_STEP) -- Цена выставляемой заявки после страбатывания Стопа минимально возможная, чтобы не проскользнуло
+            price = math.floor(getParamEx(CLASS_CODE, SEC_CODE, 'PRICEMIN').param_value + 500*SEC_PRICE_STEP) -- Цена выставляемой заявки после страбатывания Стопа минимально возможная, чтобы не проскользнуло
             market = "YES"  -- После срабатывания Тейка, или Стопа, заявка сработает НЕ по рыночной цене
         end
-        if TakeProfitPrice == 0 then
-            stopprice	= round(AtPrice + TAKE_PROFIT*priceKoeff, scale) -- Уровень цены, когда активируется Тейк-профит
-        elseif isPriceMove then
-            isPriceMove = false
-            stopprice = round(TakeProfitPrice + STOP_LOSS*priceKoeff/2, scale)    -- немного сдвигаем тейк-профит
-        else stopprice = TakeProfitPrice
-        end
-        if isTrade then
-            local slPrice = calcAlgoValue[DS:Size()-1]
-            local shiftSL = (kATR*ATR[DS:Size()-1] + 40*SEC_PRICE_STEP)
-            if (slPrice - shiftSL) >= AtPrice then
-                slPrice = AtPrice
+        if STOP_LOSS~=0 then
+            if TakeProfitPrice == 0 then
+                stopprice	= round(AtPrice + TAKE_PROFIT*priceKoeff, scale) -- Уровень цены, когда активируется Тейк-профит
+            elseif isPriceMove then
+                isPriceMove = false
+                stopprice = round(TakeProfitPrice + STOP_LOSS*priceKoeff/2, scale)    -- немного сдвигаем тейк-профит
+            else stopprice = TakeProfitPrice
             end
-            local nonLosePrice = round(lastDealPrice + 0*SEC_PRICE_STEP, scale)
-            if (lastDealPrice + math.floor(STOP_LOSS*priceKoeff)) <= AtPrice then
-                stopprice2	= math.max(round(slPrice - shiftSL, scale), nonLosePrice) -- Уровень цены, когда активируется Стоп-лосс
+        end
+        if STOP_LOSS~=0 then
+            if isTrade then
+                local slPrice = calcAlgoValue[DS:Size()-1]
+                local shiftSL = (kATR*ATR[DS:Size()-1] + 40*SEC_PRICE_STEP)
+                if (slPrice - shiftSL) >= AtPrice then
+                    slPrice = AtPrice
+                end
+                local nonLosePrice = round(lastDealPrice + 0*SEC_PRICE_STEP, scale)
+                if (lastDealPrice + math.floor(STOP_LOSS*priceKoeff)) <= AtPrice then
+                    stopprice2	= math.max(round(slPrice - shiftSL, scale), nonLosePrice) -- Уровень цены, когда активируется Стоп-лосс
+                else
+                    stopprice2	= round(slPrice - shiftSL, scale) -- Уровень цены, когда активируется Стоп-лосс
+                end
+                if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
+                if (lastDealPrice - stopprice2) > dealMaxStop*priceKoeff then stopprice2 = lastDealPrice - dealMaxStop*priceKoeff end
+                reopenAfterStop = false
             else
-                stopprice2	= round(slPrice - shiftSL, scale) -- Уровень цены, когда активируется Стоп-лосс
+                stopprice2	= round(AtPrice - STOP_LOSS*priceKoeff, scale) -- Уровень цены, когда активируется Стоп-лосс
             end
-            if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-            if (lastDealPrice - stopprice2) > dealMaxStop*priceKoeff then stopprice2 = lastDealPrice - dealMaxStop*priceKoeff end
-            reopenAfterStop = false
-        else
-            stopprice2	= round(AtPrice - STOP_LOSS*priceKoeff, scale) -- Уровень цены, когда активируется Стоп-лосс
+            --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
+            if oldStop~=0 then stopprice2 = math.max(oldStop, stopprice2) end
+            stopprice2 = math.min(stopprice2, DS:L(DS:Size()))
         end
-        --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
-        if oldStop~=0 then stopprice2 = math.max(oldStop, stopprice2) end
-        stopprice2 = math.min(stopprice2, DS:L(DS:Size()))
-		--price = stopprice2 - 2*SEC_PRICE_STEP 
 	else -- открыт SELL
 		operation = "B" -- Тейк-профит и Стоп-лосс на покупку(чтобы закрыть SELL, нужно открыть BUY)
 		direction = "4" -- Направленность стоп-цены. «4» - меньше или равно
       -- Если не акции
 	    if CLASS_CODE ~= 'QJSIM' and CLASS_CODE ~= 'TQBR' then
-            price = math.floor(getParamEx(CLASS_CODE, SEC_CODE, 'PRICEMAX').param_value - 200*SEC_PRICE_STEP) -- Цена выставляемой заявки после страбатывания Стопа максимально возможная, чтобы не проскользнуло
+            price = math.floor(getParamEx(CLASS_CODE, SEC_CODE, 'PRICEMAX').param_value - 500*SEC_PRICE_STEP) -- Цена выставляемой заявки после страбатывания Стопа максимально возможная, чтобы не проскользнуло
             market = "YES"  -- После срабатывания Тейка, или Стопа, заявка сработает НЕ по рыночной цене
         end
-        if TakeProfitPrice == 0 then
-            stopprice	= round(AtPrice - TAKE_PROFIT*priceKoeff, scale) -- Уровень цены, когда активируется Тейк-профит
-        elseif isPriceMove then
-            isPriceMove = false
-            stopprice = round(TakeProfitPrice - STOP_LOSS*priceKoeff/2, scale)  -- немного сдвигаем тейк-профит   
-        else stopprice = TakeProfitPrice
-        end
-        if isTrade then
-            local slPrice = calcAlgoValue[DS:Size()-1]
-            local shiftSL = (kATR*ATR[DS:Size()-1] + 40*SEC_PRICE_STEP)
-            if (slPrice + shiftSL) <= AtPrice then
-                slPrice = AtPrice
+        if TAKE_PROFIT~=0 then
+            if TakeProfitPrice == 0 then
+                stopprice	= round(AtPrice - TAKE_PROFIT*priceKoeff, scale) -- Уровень цены, когда активируется Тейк-профит
+            elseif isPriceMove then
+                isPriceMove = false
+                stopprice = round(TakeProfitPrice - STOP_LOSS*priceKoeff/2, scale)  -- немного сдвигаем тейк-профит   
+            else stopprice = TakeProfitPrice
             end
-            local nonLosePrice = round(lastDealPrice - 0*SEC_PRICE_STEP, scale)
-            if (lastDealPrice - math.floor(STOP_LOSS*priceKoeff)) >= AtPrice then
-                stopprice2	= math.min(round(slPrice + shiftSL, scale), nonLosePrice) -- Уровень цены, когда активируется Стоп-лосс
+        end
+        if STOP_LOSS~=0 then
+            if isTrade then
+                local slPrice = calcAlgoValue[DS:Size()-1]
+                local shiftSL = (kATR*ATR[DS:Size()-1] + 40*SEC_PRICE_STEP)
+                if (slPrice + shiftSL) <= AtPrice then
+                    slPrice = AtPrice
+                end
+                local nonLosePrice = round(lastDealPrice - 0*SEC_PRICE_STEP, scale)
+                if (lastDealPrice - math.floor(STOP_LOSS*priceKoeff)) >= AtPrice then
+                    stopprice2	= math.min(round(slPrice + shiftSL, scale), nonLosePrice) -- Уровень цены, когда активируется Стоп-лосс
+                else
+                    stopprice2	= round(slPrice + shiftSL, scale) -- Уровень цены, когда активируется Стоп-лосс
+                end
+                if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
+                if (stopprice2 - lastDealPrice) > dealMaxStop*priceKoeff then stopprice2 = lastDealPrice + dealMaxStop*priceKoeff end
+                reopenAfterStop = false
             else
-                stopprice2	= round(slPrice + shiftSL, scale) -- Уровень цены, когда активируется Стоп-лосс
+                stopprice2	= round(AtPrice + STOP_LOSS*priceKoeff, scale) -- Уровень цены, когда активируется Стоп-лосс
             end
-            if reopenAfterStop then dealMaxStop = reopenDealMaxStop else dealMaxStop = maxStop end
-            if (stopprice2 - lastDealPrice) > dealMaxStop*priceKoeff then stopprice2 = lastDealPrice + dealMaxStop*priceKoeff end
-            reopenAfterStop = false
-        else
-            stopprice2	= round(AtPrice + STOP_LOSS*priceKoeff, scale) -- Уровень цены, когда активируется Стоп-лосс
+            --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
+            if oldStop~=0 then stopprice2 = math.min(oldStop, stopprice2) end
+            stopprice2 = math.max(stopprice2, DS:H(DS:Size()))
         end
-        --price = stopprice2 + 2*SEC_PRICE_STEP 
-        --myLog('oldStop '..tostring(oldStop)..', stopprice2: '..tostring(stopprice2))
-        if oldStop~=0 then stopprice2 = math.min(oldStop, stopprice2) end
-        stopprice2 = math.max(stopprice2, DS:H(DS:Size()))
 	end
 	-- Заполняет структуру для отправки транзакции на Стоп-лосс и Тейк-профит
-   
+
     TakeProfitPrice = stopprice
+   
+    local STOP_ORDER_KIND     = "TAKE_PROFIT_AND_STOP_LIMIT_ORDER"
+    if TAKE_PROFIT~=0 and STOP_LOSS == 0 then
+        STOP_ORDER_KIND     = "TAKE_PROFIT_STOP_ORDER"
+        stopprice2 = 0  
+    elseif TAKE_PROFIT==0 and STOP_LOSS ~= 0 then
+        STOP_ORDER_KIND     = "SIMPLE_STOP_ORDER"
+        TakeProfitPrice = 0
+        stopprice = 0
+    end        
     
     sl_Price = GetCorrectPrice(stopprice2)
     tp_Price = GetCorrectPrice(stopprice)
+    price = GetCorrectPrice(price)
     --myLog('Установка ТЕЙК-ПРОФИТ: '..stopprice..' и СТОП-ЛОСС: '..stopprice2)
+        
+    myLog(NAME_OF_STRATEGY..' robot: '..' index '..tostring(DS:Size())..' lastDealPrice '..tostring(lastDealPrice)..' AlgoVal '..tostring(calcAlgoValue[DS:Size()-1])..', ATR: '..tostring(ATR[DS:Size()-1]))
+    myLog(NAME_OF_STRATEGY..' robot: сделка '..Type..' по цене '..tostring(AtPrice)..', Установка ТЕЙК-ПРОФИТ: '..tp_Price..' и СТОП-ЛОСС: '..sl_Price..' ЦЕНА выставления: '..tostring(price))
     
-    tpPrice = string.gsub(tp_Price,'[\,]+', '.')
-    slPrice = string.gsub(sl_Price,'[\,]+', '.')
-    tpPrice = tonumber(tpPrice)
-    slPrice = tonumber(slPrice)
-    
-    oldStop = slPrice
-    
-    myLog(NAME_OF_STRATEGY..' robot: '..' index '..tostring(DS:Size())..' AlgoVal '..tostring(calcAlgoValue[DS:Size()-1])..', ATR: '..tostring(ATR[DS:Size()-1]))
-    myLog(NAME_OF_STRATEGY..' robot: сделка '..Type..' по цене '..tostring(AtPrice)..', Установка ТЕЙК-ПРОФИТ: '..tp_Price..' и СТОП-ЛОСС: '..sl_Price)
-
-    SetCell(t_id, 2, 3, sl_Price, slPrice) 
-    SetCell(t_id, 2, 4, tp_Price, tpPrice)
-   
     if virtualTrade then
+        tpPrice = string.gsub(tp_Price,'[\,]+', '.')
+        slPrice = string.gsub(sl_Price,'[\,]+', '.')
+        tpPrice = tonumber(tpPrice)
+        slPrice = tonumber(slPrice)
+        
+        oldStop = slPrice
+        SetCell(t_id, 2, 3, sl_Price, slPrice) 
+        SetCell(t_id, 2, 4, tp_Price, tpPrice)   
         return true
     end
 
@@ -1883,37 +2073,57 @@ function SL_TP(AtPrice, Type, qnt)
 		["CLASSCODE"]           = CLASS_CODE,
 		["SECCODE"]             = SEC_CODE,
 		["ACCOUNT"]             = ACCOUNT,
-        ['CLIENT_CODE'] = CLIENT_CODE, -- Комментарий к транзакции, который будет виден в транзакциях, заявках и сделках 
+        ['CLIENT_CODE']         = CLIENT_CODE, -- Комментарий к транзакции, который будет виден в транзакциях, заявках и сделках 
 		["OPERATION"]           = operation, -- Операция ("B" - покупка(BUY), "S" - продажа(SELL))
 		["QUANTITY"]            = tostring(qnt), -- Количество в лотах
-		["PRICE"]               = GetCorrectPrice(price), -- Цена, по которой выставится заявка при срабатывании Стоп-Лосса (для рыночной заявки по акциям должна быть 0)
-		["STOPPRICE"]           = tp_Price, -- Цена Тейк-Профита
-		["STOP_ORDER_KIND"]     = "TAKE_PROFIT_AND_STOP_LIMIT_ORDER", -- Тип стоп-заявки
 		["EXPIRY_DATE"]         = EXPIRY_DATE, -- Срок действия стоп-заявки ("GTC" – до отмены,"TODAY" - до окончания текущей торговой сессии, Дата в формате "ГГММДД")
-      -- "OFFSET" - (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль,
-      -- то Тейк-профит сработает только когда цена вернется минимум на 2 шага цены назад,
-      -- это может потенциально увеличить прибыль
-		["OFFSET"]              = tostring(2*SEC_PRICE_STEP),
-		["OFFSET_UNITS"]        = "PRICE_UNITS", -- Единицы измерения отступа ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
-      -- "SPREAD" - Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на 100 шагов цены,
-      -- которая АВТОМАТИЧЕСКИ УДОВЛЕТВОРИТСЯ ПО ТЕКУЩЕЙ ЛУЧШЕЙ ЦЕНЕ,
-      -- но то, что цена значительно хуже, спасет от проскальзывания,
-      -- иначе, сделка может просто не закрыться (заявка на закрытие будет выставлена, но цена к тому времени ее уже проскочит)
-		["SPREAD"]              = tostring(10*SEC_PRICE_STEP),
-		["SPREAD_UNITS"]        = "PRICE_UNITS", -- Единицы измерения защитного спрэда ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
-      -- "MARKET_TAKE_PROFIT" = ("YES", или "NO") должна ли выставится заявка по рыночной цене при срабатывании Тейк-Профита.
-      -- Для рынка FORTS рыночные заявки, как правило, запрещены,
-      -- для лимитированной заявки на FORTS нужно указывать заведомо худшую цену, чтобы она сработала сразу же, как рыночная
-		["MARKET_TAKE_PROFIT"]  = market,
-		["STOPPRICE2"]          = sl_Price, -- Цена Стоп-Лосса
 		["IS_ACTIVE_IN_TIME"]   = "NO",
-      -- "MARKET_TAKE_PROFIT" = ("YES", или "NO") должна ли выставится заявка по рыночной цене при срабатывании Стоп-Лосса.
-      -- Для рынка FORTS рыночные заявки, как правило, запрещены,
-      -- для лимитированной заявки на FORTS нужно указывать заведомо худшую цену, чтобы она сработала сразу же, как рыночная
-		["MARKET_STOP_LIMIT"]   = market,
-        ['CONDITION'] = direction, -- Направленность стоп-цены. Возможные значения: «4» - меньше или равно, «5» – больше или равно
- 		["COMMENT"]             = NAME_OF_STRATEGY..' robot ТЕЙК-ПРОФИТ и СТОП-ЛОСС'
-	}
+        ['CONDITION']           = direction, -- Направленность стоп-цены. Возможные значения: «4» - меньше или равно, «5» – больше или равно
+        ["COMMENT"]             = NAME_OF_STRATEGY..' robot ТЕЙК-ПРОФИТ и СТОП-ЛОСС',
+        ["PRICE"]               = price -- Цена, по которой выставится заявка при срабатывании Стоп-Лосса (для рыночной заявки по акциям должна быть 0)
+    }
+
+    if  STOP_ORDER_KIND == "TAKE_PROFIT_AND_STOP_LIMIT_ORDER" then   
+		Transaction["STOP_ORDER_KIND"]     = STOP_ORDER_KIND -- Тип стоп-заявки
+        Transaction["STOPPRICE"]           = tp_Price -- Цена Тейк-Профита
+        Transaction["STOPPRICE2"]          = sl_Price -- Цена Стоп-Лосса
+        -- "MARKET_TAKE_PROFIT" = ("YES", или "NO") должна ли выставится заявка по рыночной цене при срабатывании Тейк-Профита.
+        -- Для рынка FORTS рыночные заявки, как правило, запрещены,
+        -- для лимитированной заявки на FORTS нужно указывать заведомо худшую цену, чтобы она сработала сразу же, как рыночная
+        Transaction["MARKET_TAKE_PROFIT"]  = market
+        -- "MARKET_STOP_LIMIT" = ("YES", или "NO") должна ли выставится заявка по рыночной цене при срабатывании Стоп-Лосса.
+        -- Для рынка FORTS рыночные заявки, как правило, запрещены,
+        -- для лимитированной заявки на FORTS нужно указывать заведомо худшую цену, чтобы она сработала сразу же, как рыночная
+        Transaction["MARKET_STOP_LIMIT"]   = market
+        -- "OFFSET" - (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль,
+        -- то Тейк-профит сработает только когда цена вернется минимум на 2 шага цены назад,
+        -- это может потенциально увеличить прибыль
+        Transaction["OFFSET"]              = tostring(OFFSET)
+        Transaction["OFFSET_UNITS"]        = "PRICE_UNITS" -- Единицы измерения отступа ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
+        -- "SPREAD" - Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на 100 шагов цены,
+        -- которая АВТОМАТИЧЕСКИ УДОВЛЕТВОРИТСЯ ПО ТЕКУЩЕЙ ЛУЧШЕЙ ЦЕНЕ,
+        -- но то, что цена значительно хуже, спасет от проскальзывания,
+        -- иначе, сделка может просто не закрыться (заявка на закрытие будет выставлена, но цена к тому времени ее уже проскочит)
+        Transaction["SPREAD"]              = tostring(SPREAD)
+        Transaction["SPREAD_UNITS"]        = "PRICE_UNITS" -- Единицы измерения защитного спрэда ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
+    elseif STOP_ORDER_KIND == "TAKE_PROFIT_STOP_ORDER" then
+		Transaction["STOP_ORDER_KIND"]     = STOP_ORDER_KIND -- Тип стоп-заявки
+        Transaction["STOPPRICE"]           = tp_Price -- Цена Тейк-Профита
+        -- "OFFSET" - (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль,
+        -- то Тейк-профит сработает только когда цена вернется минимум на 2 шага цены назад,
+        -- это может потенциально увеличить прибыль
+        Transaction["OFFSET"]              = tostring(OFFSET)
+        Transaction["OFFSET_UNITS"]        = "PRICE_UNITS" -- Единицы измерения отступа ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
+        -- "SPREAD" - Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на 100 шагов цены,
+        -- которая АВТОМАТИЧЕСКИ УДОВЛЕТВОРИТСЯ ПО ТЕКУЩЕЙ ЛУЧШЕЙ ЦЕНЕ,
+        -- но то, что цена значительно хуже, спасет от проскальзывания,
+        -- иначе, сделка может просто не закрыться (заявка на закрытие будет выставлена, но цена к тому времени ее уже проскочит)
+        Transaction["SPREAD"]              = tostring(SPREAD)
+        Transaction["SPREAD_UNITS"]        = "PRICE_UNITS" -- Единицы измерения защитного спрэда ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
+    else
+        Transaction["STOPPRICE"]           = sl_Price -- Цена Тейк-Профита
+    end
+
    -- Отправляет транзакцию на установку ТЕЙК-ПРОФИТ и СТОП-ЛОСС
    local res = sendTransaction(Transaction)
    if string.len(res) ~= 0 then
@@ -1928,6 +2138,85 @@ function SL_TP(AtPrice, Type, qnt)
      return true
    end
    
+end
+
+function CloseAll()
+
+    if OpenCount < 0 then
+        myLog('Закрытие позиции "SELL": '..tostring(OpenCount))
+        continue = KillPos('SELL', -1*OpenCount)
+        if continue ~= true then
+            Run = false
+            message('Закрытие позиции не удалось. Скрипт Algo остановлен')
+            myLog('Закрытие позиции не удалось. Скрипт Algo остановлен')
+        end
+    end
+    if OpenCount > 0 then
+        myLog('Закрытие позиции "BUY": '..tostring(OpenCount))
+        continue = KillPos('BUY', OpenCount)
+        if continue ~= true then
+            Run = false
+            message('Закрытие позиции не удалось. Скрипт Algo остановлен')
+            myLog('Закрытие позиции не удалось. Скрипт Algo остановлен')
+        end
+    end
+    if continue == true and SetStop == true then
+        myLog('Закрытие стоп-лосса')
+        continue = KillAllStopOrders()
+        if continue ~= true then
+            Run = false
+            message('Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
+            myLog('Закрытие стопа позиции не удалось. Скрипт Algo остановлен')
+        end
+    end
+    
+    if continue == true then
+        TakeProfitPrice = 0    
+
+        lastStopShiftIndex = 0
+        tpPrice = 0
+        slPrice = 0
+        oldStop = 0
+        slIndex = 0
+        stopPrice = 0
+        SetCell(t_id, 2, 3, '', slPrice) 
+        SetCell(t_id, 2, 4, '', tpPrice)
+    end
+        
+    --[[
+     local k = #lastSignalIndex
+    if isTrade and k > 2 then
+        
+        local Price1 = DS:O(lastSignalIndex[k])
+        local Price2 = DS:O(lastSignalIndex[k-1])
+        local Price3 = DS:O(lastSignalIndex[k-2])
+        local trend1 = trend[lastSignalIndex[k]-1]
+        local trend2 = trend[lastSignalIndex[k-1]-1]
+        local dealDelta1 = math.abs(Price1 - Price2)
+        local dealDelta2 = math.abs(Price2 - Price3)
+        local isLose1 = (trend1 == 1 and Price1 > Price2) or (trend1 == -1 and Price1 < Price2)
+        local isLose2 = (trend2 == 1 and Price2 > Price3) or (trend2 == -1 and Price2 < Price3)
+
+        if (math.ceil(dealDelta1/SEC_PRICE_STEP) < 20 or isLose1) and (math.ceil(dealDelta2/SEC_PRICE_STEP) < 20 or isLose2) then
+            myLog('Прошли две сделки с убытком или очень малым спредом, проводим реоптимизацию')
+            myLog('dealDelta1 '..tostring(dealDelta1))
+            myLog('dealDelta2 '..tostring(dealDelta2))
+            myLog('isLose1 '..tostring(isLose1))
+            myLog('isLose2 '..tostring(isLose2))
+            
+            needReoptimize = true
+            --ROBOT_STATE = 'РЕОПТИМИЗАЦИЯ'
+            --continue = false
+            --if isTrade then
+            --    isTrade = false
+            --    SetCell(t_id, 2, 7, ROBOT_STATE)
+            --    SetCell(t_id, 3, 4, "START")  --i строка, 0 - колонка, v - значение 
+            --    SetColor(t_id, 3, 4, RGB(165,227,128), RGB(0,0,0), RGB(165,227,128), RGB(0,0,0))
+            --end    
+        end
+    end
+    ]]--    
+
 end
 
 -- ПРИНУДИТЕЛЬНО ЗАКРЫВАЕТ ОТКРЫТУЮ ПОЗИЦИЮ переданного типа (Type) ["BUY", или "SELL"]
@@ -1945,7 +2234,7 @@ function KillPos(Type, qnt)
    if result == false or result == -1 then
         sleep(200)
         -- Проверим размер позиции. Возможно сработал стоп.
-        OpenCount = GetTotalnet()
+        OpenCount = GetTotalnet(true)
         if OpenCount == 0 then
             result = true
         end
@@ -1954,6 +2243,8 @@ function KillPos(Type, qnt)
     end
     
     SetCell(t_id, 2, 2, '', 0) 
+    SetColor(t_id, 2, 2, RGB(255,255,255), RGB(0,0,0), RGB(255,255,255), RGB(0,0,0))
+    
     -- Возвращает TRUE, если удалось принудительно закрыть позицию
     return result
 end
@@ -2048,20 +2339,6 @@ function Kill_SO()
     return true
 end
 
-function isStopOrder()
-    
-    function myFind(C,S,F)
-        return (C == CLASS_CODE) and (S == SEC_CODE) and (bit.band(F, 0x1) ~= 0)
-    end
-    local res=1
-    local ord = "stop_orders"
-    local orders = SearchItems(ord, 0, getNumberOf(ord)-1, myFind, "class_code,sec_code,flags")
-    if (orders ~= nil) and (#orders > 0) then
-        return true
-    end
-    return false
-end
-
 function KillAllStopOrders()
    function myFind(C,S,F)
       return (C == CLASS_CODE) and (S == SEC_CODE) and (bit.band(F, 0x1) ~= 0)
@@ -2095,7 +2372,7 @@ function KillAllStopOrders()
 		  
 		  local stop_order = getItem('stop_orders', orders[i])		  
 		  -- Если стоп-заявка не активна
-		  myLog('прверка стоп-заявки: '..stop_order.sec_code..' number: '..tostring(stop_order.order_num))
+		  myLog('Закрытие стоп-заявки: '..stop_order.sec_code..' number: '..tostring(stop_order.order_num))
 		  if not bit.test(stop_order.flags, 0) then
 			 -- Если стоп-заявка успела исполниться
 			 if not bit.test(stop_order.flags, 1) then
@@ -2371,6 +2648,7 @@ function addDeal(index, openLong, openShort, closeLong, closeShort, time)
 
 end
 
+--- ОПТИМИЗАЦИЯ
 function iterateTable(settingsTable, resultsTable)
     
     local localCount = 0
@@ -2816,7 +3094,7 @@ end
 function optimizeAlgorithm()
                 
     if initalAssets == 0 and CLASS_CODE == "SPBFUT" then
-        initalAssets = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "BUYDEPO").param_value) --*leverage
+        initalAssets = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "BUYDEPO").param_value) --/priceKoeff
     end
     
     --if beginIndex == 1 then
@@ -2935,7 +3213,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
     if (not dealTime or closeDeal) and lastDealPrice ~= 0 and (deals["openShort"][dealsCount] ~= nil or deals["openLong"][dealsCount] ~= nil) then
         
         if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
+            initalAssets = DS:O(index) --/priceKoeff
             equitySum = initalAssets
         end
         
@@ -2945,7 +3223,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
                 myLog("--------------------------------------------------")
                 myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
             end
-            local tradeProfit = round(lastDealPrice - DS:O(index), scale)*leverage
+            local tradeProfit = round(lastDealPrice - DS:O(index), scale)/priceKoeff
             shortProfit = shortProfit + tradeProfit            
             allProfit = allProfit + tradeProfit
             equitySum = equitySum + tradeProfit
@@ -2973,7 +3251,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
                 myLog("--------------------------------------------------")
                 myLog("index "..tostring(index).." time "..toYYYYMMDDHHMMSS(DS:T(index))..' dealsCount '..tostring(dealsCount))
             end
-            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)*leverage
+            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)/priceKoeff
             longProfit = longProfit + tradeProfit             
             allProfit = allProfit + tradeProfit       
             equitySum = equitySum + tradeProfit
@@ -3029,7 +3307,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
         
         dealsCount = dealsCount + 1
         if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
+            initalAssets = DS:O(index) --/priceKoeff
             equitySum = initalAssets
         end
         if logDeals then
@@ -3040,7 +3318,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
 
         lastTradeDirection = 0
         if deals["openShort"][dealsCount-1] ~= nil then
-            local tradeProfit = round(lastDealPrice - DS:O(index), scale)*leverage
+            local tradeProfit = round(lastDealPrice - DS:O(index), scale)/priceKoeff
             shortProfit = shortProfit + tradeProfit            
             allProfit = allProfit + tradeProfit
             equitySum = equitySum + tradeProfit
@@ -3096,7 +3374,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
         
         dealsCount = dealsCount + 1
         if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
+            initalAssets = DS:O(index) --/priceKoeff
         end
         if logDeals then
             myLog("--------------------------------------------------")
@@ -3105,7 +3383,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
         end
         lastTradeDirection = 0
         if deals["openLong"][dealsCount-1] ~= nil then
-            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)*leverage
+            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)/priceKoeff
             longProfit = longProfit + tradeProfit             
             allProfit = allProfit + tradeProfit       
             equitySum = equitySum + tradeProfit
@@ -3167,13 +3445,13 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
         end
  
         if initalAssets == 0 then
-            initalAssets = DS:O(index) --*leverage
+            initalAssets = DS:O(index) --/priceKoeff
             equitySum = initalAssets
         end
         
         if deals["openShort"][dealsCount] ~= nil then
             dealsCount = dealsCount + 1
-            local tradeProfit = round(lastDealPrice - DS:C(index), scale)*leverage
+            local tradeProfit = round(lastDealPrice - DS:C(index), scale)/priceKoeff
             shortProfit = shortProfit + tradeProfit            
             allProfit = allProfit + tradeProfit
             equitySum = equitySum + tradeProfit
@@ -3193,7 +3471,7 @@ function simpleTrade(index, calcAlgoValue, calcTrend, deals)
         end
         if deals["openLong"][dealsCount] ~= nil then
             dealsCount = dealsCount + 1
-            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)*leverage
+            local tradeProfit = round(DS:O(index) - lastDealPrice, scale)/priceKoeff
             longProfit = longProfit + tradeProfit             
             allProfit = allProfit + tradeProfit       
             equitySum = equitySum + tradeProfit
@@ -3220,9 +3498,9 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
     if (slPrice~=0 or tpPrice~=0) and lastDealPrice~=0 then
         
         if deals["openLong"][dealsCount] ~= nil then
-            if DS:L(index) <= slPrice then 
+            if DS:L(index) <= slPrice and slPrice~=0 then 
                 dealsCount = dealsCount + 1
-                local tradeProfit = round(slPrice - lastDealPrice, scale)*leverage
+                local tradeProfit = round(slPrice - lastDealPrice, scale)/priceKoeff
                 longProfit = longProfit + tradeProfit             
                 allProfit = allProfit + tradeProfit       
                 equitySum = equitySum + tradeProfit
@@ -3249,7 +3527,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
             end
             if DS:H(index) >= tpPrice and tpPrice~=0 then 
                 dealsCount = dealsCount + 1
-                local tradeProfit = round(tpPrice - lastDealPrice, scale)*leverage
+                local tradeProfit = round(tpPrice - lastDealPrice, scale)/priceKoeff
                 longProfit = longProfit + tradeProfit             
                 allProfit = allProfit + tradeProfit       
                 equitySum = equitySum + tradeProfit
@@ -3274,7 +3552,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                 slIndex = index
                 tpPrice = 0
             end
-            local isPriceMove = DS:H(index) - TransactionPrice >= STOP_LOSS*priceKoeff
+            local isPriceMove = (DS:H(index) - TransactionPrice >= STOP_LOSS*priceKoeff) and STOP_LOSS~=0
             if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeLong"][dealsCount] == nil then
                 lastStopShiftIndex = index
                 local shiftCounts = math.floor((DS:H(index) - TransactionPrice)/(STOP_LOSS*priceKoeff))
@@ -3312,9 +3590,9 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
         end
 
         if deals["openShort"][dealsCount] ~= nil then
-            if DS:H(index) >= slPrice then 
+            if DS:H(index) >= slPrice and slPrice~=0 then 
                 dealsCount = dealsCount + 1
-                local tradeProfit = round(lastDealPrice - slPrice, scale)*leverage
+                local tradeProfit = round(lastDealPrice - slPrice, scale)/priceKoeff
                 shortProfit = shortProfit + tradeProfit            
                 allProfit = allProfit + tradeProfit
                 equitySum = equitySum + tradeProfit
@@ -3341,7 +3619,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
             end
             if DS:L(index) <= tpPrice and tpPrice~=0 then 
                 dealsCount = dealsCount + 1
-                local tradeProfit = round(lastDealPrice - tpPrice, scale)*leverage
+                local tradeProfit = round(lastDealPrice - tpPrice, scale)/priceKoeff
                 shortProfit = shortProfit + tradeProfit            
                 allProfit = allProfit + tradeProfit
                 equitySum = equitySum + tradeProfit
@@ -3366,7 +3644,7 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
                 slIndex = index
                 tpPrice = 0
             end
-            local isPriceMove = TransactionPrice - DS:L(index) >= STOP_LOSS*priceKoeff
+            local isPriceMove = (TransactionPrice - DS:L(index) >= STOP_LOSS*priceKoeff) and STOP_LOSS~=0
             if (isPriceMove or (index - lastStopShiftIndex)>stopShiftIndexWait) and deals["closeShort"][dealsCount] == nil then
                 lastStopShiftIndex = index
                 local shiftCounts = math.floor((TransactionPrice - DS:L(index))/(STOP_LOSS*priceKoeff))
@@ -3405,6 +3683,8 @@ function checkSL_TP(index, calcAlgoValue, calcTrend, deals, equitySum)
     end
 
 end
+
+---ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 
 function dValue(i,param)
     local v = param or "ATR"
@@ -3473,39 +3753,6 @@ function removeZero(str)
       str = string.sub(str,1,-2)
    end 
    return str
-end
-
-function GetCorrectPrice(price) -- STRING
-    -- Получает точность цены по инструменту
-    -- Получает минимальный шаг цены инструмента
-    local PriceStep = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value)
-    -- Если после запятой должны быть цифры
-    if scale > 0 then
-       price = tostring(price)
-       -- Ищет в числе позицию запятой, или точки
-       local dot_pos = price:find('.')
-       local comma_pos = price:find(',')
-       -- Если передано целое число
-       if dot_pos == nil and comma_pos == nil then
-          -- Добавляет к числу ',' и необходимое количество нулей и возвращает результат
-          price = price..','
-          for i=1,scale do price = price..'0' end
-          return price
-       else -- передано вещественное число         
-          -- Если нужно, заменяет запятую на точку 
-          if comma_pos ~= nil then price:gsub(',', '.') end
-          -- Округляет число до необходимого количества знаков после запятой
-          price = round(tonumber(price), scale)
-          -- Корректирует на соответствие шагу цены
-          price = round(price/PriceStep)*PriceStep
-          price = string.gsub(tostring(price),'[\.]+', ',')
-          return price
-       end
-    else -- После запятой не должно быть цифр
-       -- Корректирует на соответствие шагу цены
-       price = round(price/PriceStep)*PriceStep
-       return tostring(math.floor(price))
-    end
 end
 
 function toYYYYMMDDHHMMSS(datetime)
