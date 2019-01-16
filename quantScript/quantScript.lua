@@ -74,7 +74,14 @@ function OnInit()
 
             local SEC_CODE = per3
             local CLASS_CODE = per1
-        
+ 
+	    if getSecurityInfo(CLASS_CODE, SEC_CODE) == nil then
+                isRun = false
+                message("Не удалость получить данные по инструменту: "..SEC_CODE.."/"..tostring(CLASS_CODE))
+                myLog("Не удалость получить данные по инструменту: "..SEC_CODE.."/"..tostring(CLASS_CODE))
+                return false
+            end
+         
             SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
             scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
             STEPPRICE = getParamEx(CLASS_CODE, SEC_CODE, "STEPPRICE").param_value
@@ -209,9 +216,9 @@ function updateSecs()
     end
 end
 
-function OnAllTrade()
-    updateSecs()
-end
+--function OnAllTrade()
+--    updateSecs()
+--end
 
 function main()
     
@@ -246,8 +253,9 @@ function main()
                         end 
                     end 
                 end 
-                updateSecs()
+                --updateSecs()
             end
+            updateSecs()
             firstStart = false
         end
 
@@ -256,7 +264,7 @@ function main()
             openResults()
         end
     
-        sleep(10)			
+        sleep(100)			
     end
 end
 
