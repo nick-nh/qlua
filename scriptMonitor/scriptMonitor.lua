@@ -170,6 +170,13 @@ function OnInit()
         CLASS_CODE =SEC_CODES['class_codes'][i]
         openedDS[i] = {}
 
+	if getSecurityInfo(CLASS_CODE, SEC_CODE) == nil then
+            IsRun = false
+            message("Не удалость получить данные по инструменту: "..SEC_CODE.."/"..tostring(CLASS_CODE))
+            myLog("Не удалость получить данные по инструменту: "..SEC_CODE.."/"..tostring(CLASS_CODE))
+            return false
+        end
+
         SEC_PRICE_STEP = getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value
         local status = getParamEx(CLASS_CODE,  SEC_CODE, "last").param_value
         local last_price = tonumber(getParamEx(CLASS_CODE,SEC_CODE,"last").param_value)
