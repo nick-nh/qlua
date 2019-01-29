@@ -200,11 +200,6 @@ function MA(index, Fsettings)
     end                
     
     calcChartResults[index] = {EMA[index], EMA[index-shift-1]}
-    
-    if not optimizationInProgress then
-        local roundAlgoVal = round(calcAlgoValue[index], scale)
-        SetCell(t_id, 2, 1, tostring(roundAlgoVal), roundAlgoVal) 
-    end
 
     return calcAlgoValue, trend, calcChartResults
     
