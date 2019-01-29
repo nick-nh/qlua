@@ -9,20 +9,20 @@ min_price_step = 0
 Settings=
 {
 	Name = "*regRangeBar",
-    bars = 14,
+    bars = 27,
     ratioFactor = 0.7,
-    kstd = 2,
+    kstd = 1.8,
 	line =
 	{		
 		{
 			Name = "upRange",
-			Color = RGB(0, 128, 128),
+			Color = RGB(89, 213, 107),
 			Type = TYPET_BAR, --TYPE_DASHDOT,
 			Width = 2
 		},
 		{
 			Name = "downRange",
-			Color = RGB(128,64,64),
+			Color = RGB(251,82,0),
 			Type = TYPET_BAR,
 			Width = 2
 		},
@@ -50,7 +50,6 @@ function OnCalculate(index)
 		if tonumber(min_price_step) == 0 or min_price_step == nil then
 			min_price_step = 1
 		end
-		----WriteLog ("min_price_step "..tostring(min_price_step))
 	end
 	return myFunc(index, Settings)
 		
@@ -232,16 +231,16 @@ function rangeBar()
             if not CandleExist(previous) then
                 previous = FindExistCandle(previous)
             end
-            
-            --WriteLog ("previous "..tostring(previous).." "..isnil(toYYYYMMDDHHMMSS(T(previous))," - ").." rangeStart[index] "..tostring(rangeStart[index]).." prevRangeStart[index] "..tostring(prevRangeStart[index]))
-            
-            local maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
-            local minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
-            --WriteLog ("maxC "..tostring(maxC).." minC "..tostring(minC))
+                        
+            local maxC = cacheC[math.max(previous, 1)]
+            local minC = cacheC[math.max(previous, 1)]      
+            for i=math.max(previous, 1)+1,index-1 do
+                maxC = math.max(cacheC[i], maxC)
+                minC = math.min(cacheC[i], minC)
+            end 
 
             local fx_buffer={}
             
-            --WriteLog ("----reg")
             --- syx 
             for mi = 1, nn do
                 sum = 0
@@ -337,37 +336,23 @@ function rangeBar()
             lastSignal[index][3] = nil				                
 
             local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])*100/fx_buffer[1]
-            --WriteLog ("deltaRatio "..tostring(deltaRatio).." sq "..tostring(sq))
-            --WriteLog ("fx_buffer["..tostring(#fx_buffer).."] "..tostring(fx_buffer[#fx_buffer]).." fx_buffer[1] "..tostring(fx_buffer[1]))
-            --WriteLog ('cond '..tostring(deltaRatio < ratioFactor and math.abs(C(index) - fx_buffer[#fx_buffer]) < sq))
-            --WriteLog ('cond '..tostring(deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq))
 
-            --if deltaRatio < ratioFactor and math.abs(C(index) - fx_buffer[#fx_buffer]) < sq  then
-            if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC -minC) < 2*sq then
-                --out1 = maxC
-                --out2 = minC
-                --lastRange[index] = {out1, out2}
+            if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq then
 
                 if rangeStart[index] == nil then
-                    --rangeStart[index] = previous
                     if prevRangeStart[index]~=nil then
                         if previous - prevRangeStart[index] < bars then
-                            --WriteLog ("clean previous "..tostring(prevRangeStart[index]).." new "..tostring(previous))                            
                             if lastSignal[index][1] > previous and lastSignal[index][2]~=0 then
-                                --WriteLog ("clean lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." new range "..tostring(prevRangeStart[index]))
                                 SetValue(lastSignal[index][1], 3, nil)
                                 lastSignal[lastSignal[index][1]][3] = nil				                
                             end
                             previous = prevRangeStart[index]
-                            maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
-                            minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
-                            --for i=prevRangeStart[index],previous do
-                            --    --SetValue(i, 1, nil)				
-                            --    --SetValue(i, 2, nil)				
-                            --    SetValue(i, 1, maxC)				
-                            --    SetValue(i, 2, minC)				
-                            --end
-                            --prevRangeStart[index] = rangeStart[index]
+                            maxC = cacheC[math.max(previous, 1)]
+                            minC = cacheC[math.max(previous, 1)]      
+                            for i=math.max(previous, 1)+1,index-1 do
+                                maxC = math.max(cacheC[i], maxC)
+                                minC = math.min(cacheC[i], minC)
+                            end 
                         end
                     end
                     rangeStart[index] = previous
@@ -383,44 +368,25 @@ function rangeBar()
 
                 lastSignal[index] = {index, 0, nil}
             else
-                --prevRangeStart[index] = nil    
                 if rangeStart[index] ~=nil then
                     prevRangeStart[index] = rangeStart[index]    
                 end
                 rangeStart[index] = nil
-                --WriteLog ("out of range, clean range")
             end
 
-            --if rangeStart[index] ~=nil then
-            --    for i=rangeStart[index],index do
-            --        SetValue(i, 1, out1)				
-            --        SetValue(i, 2, out2)				
-            --    end
-            --end
-
             if lastRange[index]~=nil then
-                if (C(index-1) > lastRange[index][1] and C(index-2) <= lastRange[index][1] and lastSignal[index][2]~=1) then
-                    --out3 = O(index)
+                if (cacheC[index-1] > lastRange[index][1] and cacheC[index-2] <= lastRange[index][1] and lastSignal[index][2]~=1) then
                     lastSignal[index] = {index, 1, O(index)}
                     SetValue(lastSignal[index][1], 3, lastSignal[index][3])				                
                 end
-                if (C(index-1) < lastRange[index][2] and C(index-2) >= lastRange[index][2] and lastSignal[index][2]~=-1) then
-                    --out3 = O(index)
+                if (cacheC[index-1] < lastRange[index][2] and cacheC[index-2] >= lastRange[index][2] and lastSignal[index][2]~=-1) then
                     lastSignal[index] = {index, -1, O(index)}
                     SetValue(lastSignal[index][1], 3, lastSignal[index][3])				                
                 end
             end
             
-            --if lastSignal[index][2]~=0 then
-            --end
-            
-            --WriteLog ("lastRange "..tostring(lastRange[index][1]).." - "..tostring(lastRange[index][2]))
-            --WriteLog ("out1 "..tostring(out1).." out2 "..tostring(out2).." out3 "..tostring(out3))
-            --WriteLog ("lastSignal "..tostring(lastSignal[index][1]).." - "..tostring(lastSignal[index][2]).." - "..tostring(lastSignal[index][3]))
         end
        
-		--return out1, out2, lastSignal[index][3]
-		--return nil, nil, lastSignal[index][3]
 		return nil
 		
 	end
@@ -444,30 +410,3 @@ function round(num, idp)
 end
 
 function toYYYYMMDDHHMMSS(datetime)
-    if type(datetime) ~= "table" then
-       --message("в функции toYYYYMMDDHHMMSS неверно задан параметр: datetime="..tostring(datetime))
-       return ""
-    else
-       local Res = tostring(datetime.year)
-       if #Res == 1 then Res = "000"..Res end
-       local month = tostring(datetime.month)
-       if #month == 1 then Res = Res.."/0"..month; else Res = Res..'/'..month; end
-       local day = tostring(datetime.day)
-       if #day == 1 then Res = Res.."/0"..day; else Res = Res..'/'..day; end
-       local hour = tostring(datetime.hour)
-       if #hour == 1 then Res = Res.." 0"..hour; else Res = Res..' '..hour; end
-       local minute = tostring(datetime.min)
-       if #minute == 1 then Res = Res..":0"..minute; else Res = Res..':'..minute; end
-       local sec = tostring(datetime.sec);
-       if #sec == 1 then Res = Res..":0"..sec; else Res = Res..':'..sec; end;
-       return Res
-    end
- end --toYYYYMMDDHHMMSS
- 
- function isnil(a,b)
-    if a == nil then
-       return b
-    else
-       return a
-    end;
- end
