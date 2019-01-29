@@ -456,12 +456,7 @@ function NRTR(index, Fsettings)
     end
     
     calcAlgoValue[index] = NRTR[index]
-    calcChartResults[index] = NRTR[index]
-    
-    if not optimizationInProgress then
-        local roundAlgoVal = round(calcAlgoValue[index], scale)
-        SetCell(t_id, 2, 1, tostring(roundAlgoVal), roundAlgoVal) 
-    end
+    calcChartResults[index] = NRTR[index]    
 
     return NRTR[index] 
 		
