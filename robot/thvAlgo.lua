@@ -260,11 +260,6 @@ function THV(index, Fsettings)
         calcChartResults[index] = {g_ibuf_104[index], g_ibuf_104[index-shift-1]}
     
     end
-
-    if not optimizationInProgress then
-        local roundAlgoVal = round(calcAlgoValue[index], scale)
-        SetCell(t_id, 2, 1, tostring(roundAlgoVal), roundAlgoVal) 
-    end
             
     return calcAlgoValue
     
