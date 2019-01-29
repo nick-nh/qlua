@@ -309,11 +309,6 @@ function iReg(index, Fsettings)
     end
 
     calcChartResults[index] = {calcAlgoValue[index], calcAlgoValue[index-shift-1]}
-        
-    if not optimizationInProgress then
-        local roundAlgoVal = round(calcAlgoValue[index], scale)
-        SetCell(t_id, 2, 1, tostring(roundAlgoVal), roundAlgoVal) 
-    end
 
     return calcAlgoValue
     
