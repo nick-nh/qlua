@@ -196,8 +196,7 @@ function OnInit()
     dofile(getScriptPath().."\\thvAlgo.lua") --THV алгоритм
     dofile(getScriptPath().."\\nrtrAlgo.lua") --NRTR алгоритм
     dofile(getScriptPath().."\\shiftMaAlgo.lua") --NRTR алгоритм
-    dofile(getScriptPath().."\\RangeHVAlgo.lua") --RangeHV алгоритм
-
+ 
     --example
     --[[
    {
