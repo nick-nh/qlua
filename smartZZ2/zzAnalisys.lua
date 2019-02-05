@@ -156,7 +156,12 @@ function getResFile(RESULTS_FILE_NAME)
         return nil
     end
 
-    local firstString = "Type;SEC;INTERVAL;Up/Down;ipA;ipB;ipC;ipD;ipE;pA;pB;pC;pD;real_E (pB);pattern;target_E;%err_E;evolution_E;%err_ev_E;mutation_E (pC);%err_mut_E;iAB;iBC;iCD;iAD;iDE;AB;BC;CD;AD;DE;BC/AB;CD/AB;CD/BC;DE/CD;rBC/AB;rCD/AB;rCD/BC;rDE/CD"
+	local firstString = "Type;SEC;INTERVAL;Up/Down;ipA;ipB;ipC;ipD;ipD ABeqCD;ipE;"..
+						"indCoG;valCoG;dA-Cog;dCog-D;"..
+						"iAB;iBC;iCD;iAD;iDE;"..
+						"pA;pB;pC;pD;pD_ABeqCD;real_E (pB);"..
+						"pattern;target_E;%err_E;evolution_E;%err_ev_E;mutation_E (pC);%err_mut_E;"..
+						"AB;BC;CD;AD;DE;BC/AB;CD/AB;BC/CD;DE/CD;rBC/AB;rCD/AB;rBC/CD;rDE/CD"
 
     resFile:write(firstString.."\n")
     resFile:flush()
@@ -196,23 +201,23 @@ function toExcelNum(number) return string.gsub(tostring(number),'[\.]+', ',') en
 
 function writePattern(Type, i)
 
-    local ipA = ZZLevels[i+0]["index"]
-    local ipB = ZZLevels[i+1]["index"]
-    local ipC = ZZLevels[i+2]["index"]
-    local ipD = ZZLevels[i+3]["index"]
-    local ipE = ZZLevels[i+4]["index"]
-    
-    local pA  = ZZLevels[i+0]["val"]
-    local pB  = ZZLevels[i+1]["val"]
-    local pC  = ZZLevels[i+2]["val"]
-    local pD  = ZZLevels[i+3]["val"]
-    local pE  = ZZLevels[i+4]["val"]
-    
-    local iAB = ZZLevels[i+1]["index"] - ZZLevels[i+0]["index"]
-    local iBC = ZZLevels[i+2]["index"] - ZZLevels[i+1]["index"]
-    local iCD = ZZLevels[i+3]["index"] - ZZLevels[i+2]["index"]
-    local iAD = ZZLevels[i+3]["index"] - ZZLevels[i+0]["index"]
-    local iDE = ZZLevels[i+4]["index"] - ZZLevels[i+3]["index"]
+    local ipA 	= ZZLevels[i+0]["index"]
+    local ipB 	= ZZLevels[i+1]["index"]
+    local ipC 	= ZZLevels[i+2]["index"]
+    local ipD 	= ZZLevels[i+3]["index"]
+    local ipE 	= ZZLevels[i+4]["index"]
+	
+    local pA  	= ZZLevels[i+0]["val"]
+    local pB  	= ZZLevels[i+1]["val"]
+    local pC  	= ZZLevels[i+2]["val"]
+    local pD  	= ZZLevels[i+3]["val"]
+    local pE  	= ZZLevels[i+4]["val"]
+	
+    local iAB 	= ZZLevels[i+1]["index"] - ZZLevels[i+0]["index"]
+    local iBC 	= ZZLevels[i+2]["index"] - ZZLevels[i+1]["index"]
+    local iCD 	= ZZLevels[i+3]["index"] - ZZLevels[i+2]["index"]
+    local iAD 	= ZZLevels[i+3]["index"] - ZZLevels[i+0]["index"]
+    local iDE 	= ZZLevels[i+4]["index"] - ZZLevels[i+3]["index"]
 
     local AB    = round(math.abs(ZZLevels[i+1]["val"] - ZZLevels[i+0]["val"]), SCALE)
     local BC    = round(math.abs(ZZLevels[i+2]["val"] - ZZLevels[i+1]["val"]), SCALE)
@@ -220,6 +225,13 @@ function writePattern(Type, i)
     local AD    = round(math.abs(ZZLevels[i+3]["val"] - ZZLevels[i+0]["val"]), SCALE)
     local absDE = round(math.abs(ZZLevels[i+4]["val"] - ZZLevels[i+3]["val"]), SCALE)
     local DE    = round(ZZLevels[i+4]["val"] - ZZLevels[i+3]["val"], SCALE)
+
+    local ipD_ABeqCD  	= ZZLevels[i+2]["index"]+iAB
+    local pD_ABeqCD  	= round(ZZLevels[i+2]["val"]+(ZZLevels[i+1]["val"] - ZZLevels[i+0]["val"]), SCALE)
+	local indCoG 		= math.floor((ipA+ipD)/2)
+	local valCoG 		= math.floor((pA+pD)/2)
+	local dACog  		= indCoG - ipA
+	local dCogD	 		= ipD - indCoG
 
     -- Prediction
     targetE = 0
@@ -234,31 +246,32 @@ function writePattern(Type, i)
     end
 
     targetE = round(targetE or 0, SCALE)
-    err_targetE = targetE == 0 and 0 or round(math.abs(targetE - pE)*100/absDE, SCALE)
+    err_targetE = targetE == 0 and 0 or round(math.abs(targetE - pE)*100/absDE, 2)
     evE     = round(evE or 0, SCALE)
-    err_evE = evE == 0 and 0 or round(math.abs(evE - pE)*100/absDE, SCALE)
+    err_evE = evE == 0 and 0 or round(math.abs(evE - pE)*100/absDE, 2)
     mutE    = round(mutE or 0, SCALE)
     local next_pB = ZZLevels[i+5] == nil and 0 or ZZLevels[i+5]["val"]
-    err_mutE = (next_pB == 0 or mutE == 0) and 0 or round(math.abs(mutE - next_pB)*100/(round(math.abs(ZZLevels[i+5]["val"] - ZZLevels[i+4]["val"]), SCALE)), SCALE)
+    err_mutE = (next_pB == 0 or mutE == 0) and 0 or round(math.abs(mutE - next_pB)*100/(round(math.abs(ZZLevels[i+5]["val"] - ZZLevels[i+4]["val"]), SCALE)), 2)
 
-    local BCtoAB    = round(100*BC/AB, SCALE)
-    local CDtoAB    = round(100*CD/AB, SCALE)
-    local CDtoBC    = round(100*CD/BC, SCALE)
-    local DEtoCD    = round(100*DE/CD, SCALE)
-    local rBCtoAB   = round(math.floor(100*BC/AB/roundStep)*roundStep, SCALE)
-    local rCDtoAB   = round(math.floor(100*CD/AB/roundStep)*roundStep, SCALE)
-    local rCDtoBC   = round(math.floor(100*CD/BC/roundStep)*roundStep, SCALE)
+    local BCtoAB    = round(BC/AB, 3)
+    local CDtoAB    = round(CD/AB, 3)
+    local BCtoCD    = round(BC/CD, 3)
+    local DEtoCD    = round(DE/CD, 3)
+    local rBCtoAB   = round(math.floor(100*BC/AB/roundStep)*roundStep, 3)
+    local rCDtoAB   = round(math.floor(100*CD/AB/roundStep)*roundStep, 3)
+    local rBCtoCD   = round(math.floor(100*BC/CD/roundStep)*roundStep, 3)
     local roundFunc = DE>=0 and math.floor or math.ceil
-    local rDEtoCD   = round(roundFunc(100*DE/CD/roundStep)*roundStep, SCALE)
+    local rDEtoCD   = round(roundFunc(100*DE/CD/roundStep)*roundStep, 3)
 
     local stringLine = Type..';'..SEC_CODE..';'..INTERVAL..';'..(pA>pD and 'Down' or 'Up')..';'..
-    toExcelNum(ipA)..';'..toExcelNum(ipB)..';'..toExcelNum(ipC)..';'..toExcelNum(ipD)..';'..toExcelNum(ipE)..';'..
-    toExcelNum(pA)..';'..toExcelNum(pB)..';'..toExcelNum(pC)..';'..toExcelNum(pD)..';'..toExcelNum(pE)..';'..
-    patternName..';'..toExcelNum(targetE)..';'..toExcelNum(err_targetE)..';'..toExcelNum(evE)..';'..toExcelNum(err_evE)..';'..toExcelNum(mutE)..';'..toExcelNum(err_mutE)..';'..
+    toExcelNum(ipA)..';'..toExcelNum(ipB)..';'..toExcelNum(ipC)..';'..toExcelNum(ipD)..';'..toExcelNum(ipD_ABeqCD)..';'..toExcelNum(ipE)..';'..
+    toExcelNum(indCoG)..';'..toExcelNum(valCoG)..';'..toExcelNum(dACog)..';'..toExcelNum(dCogD)..';'..
     toExcelNum(iAB)..';'..toExcelNum(iBC)..';'..toExcelNum(iCD)..';'..toExcelNum(iAD)..';'..toExcelNum(iDE)..';'..
+    toExcelNum(pA)..';'..toExcelNum(pB)..';'..toExcelNum(pC)..';'..toExcelNum(pD)..';'..toExcelNum(pD_ABeqCD)..';'..toExcelNum(pE)..';'..
+    patternName..';'..toExcelNum(targetE)..';'..toExcelNum(err_targetE)..';'..toExcelNum(evE)..';'..toExcelNum(err_evE)..';'..toExcelNum(mutE)..';'..toExcelNum(err_mutE)..';'..
     toExcelNum(AB)..';'..toExcelNum(BC)..';'..toExcelNum(CD)..';'..toExcelNum(AD)..';'..toExcelNum(DE)..';'..
-    toExcelNum(BCtoAB)..';'..toExcelNum(CDtoAB)..';'..toExcelNum(CDtoBC)..';'..toExcelNum(DEtoCD)..';'..
-    toExcelNum(rBCtoAB)..';'..toExcelNum(rCDtoAB)..';'..toExcelNum(rCDtoBC)..';'..toExcelNum(rDEtoCD)
+    toExcelNum(BCtoAB)..';'..toExcelNum(CDtoAB)..';'..toExcelNum(BCtoCD)..';'..toExcelNum(DEtoCD)..';'..
+    toExcelNum(rBCtoAB)..';'..toExcelNum(rCDtoAB)..';'..toExcelNum(rBCtoCD)..';'..toExcelNum(rDEtoCD)
 
     resFile:write(stringLine.."\n")
     resFile:flush()
@@ -1026,7 +1039,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 1.618)
 			then
-			 pE = round(pD - 1.618 * (pD-pC),scale);
+			 pE = round(pD - 1.618 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1035,7 +1048,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.5)
 			then
-			 pE = round(pD - 0.5 * (pD-pC),scale);
+			 pE = round(pD - 0.5 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1044,7 +1057,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 1.2720)
 			then
-			 pE = round(pD - 1.2720 * (pD-pC),scale);
+			 pE = round(pD - 1.2720 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1053,7 +1066,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.618)
 			then
-			 pE = round(pD - 0.618 * (pD-pC),scale);
+			 pE = round(pD - 0.618 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1062,7 +1075,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 1.2720)
 			then
-			 pE = round(pD - 1.2720 * (pD-pC),scale);
+			 pE = round(pD - 1.2720 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1071,7 +1084,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.618)
 			then
-			 pE = round(pD - 0.618 * (pD-pC),scale);
+			 pE = round(pD - 0.618 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1080,7 +1093,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 3.0000)
 			then
-			 pE = round(pD - 3.0000 * (pD-pC),scale);
+			 pE = round(pD - 3.0000 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1089,7 +1102,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.3819)
 			then
-			 pE = round(pD - 0.3819 * (pD-pC),scale);
+			 pE = round(pD - 0.3819 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1098,7 +1111,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 1.618)
 			then
-			 pE = round(pD - 1.618 * (pD-pC),scale);
+			 pE = round(pD - 1.618 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1107,7 +1120,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.5)
 			then
-			 pE = round(pD - 0.5 * (pD-pC),scale);
+			 pE = round(pD - 0.5 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1116,7 +1129,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.25)
 			then
-			 pE = round(pD - 0.25 * (pD-pC),scale);
+			 pE = round(pD - 0.25 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1125,7 +1138,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 1.618)
 			then
-			 pE = round(pD - 1.618 * (pD-pC),scale);
+			 pE = round(pD - 1.618 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1134,7 +1147,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.5)
 			then
-			 pE = round(pD - 0.5 * (pD-pC),scale);
+			 pE = round(pD - 0.5 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1143,7 +1156,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 1.2720)
 			then
-			 pE = round(pD - 1.2720 * (pD-pC),scale);
+			 pE = round(pD - 1.2720 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1152,7 +1165,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.618)
 			then
-			 pE = round(pD - 0.618 * (pD-pC),scale);
+			 pE = round(pD - 0.618 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1161,7 +1174,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pD-pE)/(pD-pC)) < 0.3819)
 			then
-			 pE = round(pD - 0.3819 * (pD-pC),scale);
+			 pE = round(pD - 0.3819 * (pD-pC),SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1170,7 +1183,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.3819)
 			then
-			 pE = round(0.3819 * (pC-pD)+pD,scale);
+			 pE = round(0.3819 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1179,7 +1192,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.618)
 			then
-			 pE = round(0.618 * (pC-pD)+pD,scale);
+			 pE = round(0.618 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1188,7 +1201,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 1.2720)
 			then
-			 pE = round(1.2720 * (pC-pD)+pD,scale);
+			 pE = round(1.2720 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1197,7 +1210,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.5)
 			then
-			 pE = round(0.5 * (pC-pD)+pD,scale);
+			 pE = round(0.5 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1206,7 +1219,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 1.618)
 			then
-			 pE = round(1.618 * (pC-pD)+pD,scale);
+			 pE = round(1.618 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1215,7 +1228,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.25)
 			then
-			 pE = round(0.25 * (pC-pD)+pD,scale);
+			 pE = round(0.25 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1224,7 +1237,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.5)
 			then
-			 pE = round(0.5 * (pC-pD)+pD,scale);
+			 pE = round(0.5 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1233,7 +1246,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 1.618)
 			then
-			 pE = round(1.618 * (pC-pD)+pD,scale);
+			 pE = round(1.618 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1242,7 +1255,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.3819)
 			then
-			 pE = round(0.3819 * (pC-pD)+pD,scale);
+			 pE = round(0.3819 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1251,7 +1264,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 3.0000)
 			then
-			 pE = round(3.0000 * (pC-pD)+pD,scale);
+			 pE = round(3.0000 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1260,7 +1273,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.618)
 			then
-			 pE = round(0.618 * (pC-pD)+pD,scale);
+			 pE = round(0.618 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1269,7 +1282,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 1.2720)
 			then
-			 pE = round(1.2720 * (pC-pD)+pD,scale);
+			 pE = round(1.2720 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1278,7 +1291,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.618)
 			then
-			 pE = round(0.618 * (pC-pD)+pD,scale);
+			 pE = round(0.618 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1287,7 +1300,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 1.2720)
 			then
-			 pE = round(1.2720 * (pC-pD)+pD,scale);
+			 pE = round(1.2720 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1296,7 +1309,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 0.5)
 			then
-			 pE = round(0.5 * (pC-pD)+pD,scale);
+			 pE = round(0.5 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1305,7 +1318,7 @@ function AnalysisPointE(pA,pB,pC,pD,pE)
 		 then
 		  if (((pE-pD)/(pC-pD)) < 1.618)
 			then
-			 pE = round(1.618 * (pC-pD)+pD,scale);
+			 pE = round(1.618 * (pC-pD)+pD,SCALE);
 			 --- Была модификация
 			 IsPointNotReal = true;
 			end
@@ -1356,7 +1369,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil
 		 -----
-		 mutE = round(0.3819 * (pD-pE)+pE,scale);
+		 mutE = round(0.3819 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1369,10 +1382,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W4 = 0.5 * (pD-pE)+pE                  |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 1.618 * (pD-pC),scale);
+		 evE = round(pD - 1.618 * (pD-pC),SCALE);
 		 
 		 -----
-		 mutE = round(0.5 * (pD-pE)+pE,scale);
+		 mutE = round(0.5 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1387,7 +1400,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil
 		 -----
-		 mutE = round(0.3819 * (pD-pE)+pE,scale);
+		 mutE = round(0.3819 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1400,10 +1413,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W4 = 0.5 * (pD-pE)+pE                  |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 1.272 * (pD-pC),scale);
+		 evE = round(pD - 1.272 * (pD-pC),SCALE);
 		         
 		 -----
-		 mutE = round(0.5 * (pD-pE)+pE,scale);
+		 mutE = round(0.5 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1418,7 +1431,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil
 		 -----
-		 mutE = round(0.25 * (pD-pE)+pE,scale);
+		 mutE = round(0.25 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1431,10 +1444,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W9 = 0.3819 * (pD-pE)+pE               |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 1.272 * (pD-pC),scale);
+		 evE = round(pD - 1.272 * (pD-pC),SCALE);
 		         
 		 -----
-		 mutE = round(0.3819 * (pD-pE)+pE,scale);
+		 mutE = round(0.3819 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1449,7 +1462,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil
 		 -----
-		 mutE = round(0.3819 * (pD-pE)+pE,scale);
+		 mutE = round(0.3819 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1462,10 +1475,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W4 = 0.5 * (pD-pE)+pE                  |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 0.618 * (pD-pC),scale);
+		 evE = round(pD - 0.618 * (pD-pC),SCALE);
 		         
 		 -----
-		 mutE = round(0.5 * (pD-pE)+pE,scale);
+		 mutE = round(0.5 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1480,7 +1493,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil
 		 -----
-		 mutE = round(0.25 * (pD-pE)+pE,scale);
+		 mutE = round(0.25 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1493,10 +1506,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W9 = 0.3819 * (pD-pE)+pE               |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 0.618 * (pD-pC),scale);
+		 evE = round(pD - 0.618 * (pD-pC),SCALE);
 		 
 		 -----
-		 mutE = round(0.3819 * (pD-pE)+pE,scale);
+		 mutE = round(0.3819 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1509,10 +1522,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W15 = 0.5 * (pD-pE)+pE                 |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 0.5 * (pD-pC),scale);
+		 evE = round(pD - 0.5 * (pD-pC),SCALE);
 		 
 		 -----
-		 mutE = round(0.5 * (pD-pE)+pE,scale);
+		 mutE = round(0.5 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1525,10 +1538,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W1 = 0.3819 * (pD-pE)+pE               |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 3.0000 * (pD-pC),scale);
+		 evE = round(pD - 3.0000 * (pD-pC),SCALE);
 		 
 		 -----
-		 mutE = round(0.3819 * (pD-pE)+pE,scale);
+		 mutE = round(0.3819 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1541,10 +1554,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W4  = 0.5 * (pD-pE)+pE                 |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 1.618 * (pD-pC),scale);
+		 evE = round(pD - 1.618 * (pD-pC),SCALE);
 		 
 		 -----
-		 mutE = round(0.5 * (pD-pE)+pE,scale);
+		 mutE = round(0.5 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1556,10 +1569,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> M9 = D - 1.618 * (pD-pC)                |
 	   --| Точка "мутации" => W6 = 0.25 * (pD-pE)+pE                 |
 	   --+------------------------------------------------------------+
-		 evE = round(pD - 1.618 * (pD-pC),scale);
+		 evE = round(pD - 1.618 * (pD-pC),SCALE);
 		 
 		 -----
-		 mutE = round(0.25 * (pD-pE)+pE,scale);
+		 mutE = round(0.25 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1572,10 +1585,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W9  = 0.3819 * (pD-pE)+pE              |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pC-(pC-pA)/1.618,scale);
+		 evE = round(pC-(pC-pA)/1.618,SCALE);
 		 
 		 -----
-		 mutE = round(pE+(pB-pE)/1.618,scale);
+		 mutE = round(pE+(pB-pE)/1.618,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1588,10 +1601,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => W15 = 0.5 * (pD-pE)+pE                 |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(pD - 0.618 * (pD-pC),scale);
+		 evE = round(pD - 0.618 * (pD-pC),SCALE);
 		         
 		 -----
-		 mutE = round(0.5 * (pD-pE)+pE,scale);
+		 mutE = round(0.5 * (pD-pE)+pE,SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1604,10 +1617,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => M2  = E - 0.5 * (pE-pD)                 |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(0.618 * (pC-pD)+pD,scale);
+		 evE = round(0.618 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.5 * (pE-pD),scale);
+		 mutE = round(pE-0.5 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1620,10 +1633,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => M8  = E - 0.3819 * (pE-pD)              |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(1.272 * (pC-pD)+pD,scale);
+		 evE = round(1.272 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1635,10 +1648,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> W8  = 1.618 * (pC-pD)+pD               |
 	   --| Точка "мутации" => M11 = E - 0.25 * (pE-pD)                |
 	   --+------------------------------------------------------------+
-		 evE = round(1.618 * (pC-pD)+pD,scale);
+		 evE = round(1.618 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.25 * (pE-pD),scale);
+		 mutE = round(pE-0.25 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1651,10 +1664,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => M13 = E - 0.5 * (pE-pD)                 |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(1.618 * (pC-pD)+pD,scale);
+		 evE = round(1.618 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.5 * (pE-pD),scale);
+		 mutE = round(pE-0.5 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1666,10 +1679,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> W10 = 3.0000 * (pC-pD)+pD              |
 	   --| Точка "мутации" => M16 = E - 0.3819 * (pE-pD)              |
 	   --+------------------------------------------------------------+
-		 evE = round(3.0000 * (pC-pD)+pD,scale);
+		 evE = round(3.0000 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1681,10 +1694,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> W7 = 0.5 * (pC-pD)+pD                  |
 	   --| Точка "мутации" => M2 = E - 0.5 * (pE-pD)                  |
 	   --+------------------------------------------------------------+
-		 evE = round(0.5 * (pC-pD)+pD,scale);
+		 evE = round(0.5 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.5 * (pE-pD),scale);
+		 mutE = round(pE-0.5 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1696,10 +1709,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> W11 = 0.618 * (pC-pD)+pD               |
 	   --| Точка "мутации" => M8  = E - 0.3819 * (pE-pD)              |
 	   --+------------------------------------------------------------+
-		 evE = round(0.618 * (pC-pD)+pD,scale);
+		 evE = round(0.618 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1713,7 +1726,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --+------------------------------------------------------------+
 		 evE = nil        
 		 -----
-		 mutE = round(pE-0.25 * (pE-pD),scale);
+		 mutE = round(pE-0.25 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1725,10 +1738,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> W13 = 0.618 * (pC-pD)+pD               |
 	   --| Точка "мутации" => M13 = E - 0.5 * (pE-pD)                 |
 	   --+------------------------------------------------------------+
-		 evE = round(0.618 * (pC-pD)+pD,scale);
+		 evE = round(0.618 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.5 * (pE-pD),scale);
+		 mutE = round(pE-0.5 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1742,7 +1755,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --+------------------------------------------------------------+
 		 evE = nil   
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		         
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1754,10 +1767,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "эволюции"=> W12 = 1.272 * (pC-pD)+pD               |
 	   --| Точка "мутации" => M8  = E - 0.3819 * (pE-pD)              |
 	   --+------------------------------------------------------------+
-		 evE = round(1.272 * (pC-pD)+pD,scale);
+		 evE = round(1.272 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1772,7 +1785,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil
 		 -----
-		 mutE = round(pE-0.25 * (pE-pD),scale);
+		 mutE = round(pE-0.25 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1786,10 +1799,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --+------------------------------------------------------------+
 	   
 	   ----- level_0:
-	   evE = round(1.272 * (pC-pD)+pD,scale);
+	   evE = round(1.272 * (pC-pD)+pD,SCALE);
 	   
 	   -----
-	   mutE = round(pE-0.5 * (pE-pD),scale);
+	   mutE = round(pE-0.5 * (pE-pD),SCALE);
 	   
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1804,7 +1817,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil    
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1817,10 +1830,10 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 	   --| Точка "мутации" => M13 = E - 0.5 * (pE-pD)                 |
 	   --+------------------------------------------------------------+
 		 ----- level_0:
-		 evE = round(1.618 * (pC-pD)+pD,scale);
+		 evE = round(1.618 * (pC-pD)+pD,SCALE);
 		         
 		 -----
-		 mutE = round(pE-0.5 * (pE-pD),scale);
+		 mutE = round(pE-0.5 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
@@ -1835,7 +1848,7 @@ function CalcPrognozPoint(pA,pB,pC,pD,pE)
 		 ----- level_0:
 		 evE = nil        
 		 -----
-		 mutE = round(pE-0.3819 * (pE-pD),scale);
+		 mutE = round(pE-0.3819 * (pE-pD),SCALE);
 		 
 		 ----- level_1:
 		 --CalcPrognozLevel1();
