@@ -2,7 +2,8 @@
 Settings = 
 {
 	Name = "*Ehlers Instantaneous Trend",
-	alpha = 0.07,
+	alpha = 0.03,
+	shift = 5,
 	cycletype = 1, -- 0 - simle, 1 - adaptive
 	line=
 	{
@@ -38,12 +39,13 @@ function CyberCycle()
 	
 	--local SMA=fSMA()
 	
-	return function(ind, _a, _t)
+	return function(ind, _a, _t, _s)
 		
 		local index = ind
 		local alpha = _a
 		local alpha1 = _a
 		local cycletype = _t
+		local shift = _s
 				
 		local DC, MedianDelta
 		
@@ -135,10 +137,10 @@ function CyberCycle()
 		it[index]=(alpha1-((alpha1*alpha1)/4.0))*Price[index]+0.5*alpha1*alpha1*Price[index-1]-(alpha1-0.75*alpha1*alpha1)*Price[index-2]+
 			2*(1-alpha1)*(it[index-1] or Cycle[index])-(1-alpha1)*(1-alpha1)*(it[index-2] or Cycle[index])
 		
-		lag = 2.0*it[index]-(it[index-2] or 0)
+		lag = 2.0*it[index]-(it[index-shift] or 0)
 
 		
-		return lag, it[index]
+		return it[index], lag 
 	end
 end
 
@@ -150,7 +152,7 @@ end
 
 function OnCalculate(index)
 
-	return myCyberCycle(index, Settings.alpha, Settings.cycletype)
+	return myCyberCycle(index, Settings.alpha, Settings.cycletype, Settings.shift)
 end
 
 function Median(x, y, z)     
