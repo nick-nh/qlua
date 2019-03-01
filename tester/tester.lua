@@ -2276,7 +2276,7 @@ function mysplit(inputstr, sep)
 end
 
 function round(num, idp)
-    if idp and num then
+    if num then
     local mult = 10^(idp or 0)
     if num >= 0 then return math.floor(num * mult + 0.5) / mult
     else return math.ceil(num * mult - 0.5) / mult end
