@@ -144,6 +144,7 @@ local function GetBigLine(big_index, line_index, settings)  
         else
             myLog('GetBigLine ошибка получения значения индикатора big_index: '..tostring(big_index)..', line: '..tostring(line_index))        
         end
+        return 0
     end)
     if not status then 
         myLog('Error GetBigLine: '..res)
@@ -154,6 +155,7 @@ end
 
 local function CalcFunc(settings)
 
+    local scale             = 0
     local interval          = 0
     local big_interval      = 0
     local big_index         = 0
@@ -179,15 +181,17 @@ local function CalcFunc(settings)
         local status,res = pcall(function()
             
             if index == 1 then
+                local ds_info               = getDataSourceInfo()
+                scale                       = getSecurityInfo(ds_info.class_code, ds_info.sec_code).scale or 0
                 myLog(toYYYYMMDDHHMMSS(T(Size()))..' - '..toYYYYMMDDHHMMSS(T(Size()-1)))
                 interval                    = round((os.time(T(Size())) - os.time(T(Size()-1)))/60)
                 big_interval, big_index     = CalcBigInd(settings, interval)
                 myLog('-------------------------------------------------------')
                 big_lines[index]            = {}
                 for i=1,#settings.line do
-                    big_lines[index][i] = C(index)
+                    big_lines[index][i]     = C(index)
                 end
-                last_index = 1
+                last_index                  = 1
                 return nil
             end
     
@@ -198,47 +202,51 @@ local function CalcFunc(settings)
             local new_big_index = GetNextBigIndex(index, big_index, big_interval, settings)
             local bars          = index - last_index            
 
-            if new_big_index~=big_index then
-                if index == Size() then myLog('new_big_index: '..tostring(new_big_index)..', last_index: '..tostring(last_index)..', last_prev_index: '..tostring(last_prev_index)..', index: '..tostring(index))   end         
-                for i=1,#settings.line do
-                    local val_line      = GetBigLine(new_big_index, settings.big_line[i], settings) or big_lines[index-1][i]
-                    big_lines[index][i] = val_line == 0 and C(index) or val_line
-                    if index == Size() or settings.smoothLines == 1 then
-                        val_line        = GetBigLine(big_index, settings.big_line[i], settings) or big_lines[index-1][i]
-                        if index == Size() then myLog('line: '..tostring(i)..', val_line: '..tostring(val_line)) end
+            for i=1,#settings.line do
+                local new_val_line      = GetBigLine(new_big_index, settings.big_line[i], settings)
+                if index == Size() and new_val_line == 0 then
+                    myLog('Не получен бар старшего интервала')  
+                    return nil
+                end 
+                big_lines[index][i] = new_val_line == 0 and big_lines[index-1][i] or new_val_line
+                if index >= Size() - 50 then myLog('index: '..tostring(index)..' - '..toYYYYMMDDHHMMSS(T(index))..', line: '..tostring(i)..', big_lines: '..tostring(big_lines[index][i])..', last_prev_index: '..tostring(last_prev_index)..', last_index: '..tostring(last_index)) end            
+                if index == Size() or (settings.smoothLines == 1 and new_big_index~=big_index) then
+                    local val_line = new_val_line
+                    if new_big_index~=big_index then
+                        if index >= Size() - 50 then myLog('new_big_index: '..tostring(new_big_index)..', last_index: '..tostring(last_index)..', last_prev_index: '..tostring(last_prev_index)..', index: '..tostring(index))  end         
+                        val_line            = GetBigLine(big_index, settings.big_line[i], settings) or big_lines[index-1][i]
                         local delta_range   = 0
-                        if settings.smoothLines == 1 then
-                            delta_range     = (big_lines[index][i] - val_line)/bars
-                        end
-                        for ind = 0, bars-1, 1 do
-                            big_lines[index - bars+ind][i] = val_line == 0 and C(index) or val_line
-                            if index == Size() then myLog('Set index : '..tostring(index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(index - bars+ind))..' val = '..tostring(val_line+ind*delta_range)) end
-                            big_lines[index - bars+ind][i] = val_line+ind*delta_range
-                            SetValue(index - bars+ind, i, val_line+ind*delta_range)
-                        end
-                    end             
-                end             
-            else
-                for i=1,#settings.line do
-                    local val_line      = GetBigLine(new_big_index, settings.big_line[i], settings) or big_lines[index-1][i]
-                    big_lines[index][i] = val_line == 0 and C(index) or val_line
-                    if index == Size() then
-                        myLog('Calc index: '..tostring(index)..', line: '..tostring(i)..' - '..toYYYYMMDDHHMMSS(T(index))..', last_index: '..tostring(last_index)..', last_prev_index: '..tostring(last_prev_index)..', big_line:'..tostring(big_lines[index][i]))
-                        local delta_range   = 0
-                        if settings.smoothLines == 1 then
-                            val_line        = GetBigLine(big_index-1, settings.big_line[i], settings) or big_lines[index-1][i]
-                            bars            = index - last_prev_index
-                            delta_range     = (big_lines[index][i] - val_line)/bars
-                            myLog('smooth bars: '..tostring(bars)..', line: '..tostring(i)..' - '..toYYYYMMDDHHMMSS(T(last_prev_index))..', big_line last_prev_index:'..tostring(big_lines[last_prev_index][i])..', big_line:'..tostring(big_lines[index][i]))
-                        end
-                        for ind = 0, bars-1, 1 do
-                            myLog('Set index : '..tostring(index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(index - bars+ind))..' val = '..tostring(val_line+ind*delta_range))
-                            big_lines[index - bars+ind][i] = val_line+ind*delta_range
-                            SetValue(index - bars+ind, i, val_line+ind*delta_range)
+                        if settings.smoothLines == 1 and last_prev_index~=0 then
+                            local prev_val_line = GetBigLine(big_index-1, settings.big_line[i], settings) or big_lines[index-1][i]
+                            bars                = last_index - last_prev_index
+                            delta_range         = (val_line - prev_val_line)
+                            if index >= Size() - 50 then myLog('val_line: '..tostring(val_line)..', delta: '..tostring(delta_range)..', bars: '..tostring(bars)) end
+                            local sum = 0
+                            for ind = 0, bars, 1 do
+                                sum = sum + (ind == 0 and 0 or (delta_range-sum)/(bars-ind+1))
+                                big_lines[last_index - bars+ind][i] = prev_val_line+sum
+                                SetValue(last_index - bars+ind, i, prev_val_line+sum)
+                                if index >= Size() - 50 then myLog('Set index : '..tostring(last_index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(last_index - bars+ind))..' val = '..tostring(prev_val_line+sum)) end
+                            end
                         end
                     end
-                end 
-            end
+                    local delta_range   = 0
+                    bars                = index - last_index
+                    if settings.smoothLines == 1 and last_index~=0 then
+                        val_line        = GetBigLine((new_big_index~=big_index and big_index or big_index-1), settings.big_line[i], settings) or big_lines[index-1][i]
+                        delta_range         = (new_val_line - val_line)
+                        bars                = index - (new_big_index~=big_index and last_index or last_prev_index)
+                    end
+                    if index >= Size() - 50 then myLog('new_val_line: '..tostring(new_val_line)..', delta: '..tostring(delta_range)..', bars: '..tostring(bars)) end
+                    local sum = 0
+                    for ind = 0, bars, 1 do
+                        sum = sum + (ind == 0 and 0 or (delta_range-sum)/(bars-ind+1))
+                        big_lines[index - bars+ind][i] = val_line+sum
+                        SetValue(index - bars+ind, i, val_line+sum)
+                        if index >= Size() - 50 then myLog('Set index : '..tostring(index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(index - bars+ind))..' val = '..tostring(val_line+sum)) end
+                    end
+                end             
+            end 
 
             if new_big_index~=big_index then
                 big_index       = new_big_index
