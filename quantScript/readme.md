@@ -1,5 +1,5 @@
 Upd.
-Swerg обновил библиотеку StaticVar
+Swerg обновил библиотеку StaticVar до x64
 
 https://quik2dde.ru/viewtopic.php?id=61
 
