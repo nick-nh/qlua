@@ -1,4 +1,4 @@
-Upd. Swerg обновил библиотеку до x64.
+Upd. Swerg обновил библиотеку StaticVar до x64.
 
 https://quik2dde.ru/viewtopic.php?id=61
 
