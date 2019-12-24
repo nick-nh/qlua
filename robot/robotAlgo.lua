@@ -2744,8 +2744,8 @@ function simpleAlgo(index, Settings)
     local kawg = 2/(bars+1)
 
     local indexToCalc = 1000
-    indexToCalc = Fsettings.indexToCalc or indexToCalc
-    local beginIndexToCalc = Fsettings.beginIndexToCalc or math.max(1, DS:Size() - indexToCalc)
+    indexToCalc = Settings.indexToCalc or indexToCalc
+    local beginIndexToCalc = Settings.beginIndexToCalc or math.max(1, DS:Size() - indexToCalc)
 
     if index == beginIndexToCalc then
         --if ROBOT_STATE ~= 'ОПТИМИЗАЦИЯ' then
