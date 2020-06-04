@@ -1,10 +1,11 @@
 local M = {}
 
-local O = _G['O']
-local C = _G['C']
-local H = _G['H']
-local L = _G['L']
-local V = _G['V']
+local O     = _G['O']
+local C     = _G['C']
+local H     = _G['H']
+local L     = _G['L']
+local V     = _G['V']
+local Size  = _G['Size']
 
 local string_upper  = string.upper
 local string_sub    = string.sub
@@ -14,6 +15,7 @@ local math_max      = math.max
 local math_min      = math.min
 local math_abs      = math.abs
 local math_pow      = math.pow
+local math_sqrt     = math.sqrt
 local math_huge     = math.huge
 
 ------------------------------------------------------------------
@@ -55,6 +57,22 @@ local function Value(index, data_type, ds)
         if ds then Out = ds[index] else Out = 0 end
     end
     return Out or 0
+end
+
+local function dsSize(data_type, ds)
+    data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "A"
+    if data_type == 'A' and ds then
+        return #ds
+    end
+    if data_type ~= 'A' then
+        if Size then
+            return Size()
+        end
+        if ds and ds.Size then
+            return ds:Size()
+        end
+    end
+    return 0
 end
 
 local function CheckIndex(index, ds)
@@ -484,7 +502,7 @@ local function F_NRTR(settings, ds)
      end
 end
 
---Nick Rypo�k Moving Average (NRMA)
+--Nick Rypoсk Moving Average (NRMA)
 local function F_NRMA(settings, ds)
 
     local k         = (settings.k or 0.5)
@@ -539,6 +557,215 @@ local function F_NRMA(settings, ds)
     end
 end
 
+-- Среднеквадратическое отклонение
+local function Sigma(input, compare, kstd)
+
+    kstd = kstd or 1
+
+    local sq = 0
+    for n = 1, #compare do
+        if compare[n] and input[n] then
+            sq = sq + math_pow(input[n] - compare[n], 2)
+        end
+    end
+
+    return math_sqrt(sq/(#compare-1))*kstd
+end
+
+-- Regression
+-- Linear:      degree = 1
+-- Parabolic:   degree = 2
+-- Cubic:       degree = 3
+local function F_REG(settings, ds)
+
+    settings            = (settings or {})
+    local period        = settings.period or 10
+    local degree        = settings.degree or 1
+    local kstd          = settings.kstd or 1
+    local data_type     = (settings.data_type or "Close")
+
+    local sql_buffer
+    local sqh_buffer
+    local fx_buffer
+	local sx
+    local input
+
+    local nn = degree + 1
+    local ai = {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
+	local b  = {}
+	local x  = {}
+
+    return function(index)
+
+
+		if fx_buffer == nil or index == 1 then
+
+			fx_buffer  = {}
+			sql_buffer = {}
+			sqh_buffer = {}
+            input      = {}
+			--- sx
+			sx={}
+			sx[1] = period + 1
+            local sum
+			for mi = 1, nn*2-2 do
+                sum=0
+                for n = 1, period do
+					sum = sum + math_pow(n,mi)
+				end
+			    sx[mi+1]=sum
+			end
+
+			return nil
+		end
+
+        if not CheckIndex(index, ds) or index <= period then
+			return nil
+		end
+
+        input = {}
+
+        --- syx
+        local sum
+		for mi=1, nn do
+			sum = 0
+			for n = 0, period do
+				if CheckIndex(index+n-period, ds) then
+                    input[#input + 1] = Value(index+n-period, data_type, ds)
+                    if mi == 1 then
+					   sum = sum + input[#input]
+					else
+					   sum = sum + input[#input]*math_pow(n, mi-1)
+					end
+				end
+			end
+			b[mi] = sum
+		end
+
+		--- Matrix
+		for jj=1, nn do
+			for ii=1, nn do
+				ai[ii][jj] = sx[ii+jj-1]
+			end
+		end
+
+		--- Gauss
+		for kk=1, nn-1 do
+			local ll = 0
+			local mm = 0
+			for ii = kk, nn do
+				if math_abs(ai[ii][kk])>mm then
+					mm = math_abs(ai[ii][kk])
+					ll = ii
+				end
+			end
+
+			if ll==0 then
+				return nil
+			end
+			if ll~=kk then
+				for jj=1, nn do
+					ai[ll][jj], ai[kk][jj] = ai[kk][jj], ai[ll][jj]
+				end
+				b[ll], b[kk] = b[kk], b[ll]
+			end
+			for ii = kk+1, nn do
+				local qq = ai[ii][kk]/ai[kk][kk]
+				for jj=1, nn do
+					if jj==kk then
+						ai[ii][jj]=0
+					else
+						ai[ii][jj]=ai[ii][jj]-qq*ai[kk][jj]
+					end
+				end
+				b[ii]=b[ii]-qq*b[kk]
+			end
+		end
+
+		x[nn] = b[nn]/ai[nn][nn]
+
+        local tt
+        for ii=nn-1, 1, -1 do
+            tt = 0
+			for jj=1, nn-ii do
+				tt    = tt + ai[ii][ii+jj]*x[ii+jj]
+				x[ii] = (1/ai[ii][ii])*(b[ii] - tt)
+			end
+		end
+
+		---
+		for n = 1, period do
+			sum=0
+			for kk = 1, degree do
+				sum = sum + x[kk+1]*math_pow(n,kk)
+			end
+			fx_buffer[n]=x[1] + sum
+		end
+
+		--- Std
+		local sq = Sigma(input, fx_buffer, kstd)
+
+		for n = 1, period do
+			sqh_buffer[n]=fx_buffer[n]+sq
+			sql_buffer[n]=fx_buffer[n]-sq
+		end
+
+		return fx_buffer, sqh_buffer, sql_buffer
+
+	end
+
+end
+
+-- Коэффициент корреляции Пирсона
+-- Ковариация
+-- Среднеквадратическое отклонение
+-- Стандартное отклонение Баланса
+local function Correlation(input, compare, kstd)
+
+    if #compare == 0 then return end
+
+    kstd = kstd or 1
+
+    local sq          = 0
+    local period      = #compare
+    local m_input     = 0
+    local m_compare   = 0
+
+    for n = 1, #compare do
+        if compare[n] and input[n] then
+            sq = sq + math_pow(input[n] - compare[n], 2)
+            m_input   = m_input + input[n]
+            m_compare = m_compare + compare[n]
+        end
+    end
+
+    sq =  math_sqrt(sq/(#compare-1))*kstd
+
+    local LRE = math.sqrt(sq/(period-2))
+
+    m_input   = m_input/period
+    m_compare = m_compare/period
+
+    --ковариация
+    local cov           = 0
+    local sq_input      = 0
+    local sq_compare    = 0
+
+    for n = 1, #compare do
+        if compare[n] and input[n] then
+            sq_input    = sq_input + math_pow(input[n]-m_input,2)
+            sq_compare  = sq_compare + math_pow(compare[n]-m_compare,2)
+            cov         = cov + (input[n]-m_input)*(compare[n]-m_compare)
+        end
+    end
+
+    cov = cov/period
+    local LRC = cov/(math_sqrt(sq_input/period)*math_sqrt(sq_compare/period))
+
+    return LRC, cov, sq, LRE
+
+end
+
 local function MA(settings, ds)
 
     settings = (settings or {})
@@ -566,14 +793,19 @@ local function MA(settings, ds)
         return F_NRTR(settings, ds)
     elseif method == "NRMA" then
         return F_NRMA(settings, ds)
+    elseif method == "REG" then
+        return F_REG(settings, ds)
     else
         return nil
     end
 end
 
 M.new         = MA
+M.Sigma       = Sigma
+M.Correlation = Correlation
 M.CheckIndex  = CheckIndex
 M.rounding    = rounding
 M.Value       = Value
+M.dsSize      = dsSize
 
 return M
