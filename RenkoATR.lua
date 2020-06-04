@@ -21,9 +21,9 @@ local os_time	    = os.time
 
 _G.Settings= {
     Name 		= "*RenkoATR",
-    k           = 1,      -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR
-    period      = 10,     -- Период расчета ATR
-    showRenko   = 0,     -- Показывать линии Renko; 0 - не показывать; 1 - показывать
+    k           = 1,      -- СЂР°Р·РјРµСЂ СЃРєРѕР»СЊР·СЏС‰РµРіРѕ С„РёР»СЊС‚СЂР°, РёСЃРїРѕР»СЊР·СѓРµРјС‹Р№ РїСЂРё РІС‹С‡РёСЃР»РµРЅРёРё СЂР°Р·РјРµСЂР° Р±Р»РѕРєР° РѕС‚ РІРµР»РёС‡РёРЅС‹ ATR
+    period      = 10,     -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° ATR
+    showRenko   = 0,     -- РџРѕРєР°Р·С‹РІР°С‚СЊ Р»РёРЅРёРё Renko; 0 - РЅРµ РїРѕРєР°Р·С‹РІР°С‚СЊ; 1 - РїРѕРєР°Р·С‹РІР°С‚СЊ
     line = {
         {
             Name  = 'Renko UP',
@@ -122,7 +122,7 @@ local function F_RENKO(settings, ds)
      end
 end
 
---Nick Rypoсk Moving Average (NRMA)
+--Nick RypoСЃk Moving Average (NRMA)
 local function Algo(ds)
 
     local fRenko
