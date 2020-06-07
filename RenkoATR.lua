@@ -103,7 +103,7 @@ local function F_RENKO(settings, ds)
             return Renko_UP
         end
 
-        local close   = maLib.Value(index, 'Close', ds)
+        local close = maLib.Value(index, 'Close', ds)
 
         -- myLog('index: '..tostring(index)..', ATR: '..tostring(atr)..', Brick: '..tostring(Brick)..', Renko_UP: '..tostring(Renko_UP[index])..', Renko_DW: '..tostring(Renko_DW[index]))
 
@@ -122,7 +122,7 @@ local function F_RENKO(settings, ds)
      end
 end
 
---Nick Rypoсk Moving Average (NRMA)
+--Adaptive Renko ATR based
 local function Algo(ds)
 
     local fRenko
@@ -145,9 +145,12 @@ local function Algo(ds)
                 begin_index     = index
                 fRenko          = F_RENKO(Fsettings, ds)
                 fRenko(index)
-                trend           = 0
+                trend           = {}
+                trend[index]    = 0
                 return
             end
+
+            trend[index] = trend[index-1]
 
             p_buy  = nil
             p_sell = nil
@@ -160,12 +163,12 @@ local function Algo(ds)
             if index - begin_index < 2 then
                 return
             end
-            if trend >= 0 then
-                p_sell = (dw[index-1] < dw[index-2] and up[index-1] < up[index-2]) and maLib.Value(index, 'Open', ds) or nil
-                trend  = p_sell and -1 or trend
+            if trend[index-1] >= 0 then
+                p_sell        = (dw[index-1] < dw[index-2] and up[index-1] < up[index-2]) and maLib.Value(index, 'Open', ds) or nil
+                trend[index]  = p_sell and -1 or trend[index-1]
             else
-                p_buy   = (up[index-1] > up[index-2] and dw[index-1] > dw[index-2]) and maLib.Value(index, 'Open', ds) or nil
-                trend   = p_buy and 1 or trend
+                p_buy         = (up[index-1] > up[index-2] and dw[index-1] > dw[index-2]) and maLib.Value(index, 'Open', ds) or nil
+                trend[index]  = p_buy and 1 or trend[index-1]
             end
 
         end)
