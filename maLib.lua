@@ -87,21 +87,23 @@ local function F_ATR(settings, ds)
 
     local ATR     = {}
     local p_index
+    local l_index
 
     return function(index)
         local high      = Value(index, 'High', ds)
         local low       = Value(index, 'low', ds)
         local p_close   = Value(p_index or 1, 'Close', ds)
-
-        ATR[index]      = high - low
+        ATR[index]      = ATR[index-1]
         if not CheckIndex(index, ds) then
             return ATR
         end
+        if index ~= l_index then p_index = l_index end
+        ATR[index]      = high - low
         if p_index then
             local atr   = math_max(math_abs(high - low), math_abs(high - p_close), math_abs(p_close - low)) or ATR[index-1]
             ATR[index]  = (ATR[index-1] * (period-1) + atr)/period
         end
-        p_index = index
+        l_index = index
         return ATR
     end
 end
@@ -311,10 +313,11 @@ local function F_AMA(settings, ds)
     local round         = (settings.round or "off")
     local scale         = (settings.scale or 0)
 
+    local p_index
+    local l_index
     local Delta
     local fSUM
     local AMA
-    local p_index
     local fast_k = 2/(fast_period + 1)
     local slow_k = 2/(slow_period + 1)
 
@@ -327,6 +330,7 @@ local function F_AMA(settings, ds)
             AMA             = {}
             AMA[index]      = rounding(Value(index, data_type, ds), round, scale) or 0
             p_index         = index
+            l_index         = index
             return AMA
         end
 
@@ -336,6 +340,8 @@ local function F_AMA(settings, ds)
         if not CheckIndex(index, ds) then
             return AMA
         end
+
+        if index ~= l_index then p_index = l_index end
 
         Delta[index]    = math_abs(Value(index, data_type, ds) - Value(p_index, data_type, ds))
         local sum       = fSUM(index)[index]
@@ -349,9 +355,90 @@ local function F_AMA(settings, ds)
             AMA[index] = rounding(AMA[index-1] + (Value(index, data_type, ds) - AMA[index-1])*ssc , round, scale)
         end
 
-        p_index = index
+        l_index = index
 
         return AMA
+     end
+end
+
+--[[The Reverse EMA Indicator by John F. Ehlers
+]]
+local function F_REMA(settings, ds)
+
+    local alpha         = (settings.alpha or 0.1)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "off")
+    local scale         = (settings.scale or 0)
+    local period        = (2/alpha) - 1
+    local cc            = 1- alpha
+
+    local REMA
+
+    local RE1
+    local RE2
+    local RE3
+    local RE4
+    local RE5
+    local RE6
+    local RE7
+    local RE8
+
+    local fEMA
+
+    return function(index)
+        if REMA == nil or index == 1 then
+
+            REMA             = {}
+            REMA[index]      = 0
+
+            RE1         = {}
+            RE1[index]  = 0
+            RE2         = {}
+            RE2[index]  = 0
+            RE3         = {}
+            RE3[index]  = 0
+            RE4         = {}
+            RE4[index]  = 0
+            RE5         = {}
+            RE5[index]  = 0
+            RE6         = {}
+            RE6[index]  = 0
+            RE7         = {}
+            RE7[index]  = 0
+            RE8         = {}
+            RE8[index]  = 0
+            fEMA        = F_EMA({period = period, data_type = data_type, round = round, scale = scale}, ds)
+            fEMA(index)
+            return REMA
+        end
+
+        REMA[index] = REMA[index-1]
+
+        RE1[index]  = RE1[index-1]
+        RE2[index]  = RE2[index-1]
+        RE3[index]  = RE3[index-1]
+        RE4[index]  = RE4[index-1]
+        RE5[index]  = RE5[index-1]
+        RE6[index]  = RE6[index-1]
+        RE7[index]  = RE7[index-1]
+        RE8[index]  = RE8[index-1]
+        local ema   = fEMA(index)
+
+        if not CheckIndex(index, ds) then
+            return REMA
+        end
+
+        RE1[index]  = cc * ema[index] + ema[index-1]
+		RE2[index]  = math_pow(cc, 2) * RE1[index] + RE1[index-1]
+		RE3[index]  = math_pow(cc, 4) * RE2[index] + RE2[index-1]
+		RE4[index]  = math_pow(cc, 8) * RE3[index] + RE3[index-1]
+		RE5[index]  = math_pow(cc, 16) * RE4[index] + RE4[index-1]
+		RE6[index]  = math_pow(cc, 32) * RE5[index] + RE5[index-1]
+		RE7[index]  = math_pow(cc, 64) * RE6[index] + RE6[index-1]
+		RE8[index]  = math_pow(cc, 128) * RE7[index] + RE7[index-1]
+		REMA[index] = rounding(ema[index] - alpha*RE8[index], round, scale)
+
+        return REMA
      end
 end
 
@@ -366,7 +453,6 @@ local function F_THV(settings, ds)
     local scale         = (settings.scale or 0)
 
     local THV
-    local p_index
 
     local gda_108
     local gda_112
@@ -406,7 +492,6 @@ local function F_THV(settings, ds)
             gda_128         = {}
             gda_128[index]  = 0
 
-            p_index         = index
             return THV
         end
 
@@ -423,15 +508,13 @@ local function F_THV(settings, ds)
             return THV
         end
 
-        gda_108[index] = gd_172 * Value(index, data_type, ds) + gd_180 * (gda_108[p_index])
-		gda_112[index] = gd_172 * (gda_108[index]) + gd_180 * (gda_112[p_index])
-		gda_116[index] = gd_172 * (gda_112[index]) + gd_180 * (gda_116[p_index])
-		gda_120[index] = gd_172 * (gda_116[index]) + gd_180 * (gda_120[p_index])
-		gda_124[index] = gd_172 * (gda_120[index]) + gd_180 * (gda_124[p_index])
-		gda_128[index] = gd_172 * (gda_124[index]) + gd_180 * (gda_128[p_index])
+        gda_108[index] = gd_172 * Value(index, data_type, ds) + gd_180 * (gda_108[index-1])
+		gda_112[index] = gd_172 * (gda_108[index]) + gd_180 * (gda_112[index-1])
+		gda_116[index] = gd_172 * (gda_112[index]) + gd_180 * (gda_116[index-1])
+		gda_120[index] = gd_172 * (gda_116[index]) + gd_180 * (gda_120[index-1])
+		gda_124[index] = gd_172 * (gda_120[index]) + gd_180 * (gda_124[index-1])
+		gda_128[index] = gd_172 * (gda_124[index]) + gd_180 * (gda_128[index-1])
 		THV[index] = rounding(gd_132 * (gda_128[index]) + gd_140 * (gda_124[index]) + gd_148 * (gda_120[index]) + gd_156 * (gda_116[index]), round, scale)
-
-        p_index = index
 
         return THV
      end
@@ -795,6 +878,8 @@ local function MA(settings, ds)
         return F_NRMA(settings, ds)
     elseif method == "REG" then
         return F_REG(settings, ds)
+    elseif method == "REMA" then
+        return F_REMA(settings, ds)
     else
         return nil
     end
