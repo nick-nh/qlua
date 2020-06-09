@@ -90,18 +90,17 @@ local function F_ATR(settings, ds)
     local l_index
 
     return function(index)
-        local high      = Value(index, 'High', ds)
-        local low       = Value(index, 'low', ds)
-        local p_close   = Value(p_index or 1, 'Close', ds)
         ATR[index]      = ATR[index-1]
         if not CheckIndex(index, ds) then
             return ATR
         end
         if index ~= l_index then p_index = l_index end
+        local high      = Value(index, 'High', ds)
+        local low       = Value(index, 'low', ds)
+        local p_close   = Value(p_index or 1, 'Close', ds)
         ATR[index]      = high - low
         if p_index then
-            local atr   = math_max(math_abs(high - low), math_abs(high - p_close), math_abs(p_close - low)) or ATR[index-1]
-            ATR[index]  = (ATR[index-1] * (period-1) + atr)/period
+            ATR[index]  = (ATR[index-1]*(period-1) + math_max(math_abs(high - low), math_abs(high - p_close), math_abs(p_close - low)))/period
         end
         l_index = index
         return ATR
