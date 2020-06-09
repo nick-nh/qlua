@@ -15,15 +15,17 @@ local message       = _G['message']
 local RGB           = _G['RGB']
 local TYPE_LINE     = _G['TYPE_LINE']
 local TYPE_POINT    = _G['TYPE_POINT']
-local up_line_color = RGB(0, 250, 0)
-local dw_line_color = RGB(250, 0, 0)
+local isDark        = _G.isDarkTheme()
+local up_line_color = isDark and RGB(0, 230, 0) or RGB(0, 210, 0)
+local dw_line_color = isDark and RGB(230, 0, 0) or RGB(210, 0, 0)
 local os_time	    = os.time
 
 _G.Settings= {
     Name 		= "*RenkoATR",
-    k           = 1,      -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR
+    br_size     = 0,      -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
+    k           = 2,      -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
     period      = 10,     -- Период расчета ATR
-    showRenko   = 0,     -- Показывать линии Renko; 0 - не показывать; 1 - показывать
+    showRenko   = 0,      -- Показывать линии Renko; 0 - не показывать; 1 - показывать; 2 - показывать одной линией
     line = {
         {
             Name  = 'Renko UP',
@@ -63,10 +65,8 @@ local function myLog(text)
     logFile:write(tostring(os.date("%c",os_time())).." "..text.."\n");
     logFile:flush();
 end
-------------------------------------------------------------------
-    --Moving Average
-------------------------------------------------------------------
 
+local math_pow      = math.pow
 
 local function F_RENKO(settings, ds)
 
@@ -75,9 +75,10 @@ local function F_RENKO(settings, ds)
     local Renko_DW
     local begin_index
 
-    settings    = (settings or {})
-    local k     = (settings.k or 1)
-    local Brick = 0
+    settings        = (settings or {})
+    local br_size   = (settings.br_size or 0)
+    local k         = br_size == 0 and (settings.k or 1) or 1
+    local Brick     = {}
 
     return function(index)
 
@@ -89,33 +90,37 @@ local function F_RENKO(settings, ds)
             Renko_UP[index] = maLib.Value(index, 'High', ds) or 0
             Renko_DW        = {}
             Renko_DW[index] = maLib.Value(index, 'Low', ds) or 0
-            Brick           = k*(Renko_UP[index] - Renko_DW[index])
-            fATR            = maLib.new(settings, ds)
-            fATR(index)
+            if br_size == 0 then
+                Brick[index]    = k*(Renko_UP[index] - Renko_DW[index])
+                fATR            = maLib.new(settings, ds)
+                fATR(index)
+            else
+                local ds_info 	= _G.getDataSourceInfo()
+                Brick[index]    = br_size/math_pow(10, (tonumber(_G.getParamEx(ds_info.class_code, ds_info.sec_code,"SEC_SCALE").param_value) or 0))
+            end
             return Renko_UP
         end
 
+        Brick[index]    = Brick[index-1]
         Renko_UP[index] = Renko_UP[index-1]
         Renko_DW[index] = Renko_DW[index-1]
-        local atr       = fATR(index)[index]
+
+        local atr       = br_size == 0 and fATR(index)[index] or Brick[index-1]
 
         if not maLib.CheckIndex(index) then
             return Renko_UP
         end
 
         local close = maLib.Value(index, 'Close', ds)
-
-        -- myLog('index: '..tostring(index)..', ATR: '..tostring(atr)..', Brick: '..tostring(Brick)..', Renko_UP: '..tostring(Renko_UP[index])..', Renko_DW: '..tostring(Renko_DW[index]))
-
-        if close > Renko_UP[index-1] + Brick then
-            Renko_UP[index] = Renko_UP[index] + (Brick == 0  and 0 or math_floor((close - Renko_UP[index-1])/Brick)*Brick)
-            Brick           = k*atr
-            Renko_DW[index] = Renko_UP[index] - Brick
+        if close > Renko_UP[index-1] + Brick[index-1] then
+            Renko_UP[index] = Renko_UP[index] + (Brick[index-1] == 0  and 0 or math_floor((close - Renko_UP[index-1])/Brick[index-1])*Brick[index-1])
+            Brick[index]    = k*atr
+            Renko_DW[index] = Renko_UP[index] - Brick[index]
 		end
-		if close < Renko_DW[index-1] - Brick then
-            Renko_DW[index] = Renko_DW[index] - (Brick == 0  and 0 or math_floor((Renko_DW[index-1] - close)/Brick)*Brick)
-            Brick           = k*atr
-            Renko_UP[index] = Renko_DW[index] + Brick
+		if close < Renko_DW[index-1] - Brick[index-1] then
+            Renko_DW[index] = Renko_DW[index] - (Brick[index-1] == 0  and 0 or math_floor((Renko_DW[index-1] - close)/Brick[index-1])*Brick[index-1])
+            Brick[index]    = k*atr
+            Renko_UP[index] = Renko_DW[index] + Brick[index]
         end
 
         return Renko_UP, Renko_DW
@@ -156,10 +161,6 @@ local function Algo(ds)
             p_sell = nil
 
             local up, dw = fRenko(index)
-            if showRenko == 1 then
-                out_up       = up[index]
-                out_dw       = dw[index]
-            end
             if index - begin_index < 2 then
                 return
             end
@@ -169,6 +170,18 @@ local function Algo(ds)
             else
                 p_buy         = (up[index-1] > up[index-2] and dw[index-1] > dw[index-2]) and maLib.Value(index, 'Open', ds) or nil
                 trend[index]  = p_buy and 1 or trend[index-1]
+            end
+            if showRenko == 1 then
+                out_up       = up[index]
+                out_dw       = dw[index]
+            end
+            if showRenko == 2 then
+                out_up       = nil
+                if trend[index] >= 0 then
+                    out_dw = up[index]
+                else
+                    out_dw = dw[index]
+                end
             end
 
         end)
