@@ -132,6 +132,7 @@ local function Algo(Fsettings, ds)
 
     local l_index
     local reg
+    local begin_index
 
     return function (index)
 
@@ -142,6 +143,7 @@ local function Algo(Fsettings, ds)
             squeeze = nil
 
             if sourceBB == nil or index == 1 then
+                begin_index    = index
                 sourceH         = {}
                 sourceH[1]      = maLib.Value(index, 'High', ds)
                 sourceL         = {}
@@ -217,7 +219,7 @@ local function Algo(Fsettings, ds)
             Average[#Average]   = ((math_max(unpack(sourceH)) + math_min(unpack(sourceL)))/2 + sma_kc[index])/2
             Raw[#Raw]           = data - Average[#Average]
 
-            if #Raw >= m_period then
+            if (index - begin_index + 1) >= m_period then
                 reg[index] = fReg(#Raw)[#Raw]
                 if reg[index] >= (reg[index-1] or reg[index]) then
                     out_up  = reg[index]
