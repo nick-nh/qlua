@@ -6,7 +6,7 @@
 ]]
 _G.load   = _G.loadfile or _G.load
 
-local maLib = load(_G.getWorkingFolder().."\\LuaIndicators\\maLib.lua")()
+local maLib = require('maLib')
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\RenkoATR.txt", "w")
@@ -53,16 +53,27 @@ _G.Settings= {
         }
     }
 }
-_G.unpack = rawget(table, "unpack") or _G.unpack
 
 local PlotLines     = function() end
 local error_log     = {}
 
 local math_floor    = math.floor
 
-local function myLog(text)
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
+
+local function myLog(...)
 	if logFile==nil then return end
-    logFile:write(tostring(os.date("%c",os_time())).." "..text.."\n");
+    logFile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
     logFile:flush();
 end
 
@@ -128,7 +139,14 @@ local function F_RENKO(settings, ds)
 end
 
 --Adaptive Renko ATR based
-local function Algo(ds)
+local function Algo(Fsettings, ds)
+
+    Fsettings           = (Fsettings or {})
+    Fsettings.method    = 'ATR'
+    local period        = Fsettings.period or 10
+    local showRenko     = Fsettings.showRenko or 1
+
+    error_log = {}
 
     local fRenko
     local trend
@@ -138,11 +156,12 @@ local function Algo(ds)
     local p_sell
     local begin_index
 
-    return function (index, Fsettings)
+    return function (index)
 
-        Fsettings           = (Fsettings or {})
-        Fsettings.method    = 'ATR'
-        local showRenko     = Fsettings.showRenko or 1
+        out_up  = nil
+        out_dw  = nil
+        p_buy   = nil
+        p_sell  = nil
 
         local status, res = pcall(function()
 
@@ -157,11 +176,8 @@ local function Algo(ds)
 
             trend[index] = trend[index-1]
 
-            p_buy  = nil
-            p_sell = nil
-
             local up, dw = fRenko(index)
-            if index - begin_index < 2 then
+            if (index - begin_index + 1) < period then
                 return
             end
             if trend[index-1] >= 0 then
@@ -197,7 +213,7 @@ local function Algo(ds)
 end
 
 function _G.Init()
-    PlotLines = Algo()
+    PlotLines = Algo(_G.Settings)
     return 4
 end
 
@@ -206,5 +222,5 @@ function _G.OnChangeSettings()
 end
 
 function _G.OnCalculate(index)
-    return PlotLines(index, _G.Settings)
+    return PlotLines(index)
 end
