@@ -8,7 +8,7 @@
 
 _G.load   = _G.loadfile or _G.load
 
-local maLib = load(_G.getWorkingFolder().."\\LuaIndicators\\maLib.lua")()
+local maLib = require('maLib')
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\AMA.txt", "w")
@@ -38,35 +38,53 @@ _G.Settings= {
 local PlotLines     = function() end
 local error_log     = {}
 
-local function myLog(text)
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
+
+local function myLog(...)
 	if logFile==nil then return end
-    logFile:write(tostring(os.date("%c",os_time())).." "..text.."\n");
+    logFile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
     logFile:flush();
 end
 
-local function Algo(ds)
+local function Algo(Fsettings, ds)
+
+    Fsettings           = (Fsettings or {})
+    Fsettings.method    = Fsettings.method or 'AMA'
+    local period        = Fsettings.period or 9
+
+    error_log = {}
 
     local fMA
     local out
+    local begin_index
 
-    return function (index, Fsettings)
+    return function (index)
 
-        Fsettings           = (Fsettings or {})
-        Fsettings.method    = 'AMA'
+        out = nil
 
         local status, res = pcall(function()
 
             if not maLib then return end
 
             if fMA == nil or index == 1 then
-                fMA        = maLib.new(Fsettings, ds)
+                begin_index     = index
+                fMA             = maLib.new(Fsettings, ds)
                 fMA(index)
                 return out
             end
 
-            out = fMA(index)[index]
+            out = fMA(index)[(index - begin_index + 1) >= period and index or -1]
 
-            return out
         end)
         if not status then
             if not error_log[tostring(res)] then
@@ -81,7 +99,7 @@ local function Algo(ds)
 end
 
 function _G.Init()
-    PlotLines = Algo()
+    PlotLines = Algo(_G.Settings)
     return 1
 end
 
@@ -90,5 +108,5 @@ function _G.OnChangeSettings()
 end
 
 function _G.OnCalculate(index)
-    return PlotLines(index, _G.Settings)
+    return PlotLines(index)
 end
