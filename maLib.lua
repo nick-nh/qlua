@@ -12,7 +12,6 @@ local string_sub    = string.sub
 local math_floor    = math.floor
 local math_ceil     = math.ceil
 local math_max      = math.max
-local math_min      = math.min
 local math_abs      = math.abs
 local math_pow      = math.pow
 local math_sqrt     = math.sqrt
@@ -90,7 +89,7 @@ local function F_ATR(settings, ds)
     local l_index
 
     return function(index)
-        ATR[index]      = ATR[index-1]
+        ATR[index]      = ATR[index-1] or 0
         if not CheckIndex(index, ds) then
             return ATR
         end
@@ -119,16 +118,17 @@ local function F_SUM(settings, ds)
     local S_TMP = {}
     local bars    = 0
     return function(index)
-        local val       = Value(index, data_type, ds) or 0
-        S_TMP[index]    = S_TMP[index-1] or val
+        S_TMP[index]    = S_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return S_TMP
         end
-        S_ACC[index] = (S_ACC[index-1] or 0) + val
-        if bars > 1 then
-            S_TMP[index] = S_ACC[index] - (S_ACC[index - math_min(bars, period)] or 0)
+        S_ACC[index] = (S_ACC[index-1] or 0) + (Value(index, data_type, ds) or 0)
+        if bars > period then
+            S_TMP[index] = S_ACC[index] - (S_ACC[index - period] or 0)
+        else
+            S_TMP[index] = S_ACC[index]
+            bars         = bars + 1
         end
-        bars = bars + 1
         return S_TMP
     end
 end
@@ -139,22 +139,20 @@ SMA = sum(Pi) / n
 local function F_SMA(settings, ds)
 
     local period    = (settings.period or 9)
-    local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
 
-    local fSum    = F_SUM(settings, ds)
-    local SMA_TMP = {}
-    local bars    = 0
+    local fSum      = F_SUM(settings, ds)
+    local SMA_TMP   = {}
+    local bars      = 0
     return function(index)
-        local val       = Value(index, data_type, ds) or 0
-        SMA_TMP[index]  = SMA_TMP[index-1] or val
+        SMA_TMP[index]  = SMA_TMP[index-1] or 0
         local sum       = fSum(index)[index]
         if not CheckIndex(index, ds) then
             return SMA_TMP
         end
-        SMA_TMP[index]  = rounding(sum/math_min(bars, period), round, scale)
-        bars            = bars + 1
+        bars            = bars < period and (bars + 1) or period
+        SMA_TMP[index]  = rounding(sum/bars, round, scale)
         return SMA_TMP
     end
 end
@@ -169,14 +167,18 @@ local function F_EMA(settings, ds)
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
 
+    local bars      = 0
+    local SUM_TMP = {}
     local EMA_TMP = {}
     return function(index)
-        EMA_TMP[index] = EMA_TMP[index-1]
+        EMA_TMP[index] = EMA_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return EMA_TMP
         end
-        if EMA_TMP[index-1] == nil then
-            EMA_TMP[index] = rounding(Value(index, data_type, ds), round, scale)
+        if bars < period then
+            bars = bars + 1
+            SUM_TMP[index] = (Value(index, data_type, ds) + (SUM_TMP[index-1] or 0))
+            EMA_TMP[index] = rounding(SUM_TMP[index]/bars, scale)
         else
             EMA_TMP[index] = rounding((EMA_TMP[index-1]*(period-1) + 2*Value(index, data_type, ds))/(period+1), round, scale)
         end
@@ -197,7 +199,7 @@ local function F_WMA(settings, ds)
 
     local WMA_TMP = {}
     return function(index)
-        WMA_TMP[index] = WMA_TMP[index-1]
+        WMA_TMP[index] = WMA_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return WMA_TMP
         end
@@ -223,17 +225,21 @@ local function F_VMA(settings, ds)
     local VMA       = {}
     local VMA_ACC   = {}
     local VMA_VACC  = {}
+    local bars      = 0
     return function (index)
-        local val   = Value(index, data_type, ds) or 0
-        local vol   = Value(index, "Volume", ds) or 0
-        VMA[index]  = VMA[index-1] or val
+        VMA[index]  = VMA[index-1] or 0
         if not CheckIndex(index, ds) then
             return VMA
         end
-        VMA_ACC[index]  = (VMA_ACC[index-1] or 0) + val*vol
+        local vol       = Value(index, "Volume", ds) or 0
+        VMA_ACC[index]  = (VMA_ACC[index-1] or 0) + (Value(index, data_type, ds) or 0)*vol
         VMA_VACC[index] = (VMA_VACC[index-1] or 0) + vol
-        if index >= period then
-            VMA[index] = (VMA_VACC[index] or 0) == 0 and VMA_VACC[index-1] or rounding(VMA_ACC[index]/VMA_VACC[index], round, scale)
+        if bars >= period then
+            local sum   = VMA_ACC[index] - (VMA_ACC[index-period] or 0)
+            local sum_v = VMA_VACC[index] - (VMA_VACC[index-period] or 0)
+            VMA[index] = sum_v == 0 and VMA[index] or rounding(sum/sum_v, round, scale)
+        else
+            bars = bars + 1
         end
         return VMA
     end
@@ -250,19 +256,19 @@ local function F_SMMA(settings, ds)
     local scale     = (settings.scale or 0)
 
     local SMMA_TMP  = {}
-    local SMA_ACC   = {}
+    local fSum      = F_SUM(settings, ds)
+    local bars      = 0
     return function(index)
-        SMMA_TMP[index] = SMMA_TMP[index-1] or Value(index, data_type, ds)
-        if index >= period then
-            if not CheckIndex(index, ds) then
-                return SMMA_TMP
-            end
-            SMA_ACC[index] = (SMA_ACC[index-1] or 0) + Value(index, data_type, ds)
-            if index == period then
-                SMMA_TMP[index] = rounding(SMA_ACC[index]/period, round, scale)
-            else
-                SMMA_TMP[index] = rounding(((SMA_ACC[index] - (SMA_ACC[index - period] or 0)) - SMMA_TMP[index-1] + Value(index, data_type, ds))/period, round, scale)
-            end
+        SMMA_TMP[index] = SMMA_TMP[index-1] or 0
+        local sum       = fSum(index)[index]
+        if not CheckIndex(index, ds) then
+            return SMMA_TMP
+        end
+        if bars <= period then
+            bars = bars + 1
+            SMMA_TMP[index] = rounding(sum/bars, round, scale)
+        elseif bars > period then
+            SMMA_TMP[index] = rounding((sum - SMMA_TMP[index-1] + (Value(index, data_type, ds) or 0))/period, round, scale)
         end
         return SMMA_TMP
     end
@@ -528,7 +534,6 @@ local function F_NRTR(settings, ds)
     local begin_index
 
     settings        = (settings or {})
-    -- local period    = (settings.period or 10)
     local k         = (settings.k or 0.5)
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
@@ -640,18 +645,21 @@ local function F_NRMA(settings, ds)
 end
 
 -- Среднеквадратическое отклонение
-local function Sigma(input, compare, kstd)
+local function Sigma(input, compare, kstd, period, index)
 
-    kstd = kstd or 1
+    index  = index or #input
+    period = period or #input
+    kstd   = kstd or 1
 
     local sq = 0
-    for n = 1, #compare do
-        if compare[n] and input[n] then
-            sq = sq + math_pow(input[n] - compare[n], 2)
+    for n = 1, period do
+        local i = index - n + 1
+        if compare[i] and input[i] then
+            sq = sq + math_pow(input[i] - compare[i], 2)
         end
     end
 
-    return math_sqrt(sq/(#compare-1))*kstd
+    return math_sqrt(sq/(period-1))*kstd
 end
 
 -- Regression
@@ -690,7 +698,7 @@ local function F_REG(settings, ds)
 			sx={}
 			sx[1] = period + 1
             local sum
-			for mi = 1, nn*2-2 do
+			for mi = 0, nn*2-2 do
                 sum=0
                 for n = 1, period do
 					sum = sum + math_pow(n,mi)
@@ -701,7 +709,7 @@ local function F_REG(settings, ds)
 			return nil
 		end
 
-        if not CheckIndex(index, ds) or index <= period then
+        if not CheckIndex(index, ds) or index < period then
 			return nil
 		end
 
@@ -711,7 +719,7 @@ local function F_REG(settings, ds)
         local sum
 		for mi=1, nn do
 			sum = 0
-			for n = 0, period do
+			for n = 1, period do
 				if CheckIndex(index+n-period, ds) then
                     input[#input + 1] = Value(index+n-period, data_type, ds)
                     if mi == 1 then
@@ -802,26 +810,28 @@ end
 -- Ковариация
 -- Среднеквадратическое отклонение
 -- Стандартное отклонение Баланса
-local function Correlation(input, compare, kstd)
+local function Correlation(input, compare, kstd, period, index)
 
     if #compare == 0 then return end
 
+    index  = index or #input
+    period = period or #input
     kstd = kstd or 1
 
     local sq          = 0
-    local period      = #compare
     local m_input     = 0
     local m_compare   = 0
 
-    for n = 1, #compare do
-        if compare[n] and input[n] then
-            sq = sq + math_pow(input[n] - compare[n], 2)
-            m_input   = m_input + input[n]
-            m_compare = m_compare + compare[n]
+    for n = 1, period do
+        local i = index - n + 1
+        if compare[i] and input[i] then
+            sq = sq + math_pow(input[i] - compare[i], 2)
+            m_input   = m_input + input[i]
+            m_compare = m_compare + compare[i]
         end
     end
 
-    sq =  math_sqrt(sq/(#compare-1))*kstd
+    sq =  math_sqrt(sq/(period-1))*kstd
 
     local LRE = math.sqrt(sq/(period-2))
 
@@ -833,11 +843,12 @@ local function Correlation(input, compare, kstd)
     local sq_input      = 0
     local sq_compare    = 0
 
-    for n = 1, #compare do
-        if compare[n] and input[n] then
-            sq_input    = sq_input + math_pow(input[n]-m_input,2)
-            sq_compare  = sq_compare + math_pow(compare[n]-m_compare,2)
-            cov         = cov + (input[n]-m_input)*(compare[n]-m_compare)
+    for n = 1, period do
+        local i = index - n + 1
+        if compare[i] and input[i] then
+            sq_input    = sq_input + math_pow(input[i]-m_input,2)
+            sq_compare  = sq_compare + math_pow(compare[i]-m_compare,2)
+            cov         = cov + (input[i]-m_input)*(compare[i]-m_compare)
         end
     end
 
