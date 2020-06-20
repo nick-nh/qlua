@@ -7,7 +7,7 @@
 
 _G.load   = _G.loadfile or _G.load
 
-local maLib = load(_G.getWorkingFolder().."\\LuaIndicators\\maLib.lua")()
+local maLib = require('maLib')
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\TEMA.txt", "w")
@@ -23,8 +23,8 @@ local os_time	    = os.time
 _G.Settings= {
     Name 		= "*Smoothed Anchored Momentum",
     data_type   = 'Close',
-    period      = 11,       -- Ïåðèîä äîï. óñðåäíåíèÿ SMA
-    ema_period  = 6,       -- Ïåðèîä äîï. óñðåäíåíèÿ EMA
+    period      = 11,       -- ÐŸÐµÑ€Ð¸Ð¾Ð´ Ð´Ð¾Ð¿. ÑƒÑÑ€ÐµÐ´Ð½ÐµÐ½Ð¸Ñ SMA
+    ema_period  = 6,       -- ÐŸÐµÑ€Ð¸Ð¾Ð´ Ð´Ð¾Ð¿. ÑƒÑÑ€ÐµÐ´Ð½ÐµÐ½Ð¸Ñ EMA
     line = {
         {
             Name  = 'zero',
@@ -44,35 +44,53 @@ _G.Settings= {
 local PlotLines     = function() end
 local error_log     = {}
 
-local function myLog(text)
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
+
+local function myLog(...)
 	if logFile==nil then return end
-    logFile:write(tostring(os.date("%c",os_time())).." "..text.."\n");
+    logFile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
     logFile:flush();
 end
 ------------------------------------------------------------------
     --Moving Average
 ------------------------------------------------------------------
 
-local function Algo(ds)
+local function Algo(Fsettings, ds)
+
+    Fsettings        = (Fsettings or {})
+    local data_type  = (Fsettings.data_type or "Close")
+    local period     = (Fsettings.period or 11)
+    local ema_period = (Fsettings.ema_period or 6)
+    local round      = (Fsettings.round or "off")
+    local scale      = (Fsettings.scale or 0)
+
+    error_log = {}
 
     local fSMA
     local fEMA
     local out
+    local begin_index
 
-    return function (index, Fsettings)
-
-        Fsettings        = (Fsettings or {})
-        local data_type  = (Fsettings.data_type or "Close")
-        local period     = (Fsettings.period or 11)
-        local ema_period = (Fsettings.ema_period or 6)
-        local round      = (Fsettings.round or "off")
-        local scale      = (Fsettings.scale or 0)
+    return function (index)
 
         local status, res = pcall(function()
+
+            out = nil
 
             if not maLib then return end
 
             if fSMA == nil or index == 1 then
+                begin_index    = index
                 fSMA           = maLib.new({period = 2*period + 1, method = 'SMA', data_type = data_type, round = round, scale = scale}, ds)
                 fSMA(index)
                 fEMA           = maLib.new({period = ema_period, method = 'EMA', data_type = data_type, round = round, scale = scale}, ds)
@@ -83,7 +101,7 @@ local function Algo(ds)
             local sma = fSMA(index)[index]
             local ema = fEMA(index)[index]
 
-            out = sma == 0 and out or 100*((ema/sma) - 1)
+            out = (index - begin_index + 1) >= period and (sma == 0 and out or 100*((ema/sma) - 1)) or nil
         end)
         if not status then
             if not error_log[tostring(res)] then
@@ -97,7 +115,7 @@ local function Algo(ds)
 end
 
 function _G.Init()
-    PlotLines = Algo()
+    PlotLines = Algo(_G.Settings)
     return 2
 end
 
@@ -106,5 +124,5 @@ function _G.OnChangeSettings()
 end
 
 function _G.OnCalculate(index)
-    return PlotLines(index, _G.Settings)
+    return PlotLines(index)
 end
