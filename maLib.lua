@@ -21,6 +21,88 @@ local math_huge     = math.huge
     --Moving Average
 ------------------------------------------------------------------
 
+local  function Slice(input, start, finish)
+    start           = start or 1
+    finish          = finish or #input
+    if start == 1 and finish == #input then return input end
+    local output = {}
+    for i=start, finish or #input do
+      output[#output + 1] = input[i]
+    end
+    return output
+end
+
+local  function Sum(input, start, finish)
+    start           = start or 1
+    finish          = finish or #input
+    local output = 0
+    for i=start, finish or #input do
+      output = output + input[i]
+    end
+    return output
+end
+
+-- Среднеквадратическое отклонение
+local function Sigma(input, avg, start, finish)
+
+    start           = start or 1
+    finish          = finish or #input
+    local period    = finish - start + 1
+
+    avg = avg or Sum(Slice(input, start, finish), 1)/period
+
+    local sq = 0
+    for i = start, finish do
+        if input[i] then
+            sq = sq + math_pow(input[i] - avg, 2)
+        end
+    end
+
+    return math_sqrt(sq/(period-1))
+end
+
+-- Коэффициент корреляции Пирсона
+-- Ковариация
+-- Среднеквадратическое отклонение
+-- Стандартное отклонение Баланса
+local function Correlation(input, compare, start, finish)
+
+    if #compare == 0 then return end
+
+    local period      = finish - start + 1
+    local m_input     = 0
+    local m_compare   = 0
+
+    for i = start, finish do
+        if compare[i] and input[i] then
+            m_input   = m_input + input[i]
+            m_compare = m_compare + compare[i]
+        end
+    end
+
+    m_input   = m_input/period
+    m_compare = m_compare/period
+
+    --ковариация
+    local cov           = 0
+    local sq_input      = 0
+    local sq_compare    = 0
+
+    for i = start, finish do
+        if compare[i] and input[i] then
+            sq_input    = sq_input + math_pow(input[i]-m_input,2)
+            sq_compare  = sq_compare + math_pow(compare[i]-m_compare,2)
+            cov         = cov + (input[i]-m_input)*(compare[i]-m_compare)
+        end
+    end
+
+    cov = cov/period
+    local LRC = cov/(math_sqrt(sq_input/period)*math_sqrt(sq_compare/period))
+
+    return LRC, cov
+
+end
+
 local function rounding(num, round, scale)
     scale = scale or 0
     if not round or string_upper(round)== "OFF" then return num end
@@ -34,32 +116,34 @@ end
 local function Value(index, data_type, ds)
     local Out = nil
     data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "A"
-    if data_type == "O" then		--Open
-        Out = (O and O(index)) or (ds and ds:O(index))
-    elseif data_type == "H" then 	--High
-        Out = (H and H(index)) or (ds and ds:H(index))
-    elseif data_type == "L" then	--Low
-        Out = (L and L(index)) or (ds and ds:L(index))
-    elseif data_type == "C" then	--Close
-        Out = (C and C(index)) or (ds and ds:C(index))
-    elseif data_type == "V" then	--Volume
-        Out = (V and V(index)) or (ds and ds:V(index))
-    elseif data_type == "M" then	--Median
-        Out = ((Value(index,"H",ds) + Value(index,"L",ds)) / 2)
-    elseif data_type == "T" then	--Typical
-        Out = ((Value(index,"M",ds) * 2 + Value(index,"C",ds))/3)
-    elseif data_type == "W" then	--Weighted
-        Out = ((Value(index,"T",ds) * 3 + Value(index,"O",ds))/4)
-    elseif data_type == "D" then	--Difference
-        Out = (Value(index,"H",ds) - Value(index,"L",ds))
+    if  data_type ~= "A" and index >= 1 then
+        if data_type == "O" then		--Open
+            Out = (O and O(index)) or (ds and ds:O(index))
+        elseif data_type == "H" then 	--High
+            Out = (H and H(index)) or (ds and ds:H(index))
+        elseif data_type == "L" then	--Low
+            Out = (L and L(index)) or (ds and ds:L(index))
+        elseif data_type == "C" then	--Close
+            Out = (C and C(index)) or (ds and ds:C(index))
+        elseif data_type == "V" then	--Volume
+            Out = (V and V(index)) or (ds and ds:V(index))
+        elseif data_type == "M" then	--Median
+            Out = ((Value(index,"H",ds) + Value(index,"L",ds)) / 2)
+        elseif data_type == "T" then	--Typical
+            Out = ((Value(index,"M",ds) * 2 + Value(index,"C",ds))/3)
+        elseif data_type == "W" then	--Weighted
+            Out = ((Value(index,"T",ds) * 3 + Value(index,"O",ds))/4)
+        elseif data_type == "D" then	--Difference
+            Out = (Value(index,"H",ds) - Value(index,"L",ds))
+        end
     elseif data_type == "A" then	--Any
-        if ds then Out = ds[index] else Out = 0 end
+        Out = ds and ds[index]
     end
     return Out or 0
 end
 
 local function dsSize(data_type, ds)
-    data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "A"
+    data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "C"
     if data_type == 'A' and ds then
         return #ds
     end
@@ -74,8 +158,195 @@ local function dsSize(data_type, ds)
     return 0
 end
 
-local function CheckIndex(index, ds)
-    return (C and C(index)) or ((ds and ds.C) and ds:C(index)) or (ds and ds[index])
+local function CheckIndex(index, ds, data_type)
+    data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "C"
+    if data_type == 'A' and ds then
+        return ds and ds[index]
+    end
+    if data_type ~= 'A' then
+        return (C and C(index)) or ((ds and ds.C) and ds:C(index)) or (ds and ds[index])
+    end
+end
+
+local function GetIndex(index, shift, ds, data_type)
+    while (index-shift) > 1 and not CheckIndex(index-shift, ds, data_type) do
+        shift = shift -1
+    end
+    return index-shift
+end
+
+local function HilbertTransform(index, src)
+    return 0.0962 * src[index] + 0.5769 * (src[index - 2] or 0) - 0.5769 * (src[index - 4] or 0) - 0.0962 * (src[index- 6] or 0)
+end
+
+--[[Ehlers Adaptive alfa
+]]
+local function EthlerAlpha(settings, ds)
+
+    local fastLimit     = (settings.fastLimit or 0.5)
+    local slowLimit     = (settings.slowLimit or 0.05)
+    local data_type     = (settings.data_type or 'Close')
+
+    local atan          = math.atan
+    local pi            = math.pi
+    local mesaPeriod    = {}
+    local smooth        = {}
+    local detrender     = {}
+    local I1            = {}
+    local Q1            = {}
+    local I2            = {}
+    local Q2            = {}
+    local Re            = {}
+    local Im            = {}
+    local phase         = {}
+    local deltaPhase    = {}
+
+    local alpha
+
+    local function computeComponent(index, src, k)
+        return HilbertTransform(index, src)*k
+    end
+
+    return function(index)
+        mesaPeriod[index]   = mesaPeriod[index-1] or 0
+        smooth[index]       = smooth[index-1] or 0
+        detrender[index]    = detrender[index-1] or 0
+        I1[index]           = I1[index-1] or 0
+        Q1[index]           = Q1[index-1] or 0
+        I2[index]           = I2[index-1] or 0
+        Q2[index]           = Q2[index-1] or 0
+        Re[index]           = Re[index-1] or 0
+        Im[index]           = Im[index-1] or 0
+        phase[index]        = phase[index-1] or 0
+        deltaPhase[index]   = deltaPhase[index-1] or 0
+
+        if not CheckIndex(index, ds, data_type) then
+            return alpha
+        end
+
+        local mesaPeriodMult    = 0.075*(mesaPeriod[index - 1] or 0) + 0.54
+        smooth[index]           = (4*Value(index, data_type, ds) + 3*(Value(GetIndex(index, 1, ds, data_type), data_type, ds)) + 2*(Value(GetIndex(index, 2, ds, data_type), data_type, ds)) + (Value(GetIndex(index, 3, ds, data_type), data_type, ds)))/10
+
+        detrender[index]        = computeComponent(index, smooth, mesaPeriodMult)
+
+        --Compute InPhase and Quadrature components
+        I1[index]               = detrender[index-3] or 0
+        Q1[index]               = computeComponent(index, detrender, mesaPeriodMult)
+
+        --Advance the phase of I1 and Q1 by 90 degrees
+        local jI                = computeComponent(index, I1, mesaPeriodMult)
+        local jQ                = computeComponent(index, Q1, mesaPeriodMult)
+
+        --Phasor addition for 3 bar averaging
+        I2[index]               =  I1[index] - jQ
+        Q2[index]               =  Q1[index] + jI
+
+        --Smooth the I and Q components before applying the discriminator
+        I2[index]               =  0.2*I2[index] + 0.8*(I2[index - 1] or 0)
+        Q2[index]               =  0.2*Q2[index] + 0.8*(Q2[index - 1] or 0)
+
+        --Homodyne Discriminator
+        Re[index]               = I2[index]*(I2[index - 1] or 0) + Q2[index]*(Q2[index - 1] or 0)
+        Im[index]               = I2[index]*(Q2[index - 1] or 0) - Q2[index]*(I2[index - 1] or 0)
+
+        Re[index]               =  0.2*Re[index] + 0.8*(Re[index - 1] or 0)
+        Im[index]               =  0.2*Im[index] + 0.8*(Im[index - 1] or 0)
+
+        if Re[index] ~= 0 and Im[index] ~= 0 then
+            mesaPeriod[index] =  2*pi/atan(Im[index]/Re[index])
+        end
+
+        if mesaPeriod[index] > 1.5*(mesaPeriod[index - 1] or 0) then
+            mesaPeriod[index] =  1.5*(mesaPeriod[index - 1] or 0)
+        end
+
+        if mesaPeriod[index] < 0.67*(mesaPeriod[index - 1] or 0) then
+            mesaPeriod[index] =  0.67*(mesaPeriod[index - 1] or 0)
+        end
+
+        if mesaPeriod[index] < 6 then
+            mesaPeriod[index] =  6
+        end
+
+        if mesaPeriod[index] > 50 then
+            mesaPeriod[index] =  50
+        end
+
+        mesaPeriod[index] =  0.2*mesaPeriod[index] + 0.8*(mesaPeriod[index - 1] or 0)
+
+        if I1[index] ~= 0 then
+            phase[index] =  (180/pi)*atan(Q1[index]/I1[index])
+        end
+
+        deltaPhase[index] = (phase[index - 1] or 0) - phase[index]
+
+        if  deltaPhase[index] < 1 then
+            deltaPhase[index] =  1
+        end
+
+        alpha = fastLimit/deltaPhase[index]
+
+        if  alpha < slowLimit then
+            alpha =  slowLimit
+        end
+
+        return alpha
+    end
+end
+
+--[[
+    Ehlers Deviation-Scaled filters
+]]
+local function Get2PoleSSF(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+
+    local pi        = math.pi
+    local arg       = math.sqrt(2)*pi/period
+    local a1        = math.exp(-arg)
+    local b1        = 2*a1*math.cos(arg)
+    local c2        = b1
+    local c3        = -(a1*a1)
+    local c1        = 1 - c2 - c3
+
+    local SSF       = {}
+
+    return function(index)
+        SSF[index]      = SSF[index-1] or 0
+        if not CheckIndex(index, ds) then
+            return SSF
+        end
+        SSF[index]      = c1*Value(index, data_type, ds) + c2*(SSF[index-1] or 0) + c3*(SSF[index-2] or 0)
+        return SSF
+    end
+end
+local function Get3PoleSSF(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+
+    local pi        = math.pi
+    local arg       = pi/period
+    local a1        = math.exp(-arg)
+    local b1        = 2*a1*math.cos(1.738*arg)
+    local c1        = a1*a1
+
+    local coef2     = b1 + c1
+    local coef3     = -(c1 + b1*c1)
+    local coef4     = c1*c1
+    local coef1     = 1 - coef2 - coef3 - coef4
+
+    local SSF       = {}
+
+    return function(index)
+        SSF[index]      = SSF[index-1] or 0
+        if not CheckIndex(index, ds) then
+            return SSF
+        end
+        SSF[index]      = coef1*Value(index, data_type, ds) + coef2*(SSF[index-1] or 0) + coef3*(SSF[index-2] or 0) + coef4*(SSF[index-3] or 0)
+        return SSF
+    end
 end
 
 --[[Average True Range
@@ -644,24 +915,6 @@ local function F_NRMA(settings, ds)
     end
 end
 
--- Среднеквадратическое отклонение
-local function Sigma(input, compare, kstd, period, index)
-
-    index  = index or #input
-    period = period or #input
-    kstd   = kstd or 1
-
-    local sq = 0
-    for n = 1, period do
-        local i = index - n + 1
-        if compare[i] and input[i] then
-            sq = sq + math_pow(input[i] - compare[i], 2)
-        end
-    end
-
-    return math_sqrt(sq/(period-1))*kstd
-end
-
 -- Regression
 -- Linear:      degree = 1
 -- Parabolic:   degree = 2
@@ -792,70 +1045,21 @@ local function F_REG(settings, ds)
 			fx_buffer[n]=x[1] + sum
 		end
 
-		--- Std
-		local sq = Sigma(input, fx_buffer, kstd)
+        local sse = 0
+        for n = 1, period do
+            sse = sse + math_pow(fx_buffer[n] - input[n], 2)
+        end
+
+        sse = math_sqrt(sse/(period-1))*kstd
 
 		for n = 1, period do
-			sqh_buffer[n]=fx_buffer[n]+sq
-			sql_buffer[n]=fx_buffer[n]-sq
+			sqh_buffer[n]=fx_buffer[n]+sse
+			sql_buffer[n]=fx_buffer[n]-sse
 		end
 
 		return fx_buffer, sqh_buffer, sql_buffer
 
 	end
-
-end
-
--- Коэффициент корреляции Пирсона
--- Ковариация
--- Среднеквадратическое отклонение
--- Стандартное отклонение Баланса
-local function Correlation(input, compare, kstd, period, index)
-
-    if #compare == 0 then return end
-
-    index  = index or #input
-    period = period or #input
-    kstd = kstd or 1
-
-    local sq          = 0
-    local m_input     = 0
-    local m_compare   = 0
-
-    for n = 1, period do
-        local i = index - n + 1
-        if compare[i] and input[i] then
-            sq = sq + math_pow(input[i] - compare[i], 2)
-            m_input   = m_input + input[i]
-            m_compare = m_compare + compare[i]
-        end
-    end
-
-    sq =  math_sqrt(sq/(period-1))*kstd
-
-    local LRE = math.sqrt(sq/(period-2))
-
-    m_input   = m_input/period
-    m_compare = m_compare/period
-
-    --ковариация
-    local cov           = 0
-    local sq_input      = 0
-    local sq_compare    = 0
-
-    for n = 1, period do
-        local i = index - n + 1
-        if compare[i] and input[i] then
-            sq_input    = sq_input + math_pow(input[i]-m_input,2)
-            sq_compare  = sq_compare + math_pow(compare[i]-m_compare,2)
-            cov         = cov + (input[i]-m_input)*(compare[i]-m_compare)
-        end
-    end
-
-    cov = cov/period
-    local LRC = cov/(math_sqrt(sq_input/period)*math_sqrt(sq_compare/period))
-
-    return LRC, cov, sq, LRE
 
 end
 
@@ -896,9 +1100,16 @@ local function MA(settings, ds)
 end
 
 M.new         = MA
+M.Slice       = Slice
+M.Sum         = Sum
 M.Sigma       = Sigma
 M.Correlation = Correlation
+M.EthlerAlpha = EthlerAlpha
+M.Get2PoleSSF = Get2PoleSSF
+M.Get3PoleSSF = Get3PoleSSF
+
 M.CheckIndex  = CheckIndex
+M.GetIndex    = GetIndex
 M.rounding    = rounding
 M.Value       = Value
 M.dsSize      = dsSize
