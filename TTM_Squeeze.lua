@@ -88,14 +88,6 @@ local function myLog(...)
     logFile:flush();
 end
 
-local slice         = function(obj, start, finish)
-    local output = {}
-    for i=start, finish or #obj do
-      output[#output + 1] = obj[i]
-    end
-    return output
-end
-
 --TTM Squeeze от John Carter
 local function Algo(Fsettings, ds)
 
@@ -226,7 +218,8 @@ local function Algo(Fsettings, ds)
                 else
                     out_dw  = reg[index]
                 end
-                local std       = maLib.Sigma(sourceBB, slice(sma_bb, index - periodBB + 1, index), multBB)
+                local std       = maLib.Sigma(sourceBB)*multBB
+
                 local upperBB   = sma_bb[index] + std
                 local lowerBB   = sma_bb[index] - std
                 local upperKC   = sma_kc[index] + sma_range*multKC
