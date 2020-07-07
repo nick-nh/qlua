@@ -1,7 +1,7 @@
 -- nnh Glukk Inc. nick-h@yandex.ru
 
 local logFile = nil
--- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\priceAvgProfile.log", "w")
+--logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\priceAvgProfile.log", "w")
 
 _G.unpack = rawget(table, "unpack") or _G.unpack
 
@@ -11,7 +11,7 @@ _G.Settings.shift 			= 100
 _G.Settings.barShift 		= 0
 _G.Settings.Name 			= "*priceAvgProfile"
 _G.Settings.weeks 			= 0 -- 1 - текущая, отрицательное число - сколько прошлых недель, включая текущую
-_G.Settings.fixShift 		= 1 -- 1 - всегда смещено на указанное количество shift, если 0, то будет смещено на дату начала неделеи расчета
+_G.Settings.fixShift 		= 1 -- 1 - всегда смещено на указанное количество shift, если 0, то будет смещено на дату начала недели расчета
 _G.Settings.showMaxLine 	= 1
 ---------------------------------------------------------------------------------------
 
@@ -70,8 +70,6 @@ local function Algo(Fsettings)
     local showMaxLine 	= Fsettings.showMaxLine or 0
     local bars 			= 50
 
-	-- myLog('Fsettings '..tostring(Fsettings))
-
 	shift = math_max(bars+1, shift)
 
 	local cacheL		= {}
@@ -90,17 +88,17 @@ local function Algo(Fsettings)
         local status, res = pcall(function()
 
 			if index == 1 then
-	            maxPriceLine = {}
-	            weeksBegin = {}
-	            cacheL = {}
-	            cacheL[index] = 0
-	            cacheH = {}
-	            cacheH[index] = 0
-	            cacheC = {}
-	            cacheC[index] = 0
+	            maxPriceLine 	= {}
+	            weeksBegin 		= {}
+	            cacheL 			= {}
+	            cacheL[index] 	= 0
+	            cacheH 			= {}
+	            cacheH[index] 	= 0
+	            cacheC 			= {}
+	            cacheC[index] 	= 0
 
-				calculated_buffer = {}
-	            outlines = {}
+				calculated_buffer 	= {}
+	            outlines 			= {}
 
 				return nil
 			end
@@ -257,6 +255,10 @@ function _G.Init()
 
 	PlotLines = Algo(_G.Settings)
 	return lines
+end
+
+function _G.OnChangeSettings()
+    _G.Init()
 end
 
 function _G.OnCalculate(index)
