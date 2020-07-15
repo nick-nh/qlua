@@ -7,6 +7,7 @@ local L     = _G['L']
 local V     = _G['V']
 local Size  = _G['Size']
 
+local table_remove  = table.remove
 local string_upper  = string.upper
 local string_sub    = string.sub
 local math_floor    = math.floor
@@ -35,17 +36,33 @@ end
 local  function Sum(input, start, finish)
     start           = start or 1
     finish          = finish or #input
-    local output = 0
+    local output    = 0
     for i=start, finish or #input do
       output = output + input[i]
     end
     return output
 end
 
+local  function Normalize(input, start, finish)
+    start        = start or 1
+    finish       = finish or #input
+    local output = {}
+    local max_i  = input[start]
+    local min_i  = input[start]
+    for i=start, finish or #input do
+        output[#output + 1] = input[i]
+        if input[i] > max_i then max_i = #output end
+        if input[i] < min_i then min_i = #output end
+    end
+    table_remove(output, min_i)
+    table_remove(output, max_i-1)
+    return output
+end
+
 -- Среднеквадратическое отклонение
 local function Sigma(input, avg, start, finish)
 
-    start           = start or 1
+    start           = math_max(start or 1, 1)
     finish          = finish or #input
     local period    = finish - start + 1
 
@@ -1103,6 +1120,7 @@ M.new         = MA
 M.Slice       = Slice
 M.Sum         = Sum
 M.Sigma       = Sigma
+M.Normalize   = Normalize
 M.Correlation = Correlation
 M.EthlerAlpha = EthlerAlpha
 M.Get2PoleSSF = Get2PoleSSF
