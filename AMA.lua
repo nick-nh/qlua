@@ -7,8 +7,7 @@
 ]]
 
 _G.load   = _G.loadfile or _G.load
-
-local maLib = require('maLib')
+local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\AMA.txt", "w")
