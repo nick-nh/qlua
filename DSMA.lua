@@ -5,7 +5,8 @@
     DSMA Deviation-Scaled Moving Average by John F. Ehlers
 ]]
 
-local maLib = require('maLib')
+_G.load   = _G.loadfile or _G.load
+local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\DSMA.txt", "w")
