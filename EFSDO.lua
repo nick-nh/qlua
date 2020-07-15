@@ -5,7 +5,8 @@
     EFDSO Ehlers Fisherized Deviation-Scaled Oscillator
 ]]
 
-local maLib = require('maLib')
+_G.load   = _G.loadfile or _G.load
+local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\EFDSO.txt", "w")
@@ -22,8 +23,8 @@ _G.Settings= {
     period      = 20,
     poles       = 2, --[2, 3]
     data_type   = 'Close',
-    obLevel     = 2,  -- уровень перекупленности
-    osLevel     = -2, -- уровень перпроданности
+    obLevel     = 2.0,  -- уровень перекупленности
+    osLevel     = -2.0, -- уровень перпроданности
     line = {
         {
             Name  = 'zero',
@@ -155,7 +156,7 @@ end
 
 function _G.Init()
     PlotLines = Algo(_G.Settings)
-    return #_G.Settings.line
+    return 4
 end
 
 function _G.OnChangeSettings()
