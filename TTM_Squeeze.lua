@@ -6,7 +6,8 @@
 ]]
 _G.unpack = rawget(table, "unpack") or _G.unpack
 
-local maLib = require('maLib')
+_G.load   = _G.loadfile or _G.load
+local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\Squeeze.txt", "w")
@@ -25,9 +26,9 @@ _G.Settings= {
     data_type   = 'Close',
     useATR      = 0,      -- использовать ATR; 0 - не использовать; 1 - использовать
     periodBB    = 10,     -- Период расчета полос Болинджера
-    multBB      = 2,      -- коэффициент при расчете полос Болинджера
+    multBB      = 2.0,      -- коэффициент при расчете полос Болинджера
     periodKC    = 10,     -- Период расчета канала Кельтнера
-    multKC      = 2,      -- коэффициент при расчете канала Кельтнера
+    multKC      = 2.0,      -- коэффициент при расчете канала Кельтнера
     line = {
         {
             Name  = 'zero',
