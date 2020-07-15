@@ -5,8 +5,7 @@
 	Adaptive Renko ATR based.
 ]]
 _G.load   = _G.loadfile or _G.load
-
-local maLib = require('maLib')
+local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
 --logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\RenkoATR.txt", "w")
@@ -14,21 +13,20 @@ local logFile = nil
 local message       = _G['message']
 local RGB           = _G['RGB']
 local TYPE_LINE     = _G['TYPE_LINE']
-local TYPE_POINT    = _G['TYPE_POINT']
 local isDark        = _G.isDarkTheme()
 local up_line_color = isDark and RGB(0, 230, 0) or RGB(0, 210, 0)
 local dw_line_color = isDark and RGB(230, 0, 0) or RGB(210, 0, 0)
 local os_time	    = os.time
-local table_remove	= table.remove
 
 _G.Settings= {
-    Name 		= "*RenkoATR",
-    br_size     = 0,                    -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
-    k           = 2,                    -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
-    period      = 10,                   -- Период расчета ATR
-    showRenko   = 0,                    -- Показывать линии Renko; 0 - не показывать; 1 - показывать; 2 - показывать одной линией
+    Name 		    = "*RenkoATR",
+    br_size         = 0.0,                    -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
+    k               = 3.0,                    -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
+    period          = 24,                   -- Период расчета ATR
+    showRenko       = 1,                    -- Показывать линии Renko; 0 - не показывать; 1 - показывать; 2 - показывать одной линией
     --Для установки значения, необходимо поставить * перед выбранным вариантом.
-    brickType   = '*ATR; Std; Fix',     -- Тип расчета Renko; ATR; Std - стандартное отклонение; Fix - фиксированный размер, заданный в br_size
+    brickType       = 'ATR; *Std; Fix',     -- Тип расчета Renko; ATR; Std - стандартное отклонение; Fix - фиксированный размер, заданный в br_size
+    std_ma_method   = 'SMA',
     line = {
         {
             Name  = 'Renko UP',
@@ -45,13 +43,13 @@ _G.Settings= {
         {
             Name  = 'Buy',
             Color = up_line_color,
-            Type  = TYPE_POINT,
+            Type  = _G.TYPE_TRIANGLE_UP,
             Width = 4
         },
         {
             Name  = 'Sell',
             Color = dw_line_color,
-            Type  = TYPE_POINT,
+            Type  = _G.TYPE_TRIANGLE_DOWN,
             Width = 4
         }
     }
@@ -85,18 +83,20 @@ local math_pow      = math.pow
 local function F_RENKO(settings, ds)
 
     local fATR
+    local fMA
     local Data
     local Renko_UP
     local Renko_DW
 
     local begin_index
-    local l_index
+    local brick_bars     = 0
 
-    settings        = (settings or {})
-    local br_size   = (settings.br_size or 0)
-    local period    = (settings.period or 0)
-    local k         = br_size == 0 and (settings.k or 1) or 1
-    local Brick     = {}
+    settings            = (settings or {})
+    local br_size       = (settings.br_size or 0)
+    local period        = (settings.period or 0)
+    local std_ma_method = (settings.std_ma_method or 'SMA')
+    local k             = br_size == 0 and (settings.k or 1) or 1
+    local Brick         = {}
 
     local brickType = 'ATR'
 	for val in string.gmatch(settings.brickType or '*ATR', "([^;]+)") do
@@ -122,8 +122,10 @@ local function F_RENKO(settings, ds)
                     fATR            = maLib.new(settings, ds)
                     fATR(index)
                 else
-                    Data        = {}
-                    Data[1]     = maLib.Value(index, 'Close', ds) or 0
+                    Data            = {}
+                    Data[index]     = maLib.Value(index, 'Close', ds) or 0
+                    fMA             = maLib.new({period = period, method = std_ma_method, data_type = 'Any'}, Data)
+                    fMA(index)
                 end
             else
                 local ds_info 	= _G.getDataSourceInfo()
@@ -145,26 +147,24 @@ local function F_RENKO(settings, ds)
         local close = maLib.Value(index, 'Close', ds)
 
         if brickType == 'Std' then
-            if index ~= l_index then
-                Data[#Data + 1] = Data[#Data]
-                if #Data > period then table_remove(Data, 1) end
-            end
-            Data[#Data] = close
-            atr         = maLib.Sigma(Data)
+            Data[index] = close
+            atr         = maLib.Sigma(Data, fMA(index)[index] or close, index - period + 1, index)
         end
-
+        brick_bars = brick_bars + 1
+        if brick_bars > period then
+            brick_bars = 1
+            Brick[index] = k*atr
+        end
         if close > Renko_UP[index-1] + Brick[index-1] then
             Renko_UP[index] = Renko_UP[index] + (Brick[index-1] == 0  and 0 or math_floor((close - Renko_UP[index-1])/Brick[index-1])*Brick[index-1])
+            Renko_DW[index] = math.max(Renko_DW[index], Renko_UP[index] - Brick[index])
             Brick[index]    = k*atr
-            Renko_DW[index] = Renko_UP[index] - Brick[index]
 		end
 		if close < Renko_DW[index-1] - Brick[index-1] then
             Renko_DW[index] = Renko_DW[index] - (Brick[index-1] == 0  and 0 or math_floor((Renko_DW[index-1] - close)/Brick[index-1])*Brick[index-1])
+            Renko_UP[index] = math.min(Renko_UP[index], Renko_DW[index] + Brick[index])
             Brick[index]    = k*atr
-            Renko_UP[index] = Renko_DW[index] + Brick[index]
         end
-
-        l_index = index
 
         return Renko_UP, Renko_DW
      end
