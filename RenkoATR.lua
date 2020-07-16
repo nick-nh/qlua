@@ -8,7 +8,7 @@ _G.load   = _G.loadfile or _G.load
 local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
---logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\RenkoATR.txt", "w")
+-- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\RenkoATR.txt", "w")
 
 local message       = _G['message']
 local RGB           = _G['RGB']
@@ -16,27 +16,32 @@ local TYPE_LINE     = _G['TYPE_LINE']
 local isDark        = _G.isDarkTheme()
 local up_line_color = isDark and RGB(0, 230, 0) or RGB(0, 210, 0)
 local dw_line_color = isDark and RGB(230, 0, 0) or RGB(210, 0, 0)
+local line_color    = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 local os_time	    = os.time
 
 _G.Settings= {
-    Name 		    = "*RenkoATR",
-    br_size         = 0.0,                    -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
-    k               = 3.0,                    -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
-    period          = 24,                   -- Период расчета ATR
-    showRenko       = 1,                    -- Показывать линии Renko; 0 - не показывать; 1 - показывать; 2 - показывать одной линией
+    Name 		        = "*RenkoATR",
+    br_size             = 0.0,                  -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
+    recalc_brick        = 1,                    -- Пересчитывать размер блока каждый период-бар
+    shift_limit         = 1,                    -- Сдвигать границу по пересчитанному размеру блока
+    min_recalc_brick    = 0,                    -- Минимизировать размер блока при пересчете
+    data_type           = 0,                    -- 0 - Close; 1 - High|Low
+    k                   = 3.0,                  -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
+    period              = 24,                   -- Период расчета ATR
+    showRenko           = 1,                    -- Показывать линии Renko; 0 - не показывать; 1 - показывать; 2 - показывать одной линией
     --Для установки значения, необходимо поставить * перед выбранным вариантом.
-    brickType       = 'ATR; *Std; Fix',     -- Тип расчета Renko; ATR; Std - стандартное отклонение; Fix - фиксированный размер, заданный в br_size
+    brickType       = 'ATR; *Std; Fix',         -- Тип расчета Renko; ATR; Std - стандартное отклонение; Fix - фиксированный размер, заданный в br_size
     std_ma_method   = 'SMA',
     line = {
         {
             Name  = 'Renko UP',
-            Color = up_line_color,
+            Color = line_color,
             Type  = TYPE_LINE,
             Width = 1
         },
         {
             Name  = 'Renko Down',
-            Color = dw_line_color,
+            Color = line_color,
             Type  = TYPE_LINE,
             Width = 1
         },
@@ -88,16 +93,21 @@ local function F_RENKO(settings, ds)
     local Renko_UP
     local Renko_DW
 
+    local recalc_index
+    local l_index
+    local trend
     local begin_index
-    local brick_bars     = 0
-
-    settings            = (settings or {})
-    local br_size       = (settings.br_size or 0)
-    local period        = (settings.period or 0)
-    local std_ma_method = (settings.std_ma_method or 'SMA')
-    local k             = br_size == 0 and (settings.k or 1) or 1
+    local brick_bars    = 0
     local Brick         = {}
 
+    settings                = (settings or {})
+    local br_size           = (settings.br_size or 0)
+    local period            = (settings.period or 0)
+    local data_type         = (settings.data_type or 0)
+    local recalc_brick      = (settings.recalc_brick or 0)
+    local min_recalc_brick  = (settings.min_recalc_brick or 0)
+    local shift_limit       = (settings.shift_limit or 0)
+    local std_ma_method     = (settings.std_ma_method or 'SMA')
     local brickType = 'ATR'
 	for val in string.gmatch(settings.brickType or '*ATR', "([^;]+)") do
         if (val:find('*')) then
@@ -105,6 +115,7 @@ local function F_RENKO(settings, ds)
             break
         end
     end
+    local k                 = (brickType ~='Fix' or br_size == 0) and (settings.k or 1) or 1
 
     return function(index)
 
@@ -131,12 +142,19 @@ local function F_RENKO(settings, ds)
                 local ds_info 	= _G.getDataSourceInfo()
                 Brick[index]    = br_size/math_pow(10, (tonumber(_G.getParamEx(ds_info.class_code, ds_info.sec_code,"SEC_SCALE").param_value) or 0))
             end
+            l_index         = index
+            trend           = {}
+            trend[index]    = 0
             return Renko_UP
         end
 
+        if brickType == 'Std' then
+            Data[index]     = Data[index-1]
+        end
         Brick[index]    = Brick[index-1]
         Renko_UP[index] = Renko_UP[index-1]
         Renko_DW[index] = Renko_DW[index-1]
+        trend[index]    = trend[index-1]
 
         local atr       = brickType == 'ATR' and fATR(index)[index] or Brick[index-1]
 
@@ -144,29 +162,48 @@ local function F_RENKO(settings, ds)
             return Renko_UP
         end
 
-        local close = maLib.Value(index, 'Close', ds)
+        local close = data_type == 0 and maLib.Value(index, 'Close', ds) or (trend[index] == -1  and maLib.Value(index, 'Low', ds) or maLib.Value(index, 'High', ds))
 
         if brickType == 'Std' then
             Data[index] = close
             atr         = maLib.Sigma(Data, fMA(index)[index] or close, index - period + 1, index)
         end
-        brick_bars = brick_bars + 1
-        if brick_bars > period then
-            brick_bars = 1
-            Brick[index] = k*atr
+        if l_index ~= index then
+            brick_bars = brick_bars + 1
+            if brick_bars > period then
+                brick_bars = 1
+                recalc_index = index
+            end
         end
+        if recalc_brick == 1 and recalc_index == index then
+            Brick[index] = min_recalc_brick == 1 and math.min(k*atr, Brick[index]) or k*atr
+            if shift_limit == 1 then
+                if trend[index] == -1 then Renko_UP[index] = math.min(Renko_UP[index-1], Renko_DW[index-1] + Brick[index]) end
+                if trend[index] == 1  then Renko_DW[index] = math.max(Renko_DW[index-1], Renko_UP[index-1] - Brick[index]) end
+            end
+        end
+        l_index = index
+        -- myLog(index, os.date('%Y.%m.%d %H:%M', os.time(_G.T(index))), 'Brick', Brick[index], 'close', close, 'up', Renko_UP[index], close - Renko_UP[index], 'dw', Renko_DW[index], Renko_DW[index] - close)
         if close > Renko_UP[index-1] + Brick[index-1] then
+            -- myLog('new brick', os.date('%Y.%m.%d %H:%M', os.time(_G.T(index))), 'Brick', k*atr, 'close', close, 'up', Renko_UP[index], 'dw', Renko_DW[index])
             Renko_UP[index] = Renko_UP[index] + (Brick[index-1] == 0  and 0 or math_floor((close - Renko_UP[index-1])/Brick[index-1])*Brick[index-1])
-            Renko_DW[index] = math.max(Renko_DW[index], Renko_UP[index] - Brick[index])
             Brick[index]    = k*atr
+            -- Renko_DW[index] = Renko_UP[index] - Brick[index]
+            Renko_DW[index] = math.max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
+            trend[index]  = 1
+            --brick_bars = 1
 		end
 		if close < Renko_DW[index-1] - Brick[index-1] then
+            -- myLog('new brick', os.date('%Y.%m.%d %H:%M', os.time(_G.T(index))), 'Brick', k*atr, 'close', close, 'up', Renko_UP[index], 'dw', Renko_DW[index])
             Renko_DW[index] = Renko_DW[index] - (Brick[index-1] == 0  and 0 or math_floor((Renko_DW[index-1] - close)/Brick[index-1])*Brick[index-1])
-            Renko_UP[index] = math.min(Renko_UP[index], Renko_DW[index] + Brick[index])
             Brick[index]    = k*atr
+            -- Renko_UP[index] = Renko_DW[index] + Brick[index]
+            Renko_UP[index] = math.min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
+            trend[index]  = -1
+            --brick_bars = 1
         end
 
-        return Renko_UP, Renko_DW
+        return Renko_UP, Renko_DW, trend
      end
 end
 
@@ -181,7 +218,6 @@ local function Algo(Fsettings, ds)
     error_log = {}
 
     local fRenko
-    local trend
     local out_up
     local out_dw
     local p_buy
@@ -201,23 +237,18 @@ local function Algo(Fsettings, ds)
                 begin_index     = index
                 fRenko          = F_RENKO(Fsettings, ds)
                 fRenko(index)
-                trend           = {}
-                trend[index]    = 0
                 return
             end
 
-            trend[index] = trend[index-1]
 
-            local up, dw = fRenko(index)
-            if (index - begin_index + 1) < period then
+            local up, dw, trend = fRenko(index)
+            if (index - begin_index + 1) <= period then
                 return
             end
-            if trend[index-1] >= 0 then
-                p_sell        = (dw[index-1] < dw[index-2] and up[index-1] < up[index-2]) and maLib.Value(index, 'Open', ds) or nil
-                trend[index]  = p_sell and -1 or trend[index-1]
-            else
-                p_buy         = (up[index-1] > up[index-2] and dw[index-1] > dw[index-2]) and maLib.Value(index, 'Open', ds) or nil
-                trend[index]  = p_buy and 1 or trend[index-1]
+            if trend[index-1] < trend[index-2] then
+                p_sell        = maLib.Value(index, 'Open', ds)
+            elseif trend[index-1] > trend[index-2] then
+                p_buy         = maLib.Value(index, 'Open', ds)
             end
             if showRenko == 1 then
                 out_up       = up[index]
