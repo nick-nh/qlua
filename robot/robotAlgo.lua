@@ -1951,7 +1951,7 @@ function GetCorrectPrice(price) -- STRING
           price = round(tonumber(price), scale)
           -- Корректирует на соответствие шагу цены
           price = round(price/PriceStep)*PriceStep
-          price = string.gsub(tostring(price),'[\.]+', ',')
+          price = string.gsub(tostring(price),'[%.]+', ',')
           return price
        end
     else -- После запятой не должно быть цифр
@@ -2332,8 +2332,8 @@ function SL_TP(AtPrice, Type, qnt)
     myLog(NAME_OF_STRATEGY..' robot: стоп '..STOP_ORDER_KIND..', сделка '..Type..' по цене '..tostring(AtPrice)..' EXPIRY_DATE '..tostring(EXPIRY_DATE)..', Установка ТЕЙК-ПРОФИТ: '..tp_Price..' и СТОП-ЛОСС: '..sl_Price..' ЦЕНА выставления: '..tostring(price)..' offset: '..tostring(offset)..' spread: '..tostring(spread))
     
     if virtualTrade then
-        tpPrice = string.gsub(tp_Price,'[\,]+', '.')
-        slPrice = string.gsub(sl_Price,'[\,]+', '.')
+        tpPrice = string.gsub(tp_Price,'[,]+', '.')
+        slPrice = string.gsub(sl_Price,'[,]+', '.')
         tpPrice = tonumber(tpPrice)
         slPrice = tonumber(slPrice)
         
