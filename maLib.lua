@@ -405,18 +405,23 @@ local function F_SUM(settings, ds)
     local S_ACC = {}
     local S_TMP = {}
     local bars    = 0
+    local l_index
     return function(index)
         S_TMP[index]    = S_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return S_TMP
         end
-        S_ACC[index] = (S_ACC[index-1] or 0) + (Value(index, data_type, ds) or 0)
-        if bars > period then
-            S_TMP[index] = S_ACC[index] - (S_ACC[index - period] or 0)
-        else
-            S_TMP[index] = S_ACC[index]
-            bars         = bars + 1
+        S_ACC[#S_ACC + (l_index == index and 0 or 1)] = (S_ACC[#S_ACC - (l_index == index and 1 or 0)] or 0) + (Value(index, data_type, ds) or 0)
+        if l_index ~= index then
+            bars = bars + 1
         end
+        if bars > period then
+            if #S_ACC > period + 1 then table_remove(S_ACC, 1) end
+            S_TMP[index] = S_ACC[#S_ACC] - (S_ACC[1] or 0)
+        else
+            S_TMP[index] = S_ACC[#S_ACC]
+        end
+        l_index = index
         return S_TMP
     end
 end
