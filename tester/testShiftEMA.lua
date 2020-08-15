@@ -191,3 +191,14 @@ function shiftEMA(index, settings, DS)
     return calcAlgoValue, trend, calcChartResults 
     
 end
+
+
+local newIndex = #ALGORITHMS['names']+1
+
+ALGORITHMS['names'][newIndex]               = "ShiftEMA"
+ALGORITHMS['initParams'][newIndex]          = initShiftEMA
+ALGORITHMS['initAlgorithms'][newIndex]      = initShiftEMA
+ALGORITHMS['itetareAlgorithms'][newIndex]   = iterateShiftEMA
+ALGORITHMS['calcAlgorithms'][newIndex]      = shiftEMA
+ALGORITHMS['tradeAlgorithms'][newIndex]     = simpleTrade
+ALGORITHMS['settings'][newIndex]            = shiftEMASettings
