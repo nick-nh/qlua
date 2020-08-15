@@ -50,8 +50,8 @@ end
 function signalRSI(i, cell, settings, DS, signal)
     
     local testvalue = 50 -- сравниваемое значение 
-    local signaltestvalue1 = calcAlgoValue[DS:Size()-1]
-    local signaltestvalue2 = calcAlgoValue[DS:Size()-2]
+    local signaltestvalue1 = calcAlgoValue[DS:Size()-1] or 0
+    local signaltestvalue2 = calcAlgoValue[DS:Size()-2] or 0
     
     if calcAlgoValue[DS:Size()] == nil or DS:Size() == 0 then return end
     local calcVal = calcAlgoValue[DS:Size()] or 0
@@ -88,8 +88,8 @@ function signalRSI(i, cell, settings, DS, signal)
             if isPlaySound == 1 then PaySoundFile(soundFileName) end
         end
         --Теперь смотрим за текущей ситуацией
-        signaltestvalue1 = calcAlgoValue[DS:Size()]
-        signaltestvalue2 = calcAlgoValue[DS:Size()-1]
+        signaltestvalue1 = calcAlgoValue[DS:Size()] or 0
+        signaltestvalue2 = calcAlgoValue[DS:Size()-1] or 0
         if signaltestvalue1 > 70 and signaltestvalue2 < 70 then
             mes = mes0..": RSI превысил 70"
             myLog(mes)
