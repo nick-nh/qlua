@@ -116,15 +116,15 @@ function Reg(index, settings, DS)
 	local sq = 0
 	local i0 = 0
 
-	local mi = 0
- 	local ai={{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
+    local mi = 0
+    local ai={{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
 	local b={}
 	local x={}
 
 	p = period
 	nn = degree+1
 
-    if index == beginIndexToCalc then
+    if index == beginIndexToCalc or index == 1 then
         --myLog("Показатель Period "..tostring(period))
         --myLog("Показатель degree "..tostring(degree))
         --myLog("Показатель shift "..tostring(shift))
@@ -135,11 +135,11 @@ function Reg(index, settings, DS)
         sx[1] = p+1
 
         for mi=1, nn*2-2 do
-            sum=0
+            local sum=0
             for n=i0, i0+p do
                 sum = sum + math.pow(n,mi)
             end
-        	sx[mi+1]=sum
+            sx[mi+1] = sum
         end
 
 
