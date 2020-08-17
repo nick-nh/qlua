@@ -166,12 +166,13 @@ function OnInit()
     dofile (getScriptPath().."\\testTHV_HA.lua") --THV алгоритм
     dofile (getScriptPath().."\\testShiftEMA.lua") --ShiftEMA алгоритм
     dofile (getScriptPath().."\\renko.lua") --ShiftEMA алгоритм
-    --dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
-    --dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
+    dofile (getScriptPath().."\\testSAR.lua") --SAR алгоритм
+    dofile (getScriptPath().."\\testReg.lua") --Reg алгоритм
     dofile (getScriptPath().."\\testRangeHV.lua") --RangeHV алгоритм
     dofile (getScriptPath().."\\testEthler.lua") --Ethler алгоритм
     dofile (getScriptPath().."\\testZZ.lua") --ZZ алгоритм
-    --dofile (getScriptPath().."\\bolinger.lua") --ishimoku алгоритм
+    dofile (getScriptPath().."\\bolinger.lua") --bolinger алгоритм
+    dofile (getScriptPath().."\\ishimoku.lua") --ishimoku алгоритм
 
     SEC_CODES['class_codes']           = {} -- CLASS_CODE
     SEC_CODES['names']                 = {} -- имена бумаг
