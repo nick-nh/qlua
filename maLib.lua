@@ -1,5 +1,3 @@
-local M = {}
-
 local O     = _G['O']
 local C     = _G['C']
 local H     = _G['H']
@@ -18,10 +16,16 @@ local math_pow      = math.pow
 local math_sqrt     = math.sqrt
 local math_huge     = math.huge
 
+local M = {}
+M.LICENSE = {
+    _VERSION     = 'MA lib 2020.09.23',
+    _DESCRIPTION = 'quik lib',
+    _AUTHOR      = 'nnh: nick-h@yandex.ru'
+}
+
 ------------------------------------------------------------------
     --Moving Average
 ------------------------------------------------------------------
-
 local  function Slice(input, start, finish)
     start           = start or 1
     finish          = finish or #input
@@ -60,7 +64,7 @@ local  function Normalize(input, start, finish)
 end
 
 -- Среднеквадратическое отклонение
-local function Sigma(input, avg, start, finish)
+local function Sigma(input, avg, start, finish, not_shifted)
 
     start           = math_max(start or 1, 1)
     finish          = finish or #input
@@ -75,7 +79,7 @@ local function Sigma(input, avg, start, finish)
         end
     end
 
-    return math_sqrt(sq/(period-1))
+    return math_sqrt(sq/(not_shifted and period or (period-1)))
 end
 
 -- Коэффициент корреляции Пирсона
@@ -160,7 +164,7 @@ local function Value(index, data_type, ds)
 end
 
 local function dsSize(data_type, ds)
-    data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "C"
+    data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "A"
     if data_type == 'A' and ds then
         return #ds
     end
@@ -371,6 +375,7 @@ end
 local function F_ATR(settings, ds)
 
     local period    = (settings.period or 9)
+    local save_bars = (settings.save_bars or period)
 
     local ATR     = {}
     local p_index
@@ -389,6 +394,7 @@ local function F_ATR(settings, ds)
         if p_index then
             ATR[index]  = (ATR[index-1]*(period-1) + math_max(math_abs(high - low), math_abs(high - p_close), math_abs(p_close - low)))/period
         end
+        ATR[index-save_bars] = nil
         l_index = index
         return ATR
     end
@@ -400,19 +406,20 @@ sum(Pi)
 local function F_SUM(settings, ds)
 
     local period    = (settings.period or 9)
-    local data_type = (settings.data_type or "Close")
+    local save_bars = (settings.save_bars or period)
 
     local S_ACC = {}
     local S_TMP = {}
     local bars    = 0
     local l_index
-    return function(index)
+    return function(index, val)
         S_TMP[index]    = S_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return S_TMP
         end
-        S_ACC[#S_ACC + (l_index == index and 0 or 1)] = (S_ACC[#S_ACC - (l_index == index and 1 or 0)] or 0) + (Value(index, data_type, ds) or 0)
+        S_ACC[#S_ACC + (l_index == index and 0 or 1)] = (S_ACC[#S_ACC - (l_index == index and 1 or 0)] or 0) + (val or 0)
         if l_index ~= index then
+            l_index = index
             bars = bars + 1
         end
         if bars > period then
@@ -421,7 +428,7 @@ local function F_SUM(settings, ds)
         else
             S_TMP[index] = S_ACC[#S_ACC]
         end
-        l_index = index
+        S_TMP[index-save_bars] = nil
         return S_TMP
     end
 end
@@ -432,21 +439,63 @@ SMA = sum(Pi) / n
 local function F_SMA(settings, ds)
 
     local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
 
     local fSum      = F_SUM(settings, ds)
     local SMA_TMP   = {}
     local bars      = 0
     return function(index)
         SMA_TMP[index]  = SMA_TMP[index-1] or 0
-        local sum       = fSum(index)[index]
+        local sum       = fSum(index, (Value(index, data_type, ds) or 0))[index]
         if not CheckIndex(index, ds) then
             return SMA_TMP
         end
         bars            = bars < period and (bars + 1) or period
         SMA_TMP[index]  = rounding(sum/bars, round, scale)
+        SMA_TMP[index-save_bars] = nil
         return SMA_TMP
+    end
+end
+
+--[[Standard Deviation
+]]
+local function F_SD(settings, ds)
+
+    local period        = (settings.period or 9)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "off")
+    local avg_method    = (settings.avg_method or 'SMA')
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+    local not_shifted   = settings.not_shifted
+
+    local fMA           = M.new({period = period, data_type = data_type, method = avg_method, round = round, scale = scale}, ds)
+    local SD            = {}
+    local input         = {}
+    return function(index)
+
+        SD[index]       = SD[index-1] or 0
+        input[index]    = input[index-1] or 0
+        local avg       = fMA(index)
+        if not CheckIndex(index, ds) then
+            return SD, avg
+        end
+        input[index]    = Value(index, data_type, ds) or 0
+        local sq = 0
+        for i = index - period + 1, index do
+            if input[i] then
+                sq = sq + math_pow(input[i] - avg[index], 2)
+            end
+        end
+
+        SD[index]   = math_sqrt(sq/(not_shifted and period or (period-1)))
+
+        SD[index-save_bars]     = nil
+        input[index-save_bars]  = nil
+        return SD, avg
     end
 end
 
@@ -459,6 +508,7 @@ local function F_EMA(settings, ds)
     local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
 
     local bars      = 0
     local SUM_TMP = {}
@@ -475,6 +525,7 @@ local function F_EMA(settings, ds)
         else
             EMA_TMP[index] = rounding((EMA_TMP[index-1]*(period-1) + 2*Value(index, data_type, ds))/(period+1), round, scale)
         end
+        EMA_TMP[index-save_bars] = nil
         return EMA_TMP
     end
 end
@@ -489,6 +540,7 @@ local function F_WMA(settings, ds)
     local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
 
     local WMA_TMP = {}
     return function(index)
@@ -501,6 +553,7 @@ local function F_WMA(settings, ds)
         else
             WMA_TMP[index] = rounding((WMA_TMP[index-1]*(period-1) + Value(index, data_type, ds))/period, round, scale)
         end
+        WMA_TMP[index-save_bars] = nil
         return WMA_TMP
     end
 end
@@ -514,7 +567,10 @@ local function F_VMA(settings, ds)
     local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
 
+    local fSum      = F_SUM(settings, ds)
+    local fSumV     = F_SUM(settings, ds)
     local VMA       = {}
     local VMA_ACC   = {}
     local VMA_VACC  = {}
@@ -525,8 +581,8 @@ local function F_VMA(settings, ds)
             return VMA
         end
         local vol       = Value(index, "Volume", ds) or 0
-        VMA_ACC[index]  = (VMA_ACC[index-1] or 0) + (Value(index, data_type, ds) or 0)*vol
-        VMA_VACC[index] = (VMA_VACC[index-1] or 0) + vol
+        VMA_ACC[index]  = fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]
+        VMA_VACC[index] = fSumV(index, vol)[index]
         if bars >= period then
             local sum   = VMA_ACC[index] - (VMA_ACC[index-period] or 0)
             local sum_v = VMA_VACC[index] - (VMA_VACC[index-period] or 0)
@@ -534,6 +590,7 @@ local function F_VMA(settings, ds)
         else
             bars = bars + 1
         end
+        VMA[index-save_bars] = nil
         return VMA
     end
 end
@@ -547,13 +604,15 @@ local function F_SMMA(settings, ds)
     local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
 
     local SMMA_TMP  = {}
     local fSum      = F_SUM(settings, ds)
     local bars      = 0
     return function(index)
         SMMA_TMP[index] = SMMA_TMP[index-1] or 0
-        local sum       = fSum(index)[index]
+        local val       = (Value(index, data_type, ds) or 0)
+        local sum       = fSum(index, val)[index]
         if not CheckIndex(index, ds) then
             return SMMA_TMP
         end
@@ -561,8 +620,9 @@ local function F_SMMA(settings, ds)
             bars = bars + 1
             SMMA_TMP[index] = rounding(sum/bars, round, scale)
         elseif bars > period then
-            SMMA_TMP[index] = rounding((sum - SMMA_TMP[index-1] + (Value(index, data_type, ds) or 0))/period, round, scale)
+            SMMA_TMP[index] = rounding((sum - SMMA_TMP[index-1] + val)/period, round, scale)
         end
+        SMMA_TMP[index-save_bars] = nil
         return SMMA_TMP
     end
 end
@@ -576,6 +636,7 @@ local function F_TEMA(settings, ds)
     local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
 
     local fEMA1
     local ema1
@@ -596,6 +657,7 @@ local function F_TEMA(settings, ds)
         end
 
         TEMA[index] = rounding(3*fEMA1(index)[index] - 3*fEMA2(index)[index] + fEMA3(index)[index], round, scale)
+        TEMA[index-save_bars] = nil
         return TEMA
      end
 end
@@ -610,6 +672,7 @@ local function F_AMA(settings, ds)
     local data_type     = (settings.data_type or "Close")
     local round         = (settings.round or "off")
     local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
 
     local p_index
     local l_index
@@ -624,7 +687,7 @@ local function F_AMA(settings, ds)
             Delta           = {}
             Delta[index]    = 0
             fSUM            = F_SUM({period = period, data_type = 'Any', round = round, scale = scale}, Delta)
-            fSUM(index)
+            fSUM(index, Delta[index])
             AMA             = {}
             AMA[index]      = rounding(Value(index, data_type, ds), round, scale) or 0
             p_index         = index
@@ -642,7 +705,7 @@ local function F_AMA(settings, ds)
         if index ~= l_index then p_index = l_index end
 
         Delta[index]    = math_abs(Value(index, data_type, ds) - Value(p_index, data_type, ds))
-        local sum       = fSUM(index)[index]
+        local sum       = fSUM(index, Delta[index])[index]
         local er        = sum == 0 and 1 or Delta[index]/sum
         local ssc       = math_pow(er*(fast_k - slow_k) + slow_k, 2)
 
@@ -652,6 +715,7 @@ local function F_AMA(settings, ds)
             AMA[index] = rounding((Value(index, data_type, ds)*ssc - AMA[index-1])*(ssc) , round, scale)
             AMA[index] = rounding(AMA[index-1] + (Value(index, data_type, ds) - AMA[index-1])*ssc , round, scale)
         end
+        AMA[index-save_bars] = nil
 
         l_index = index
 
@@ -669,6 +733,7 @@ local function F_REMA(settings, ds)
     local scale         = (settings.scale or 0)
     local period        = (2/alpha) - 1
     local cc            = 1- alpha
+    local save_bars     = (settings.save_bars or period)
 
     local REMA
 
@@ -736,6 +801,16 @@ local function F_REMA(settings, ds)
 		RE8[index]  = math_pow(cc, 128) * RE7[index] + RE7[index-1]
 		REMA[index] = rounding(ema[index] - alpha*RE8[index], round, scale)
 
+        RE1[index-save_bars]    = nil
+        RE2[index-save_bars]    = nil
+        RE3[index-save_bars]    = nil
+        RE4[index-save_bars]    = nil
+        RE5[index-save_bars]    = nil
+        RE6[index-save_bars]    = nil
+        RE7[index-save_bars]    = nil
+        RE8[index-save_bars]    = nil
+        REMA[index-save_bars]   = nil
+
         return REMA
      end
 end
@@ -749,6 +824,7 @@ local function F_THV(settings, ds)
     local data_type     = (settings.data_type or "Close")
     local round         = (settings.round or "off")
     local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
 
     local THV
 
@@ -814,6 +890,13 @@ local function F_THV(settings, ds)
 		gda_128[index] = gd_172 * (gda_124[index]) + gd_180 * (gda_128[index-1])
 		THV[index] = rounding(gd_132 * (gda_128[index]) + gd_140 * (gda_124[index]) + gd_148 * (gda_120[index]) + gd_156 * (gda_116[index]), round, scale)
 
+        gda_108[index-save_bars] = nil
+        gda_112[index-save_bars] = nil
+        gda_116[index-save_bars] = nil
+        gda_120[index-save_bars] = nil
+        gda_124[index-save_bars] = nil
+        gda_128[index-save_bars] = nil
+        THV[index-save_bars]     = nil
         return THV
      end
 end
@@ -830,6 +913,7 @@ local function F_NRTR(settings, ds)
     local k         = (settings.k or 0.5)
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or (settings.period or 10))
 
     local trend     = 0
 
@@ -878,6 +962,7 @@ local function F_NRTR(settings, ds)
 			end
             NRTR[index]= rounding(reverse, round, scale)
 		end
+        NRTR[index-save_bars] = nil
         return NRTR
      end
 end
@@ -893,6 +978,7 @@ local function F_NRMA(settings, ds)
     local round     = (settings.round or "off")
     local scale     = (settings.scale or 0)
     local calc_type = (settings.calc_type or 0)
+    local save_bars = (settings.save_bars or ma_period)
 
     local NRMA
     local fNRTR
@@ -931,6 +1017,8 @@ local function F_NRMA(settings, ds)
         local n_ratio   = math_pow(calc_type == 0 and fMA(index)[index] or oscNRTR[index], sharp)
 
         NRMA[index] = NRMA[index-1] + n_ratio*(2/(1 + fast))*(val - NRMA[index-1])
+
+        NRMA[index-save_bars] = nil
 
         return (calc_type == 0 and NRMA or fMA(index)), NRTR
 
@@ -1094,6 +1182,8 @@ local function MA(settings, ds)
         return F_SMA(settings, ds)
     elseif method == "EMA" then
         return F_EMA(settings, ds)
+    elseif method == "SD" then
+        return F_SD(settings, ds)
     elseif method == "VMA" then
         return F_VMA(settings, ds)
     elseif method == "SMMA" then
