@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -14,9 +14,16 @@ namespace Program
         private static string DefaultPipeName   = "telegram_pipe";
         private static string DefaultToken      = "";
         private static string DefaultChatId     = "";
+        private static StreamWriter sw;
 
         static void Main(string[] args)
         {
+            var log_path = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + " log.txt";
+            if (System.IO.File.Exists(log_path))
+                System.IO.File.Delete(log_path);
+
+            sw = new System.IO.StreamWriter(System.IO.File.Create(log_path));
+
             var baseDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
             string CredentialsPathFile = baseDirectory + "\\settings.ini";
 
@@ -67,13 +74,16 @@ namespace Program
                 }
             }
 
-            if (DefaultToken == "" | DefaultChatId == "")
+            if (DefaultToken == "")
             {
-                Console.WriteLine("Not set token or chat id.");
-                throw new Exception("Not set token or chat id");
+                Console.WriteLine("Not set token.");
+                sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Not set token");
+                sw.Flush();
+                sw.Dispose();
+                throw new Exception("Not set token");
             }
 
-            new PipeTeleServer(DefaultPipeName, DefaultToken, DefaultChatId);
+            new PipeTeleServer(DefaultPipeName, DefaultToken, DefaultChatId, sw);
         }
     }
 }
@@ -86,17 +96,13 @@ public class PipeTeleServer
     private static string PipeName;
     static volatile bool exit = false;
 
-    public PipeTeleServer(string pipe_name, string token, string chat_id)
+    public PipeTeleServer(string pipe_name, string token, string chat_id, StreamWriter log_sw)
     {
         PipeName = pipe_name;
 
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        var log_path = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + " log.txt";
-        if (System.IO.File.Exists(log_path))
-            System.IO.File.Delete(log_path);
-
-        sw = new System.IO.StreamWriter(System.IO.File.Create(log_path));
+        sw = log_sw;
 
         botClient = new BotClient(token, chat_id, sw);
 
@@ -222,6 +228,11 @@ public class BotClient
         var me = botClient.GetMeAsync().Result;
         Console.WriteLine($"Hello, World! I am user {me.Id} and my name is {me.FirstName}.");
         sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Hello, World! I am user {0} and my name is {1}.", me.Id, me.FirstName);
+        if (chat_id == "")
+        {
+            Console.WriteLine("Chat ID not set yet");
+            sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Chat ID not set yet");
+        }
         sw.Flush();
 
         botClient.OnMessage += Bot_OnMessage;
