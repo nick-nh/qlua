@@ -2,9 +2,9 @@
 
 В решении используется библиотека Telegram.Bot https://github.com/TelegramBots/Telegram.Bot 
 
-Консольная программа SendTelegramMsg.exe, выполняющую функцию Name Pipe Server и Telegram Bot.
+Консольная программа SendTelegramMsg.exe, выполняющая функцию Named Pipe Server и Telegram Bot.
 Файл settings.ini должен быть расположен рядом с SendTelegramMsg.exe.
-Библиотека luaPipe.dll - библиотека передачи данных в консольную программу.
+Библиотека luaPipe.dll - библиотека передачи данных (Named Pipe) в консольную программу (сервер).
 Тестовый скрипт luaPipeTest.lua
 
 В свои скрипты необходимо подключить библиотеку luaPipe.dll, обеспечить запуск SendTelegramMsg.exe.
