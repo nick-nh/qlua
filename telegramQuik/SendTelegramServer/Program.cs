@@ -1,89 +1,188 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 
+public abstract class LogBase
+{
+    protected readonly object lockObj = new object();
+    protected readonly object _cleanLock = new object();
+    public abstract void Log(string message, bool to_con = false);
+    public abstract void Close();
+    public abstract void Clean();
+}
+
+public class FileLogger : LogBase
+{
+    private static string filePath    = "";
+    private static string dirPath     = "";
+    private static bool consoleLog    = false;
+    private static int _threshold     = 5;
+    private static StreamWriter streamWriter;
+
+    public FileLogger(bool toConsole)
+    {
+        dirPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\logs";
+        if (!System.IO.Directory.Exists(dirPath))
+            System.IO.Directory.CreateDirectory(dirPath);
+
+        filePath = dirPath + "\\" + DateTime.Now.ToString("dd-MM-yyyy") + " log.txt";
+        consoleLog      = toConsole;
+        if (streamWriter == null)
+            streamWriter = new StreamWriter(filePath);
+        
+        Clean();
+    }
+    public override void Log(string message, bool to_con = false)
+    {
+        lock (lockObj)
+        {
+            if (streamWriter != null)
+            {
+                streamWriter.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] " + message);
+                streamWriter.Flush();
+                if (consoleLog | to_con)
+                    Console.WriteLine(message);
+            }
+        }
+    }
+    public override void Close()
+    {
+        lock (lockObj)
+        {
+            if (streamWriter != null)
+            {
+                streamWriter.Dispose();
+            }
+        }
+    }
+    public override void Clean()
+    {
+        lock (_cleanLock)
+        {
+            if (!Directory.Exists(dirPath))
+                return;
+
+            var now = DateTime.Now;
+            var files = Directory.GetFiles(dirPath).Except(new string[] {filePath});
+
+            foreach (var filepath in files)
+            {
+                var file = new FileInfo(filepath);
+                var lifetime = now - file.CreationTime;
+
+                if (lifetime.Days > _threshold)
+                    file.Delete();
+            }
+        }
+    }
+}
+
+public class Settings
+{
+
+    private static string SettingsPathFile = "";
+    protected readonly object lockObj = new object();
+
+    public static string DefaultPipeName = "telegram_pipe";
+    public static string DefaultToken = "";
+    public static string DefaultChatId = "";
+
+    public void Read()
+    {
+        var baseDirectory   = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        SettingsPathFile    = baseDirectory + "\\settings.ini";
+
+        TextReader iniFile = null;
+        string strLine;
+        string[] keyPair;
+
+        if (File.Exists(SettingsPathFile))
+        {
+            try
+            {
+                iniFile = new StreamReader(SettingsPathFile);
+
+                strLine = iniFile.ReadLine();
+
+                while (strLine != null)
+                {
+                    strLine = strLine.Trim();
+
+                    if (strLine != "")
+                    {
+                        keyPair = strLine.Split(new char[] { '=' }, 2);
+
+                        if (keyPair.Length > 1)
+                        {
+                            if (keyPair[0].ToUpper().Trim() == "PIPENAME")
+                                DefaultPipeName = keyPair[1].Trim();
+                            if (keyPair[0].ToUpper().Trim() == "TOKEN")
+                                DefaultToken = keyPair[1].Trim();
+                            if (keyPair[0].ToUpper().Trim() == "CHAT_ID")
+                                DefaultChatId = keyPair[1].Trim();
+                        }
+
+                    }
+
+                    strLine = iniFile.ReadLine();
+                }
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                if (iniFile != null)
+                    iniFile.Close();
+            }
+        }
+
+    }
+    
+    public void Update()
+    {
+        lock (lockObj)
+        {
+            var streamWriter = new StreamWriter(SettingsPathFile);
+            streamWriter.Write("TOKEN = " + DefaultToken + "\n");
+            streamWriter.Write("CHAT_ID = " + DefaultChatId + "\n");
+            streamWriter.Write("PIPENAME = " + DefaultPipeName);
+            streamWriter.Flush();
+            streamWriter.Close();
+        }
+    }
+}
+
 namespace Program
 {
     class Program
     {
-        private static string DefaultPipeName   = "telegram_pipe";
-        private static string DefaultToken      = "";
-        private static string DefaultChatId     = "";
-        private static StreamWriter sw;
+        private static LogBase logger = null;
 
         static void Main(string[] args)
         {
-            var log_path = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + " log.txt";
-            if (System.IO.File.Exists(log_path))
-                System.IO.File.Delete(log_path);
+            logger = new FileLogger(false);
+            var settings = new Settings();
+            settings.Read();
 
-            sw = new System.IO.StreamWriter(System.IO.File.Create(log_path));
-
-            var baseDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            string CredentialsPathFile = baseDirectory + "\\settings.ini";
-
-            TextReader iniFile = null;
-            string strLine;
-            string[] keyPair;
-
-            if (File.Exists(CredentialsPathFile))
+            if (Settings.DefaultToken == "")
             {
-                try
-                {
-                    iniFile = new StreamReader(CredentialsPathFile);
 
-                    strLine = iniFile.ReadLine();
-
-                    while (strLine != null)
-                    {
-                        strLine = strLine.Trim();
-
-                        if (strLine != "")
-                        {
-                            keyPair = strLine.Split(new char[] { '=' }, 2);
-
-                            if (keyPair.Length > 1)
-                            {
-                                if (keyPair[0].ToUpper().Trim() == "PIPENAME")
-                                    DefaultPipeName = keyPair[1].Trim();
-                                if (keyPair[0].ToUpper().Trim() == "TOKEN")
-                                    DefaultToken = keyPair[1].Trim();
-                                if (keyPair[0].ToUpper().Trim() == "CHAT_ID")
-                                    DefaultChatId = keyPair[1].Trim();
-                            }
-
-                        }
-
-                        strLine = iniFile.ReadLine();
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    throw ex;
-                }
-                finally
-                {
-                    if (iniFile != null)
-                        iniFile.Close();
-                }
+                logger.Log("ERROR: Token not set!", true);
+                logger.Close();
+                throw new Exception("ERROR: Token not set!");
             }
 
-            if (DefaultToken == "")
-            {
-                Console.WriteLine("Not set token.");
-                sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Not set token");
-                sw.Flush();
-                sw.Dispose();
-                throw new Exception("Not set token");
-            }
-
-            new PipeTeleServer(DefaultPipeName, DefaultToken, DefaultChatId, sw);
+            new PipeTeleServer();
         }
     }
 }
@@ -92,29 +191,27 @@ public class PipeTeleServer
 {
     private static int numThreads = 10;
     private static BotClient botClient;
-    private static StreamWriter sw;
     private static string PipeName;
+    private static LogBase logger = null;
+
     static volatile bool exit = false;
 
-    public PipeTeleServer(string pipe_name, string token, string chat_id, StreamWriter log_sw)
+    public PipeTeleServer()
     {
-        PipeName = pipe_name;
 
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        sw = log_sw;
-
-        botClient = new BotClient(token, chat_id, sw);
+        PipeName    = Settings.DefaultPipeName;
+        botClient   = new BotClient(Settings.DefaultToken, Settings.DefaultChatId);
+        logger      = new FileLogger(false);
 
         int i;
         Thread[] servers = new Thread[numThreads];
 
-        Console.WriteLine("Start Named pipe server stream {0}\n", PipeName);
-        Console.WriteLine("Waiting for client connect...");
-        Console.WriteLine("Press 'q' to exit");
-        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Start Named pipe server stream {0}\n", PipeName);
-        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Waiting for client connect...");
-        sw.Flush();
+        logger.Log(string.Format("Start Named pipe server stream {0}\n", PipeName), true);
+        logger.Log("Waiting for client connect...", true) ;
+        logger.Log("Press 'q' to exit", true) ;
+
         for (i = 0; i < numThreads; i++)
         {
             servers[i] = new Thread(ServerThread);
@@ -136,9 +233,7 @@ public class PipeTeleServer
                 {
                     if (servers[j].Join(250))
                     {
-                        //Console.WriteLine("Server thread[{0}] finished.", servers[j].ManagedThreadId);
-                        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Server thread[{0}] finished.", servers[j].ManagedThreadId);
-                        sw.Flush();
+                        logger.Log(string.Format("Server thread[{0}] finished.", servers[j].ManagedThreadId));
                         servers[j].Abort();
                         servers[j] = null;
                     }
@@ -159,11 +254,9 @@ public class PipeTeleServer
                 servers[j] = null;
             }
         }
-        Console.WriteLine("\nServer stops, exiting.");
-        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Server stops, exiting.");
-        sw.Flush();
-        sw.Close();
-        sw.Dispose();
+
+        logger.Log("Server stops, exiting.", true);
+        logger.Close();
     }
 
     private static void ServerThread(object data)
@@ -172,31 +265,23 @@ public class PipeTeleServer
             new NamedPipeServerStream(PipeName, PipeDirection.InOut, numThreads);
 
         int threadId = Thread.CurrentThread.ManagedThreadId;
-        //Console.WriteLine("Start thread[{0}].", threadId);
-        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Start thread[{0}].", threadId);
-        sw.Flush();
+        logger.Log(string.Format("Start thread[{0}].", threadId));
 
         // Wait for a client to connect
         pipeServer.WaitForConnection();
 
-        //Console.WriteLine("Client connected on thread[{0}].", threadId);
-        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Client connected on thread[{0}].", threadId);
-        sw.Flush();
+        logger.Log(string.Format("Client connected on thread[{0}].", threadId));
         try
         {
             // Read the request from the client. Once the client has
             // written to the pipe its security token will be available.
 
-            StreamString ss = new StreamString(pipeServer, sw);
+            StreamString ss = new StreamString(pipeServer);
 
             // Verify our identity to the connected client using a
             // string that the client anticipates.
 
-            //ss.WriteString("I am the one true server!");
             string content = ss.ReadString();
-            //Console.WriteLine("Get: {0}", content);
-            //sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Get: {0}", content);
-            //sw.Flush();
 
             botClient.Send(content);
 
@@ -205,9 +290,7 @@ public class PipeTeleServer
         // or disconnected.
         catch (IOException e)
         {
-            Console.WriteLine("ERROR: {0}", e.Message);
-            sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] ERROR: {0}", e.Message);
-            sw.Flush();
+            logger.Log(string.Format("ERROR: {0}", e.Message), true);
         }
         pipeServer.Close();
     }
@@ -215,45 +298,51 @@ public class PipeTeleServer
 }
 
 public class BotClient
-{ 
-    readonly TelegramBotClient botClient;
-    private string chat_id;
-    private StreamWriter sw;
+{
+    private static TelegramBotClient telebotClient;
+    private static List<string> chat_id;
+    private static LogBase logger = null;
+    private static Settings settings = null;
 
-    public BotClient(string token, string chat_id, StreamWriter sw)
+    public BotClient(string token, string chatid)
     {
-        this.sw = sw;
-        this.chat_id = chat_id;
-        this.botClient = new TelegramBotClient(token);
-        var me = botClient.GetMeAsync().Result;
-        Console.WriteLine($"Hello, World! I am user {me.Id} and my name is {me.FirstName}.");
-        sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Hello, World! I am user {0} and my name is {1}.", me.Id, me.FirstName);
-        if (chat_id == "")
-        {
-            Console.WriteLine("Chat ID not set yet");
-            sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Chat ID not set yet");
-        }
-        sw.Flush();
 
-        botClient.OnMessage += Bot_OnMessage;
-        botClient.StartReceiving();
+        chat_id    = chatid.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        telebotClient   = new TelegramBotClient(token);
+        logger          = new FileLogger(false);
+        settings        = new Settings();
+
+        var me = telebotClient.GetMeAsync().Result;
+
+        logger.Log(string.Format("Hello! I am user {0} and my name is {1}.", me.Id, me.FirstName), true);
+        if (chatid == "")
+        {
+            logger.Log("Chat ID not set yet", true);
+        }
+
+        telebotClient.OnMessage += Bot_OnMessage;
+        telebotClient.StartReceiving();
 
     }
 
     ~BotClient()
     {
-        botClient.StopReceiving();
+        telebotClient.StopReceiving();
     }
 
     async void Bot_OnMessage(object sender, MessageEventArgs e)
     {
         if (e.Message.Text != null)
         {
-            Console.WriteLine($"Received a text message in chat {e.Message.Chat.Id}.");
-            sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Received a text message in chat {0}.", e.Message.Chat.Id);
-            sw.Flush();
-            this.chat_id = e.Message.Chat.Id.ToString();
-            await botClient.SendTextMessageAsync(
+            logger.Log(string.Format("Received a text message in chat {0}.", e.Message.Chat.Id), true);
+            if (chat_id.FirstOrDefault(item => item == e.Message.Chat.Id.ToString()) == null)
+            {
+                chat_id.Add(e.Message.Chat.Id.ToString());
+                Settings.DefaultChatId = String.Join(";", chat_id.ToArray());
+                settings.Update();
+            }
+
+            await telebotClient.SendTextMessageAsync(
               chatId: e.Message.Chat,
               text: "Ок " + e.Message.From + ". I`ll subscribe to this chat"
             );
@@ -263,29 +352,26 @@ public class BotClient
     {
         try
         {
-            var run_task = botClient.SendTextMessageAsync(this.chat_id, data);
-
-            while (run_task.Status != TaskStatus.RanToCompletion)
+            foreach (var chat in chat_id)
             {
-                //Console.WriteLine("Thread ID: {0}, Status: {1}", Thread.CurrentThread.ManagedThreadId, run_task.Status);
-                this.sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Thread ID: {0}, Status: {1}", Thread.CurrentThread.ManagedThreadId, run_task.Status);
-                this.sw.Flush();
-                if (run_task.Status == TaskStatus.Faulted)
-                    break;
+                var run_task = telebotClient.SendTextMessageAsync(chat, data);
 
-                Task.Delay(100).Wait();
+                while (run_task.Status != TaskStatus.RanToCompletion)
+                {
+                    logger.Log(string.Format("Thread ID: {0}, Status: {1}", Thread.CurrentThread.ManagedThreadId, run_task.Status));
+                    if (run_task.Status == TaskStatus.Faulted)
+                        break;
+
+                    Task.Delay(100).Wait();
+                }
+                logger.Log(string.Format("Send Result: {0}", run_task.Result));
             }
-            //Console.WriteLine("Result: {0}", run_task.Result);
-            this.sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] Result: {0}", run_task.Result);
-            this.sw.Flush();
         }
         catch (AggregateException ex)
         {
             foreach (var e in ex.InnerExceptions)
             {
-                Console.WriteLine(e.Message);
-                this.sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] ERROR: {0}", e.Message);
-                this.sw.Flush();
+                logger.Log(string.Format("Send ERROR: {0}", e.Message), true);
             }
         }
     }
@@ -296,17 +382,16 @@ public class BotClient
 public class StreamString
 {
     private Stream ioStream;
-    private StreamWriter sw;
+    private static LogBase logger = null;
 
-    public StreamString(Stream ioStream, StreamWriter sw)
+    public StreamString(Stream ioStream)
     {
         this.ioStream = ioStream;
-        this.sw = sw;
     }
 
     public string ReadString()
     {
-        int len = 0;
+        int len;
 
         try
         {
@@ -319,9 +404,7 @@ public class StreamString
         }
         catch (IOException e)
         {
-            Console.WriteLine("ERROR: {0}", e.Message);
-            this.sw.WriteLine("[" + DateTime.Now.ToString("dd-MM-yyyy HH.mm.ss") + "] ERROR: {0}", e.Message);
-            this.sw.Flush();
+            logger.Log(string.Format("ReadPipe ERROR: {0}", e.Message), true);
         }
         return "";
     }
