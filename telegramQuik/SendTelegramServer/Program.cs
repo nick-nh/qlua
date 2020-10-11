@@ -282,15 +282,28 @@ public class PipeTeleServer
             // string that the client anticipates.
 
             string content = ss.ReadString();
+            logger.Log(string.Format("Get message:\n{0}", content));
 
-            botClient.Send(content);
+            logger.Log(string.Format("GetIncomeMessages {0}", content.Contains("GetIncomeMessages()")));
+
+            if (content.Contains("GetIncomeMessages()"))
+            {
+                var msgs = botClient.GetIncomeMessages();
+                if (msgs == null)
+                    msgs = "No new messages";
+                
+                ReadMessagesToStream msgsReader = new ReadMessagesToStream(ss, msgs);
+                pipeServer.RunAsClient(msgsReader.Start);
+            }
+            else
+                botClient.Send(content);
 
         }
         // Catch the IOException that is raised if the pipe is broken
         // or disconnected.
         catch (IOException e)
         {
-            logger.Log(string.Format("ERROR: {0}", e.Message), true);
+            logger.Log(string.Format("ServerThread ERROR: {0}", e.Message), true);
         }
         pipeServer.Close();
     }
@@ -303,6 +316,7 @@ public class BotClient
     private static List<string> chat_id;
     private static LogBase logger = null;
     private static Settings settings = null;
+    private static List<string> income_msgs = new List<string>();
 
     public BotClient(string token, string chatid)
     {
@@ -334,13 +348,16 @@ public class BotClient
     {
         if (e.Message.Text != null)
         {
-            logger.Log(string.Format("Received a text message in chat {0}.", e.Message.Chat.Id), true);
+            logger.Log(string.Format("Received a text message in chat {0}:\n", e.Message.Chat.Id), true);
+            logger.Log(string.Format("{0}", e.Message.Text));
             if (chat_id.FirstOrDefault(item => item == e.Message.Chat.Id.ToString()) == null)
             {
                 chat_id.Add(e.Message.Chat.Id.ToString());
                 Settings.DefaultChatId = String.Join(";", chat_id.ToArray());
                 settings.Update();
             }
+
+            income_msgs.Add(e.Message.Text.Trim());
 
             await telebotClient.SendTextMessageAsync(
               chatId: e.Message.Chat,
@@ -375,8 +392,18 @@ public class BotClient
             }
         }
     }
-}
 
+    public string GetIncomeMessages()
+    {
+        if (income_msgs.Count() > 0)
+        {
+            var msgs = "IncomeMessage: " + String.Join(";\n IncomeMessage: ", income_msgs.ToArray());
+            income_msgs.Clear();
+            return msgs;
+        }
+        return null;
+    }
+}
 
 // Defines the data protocol for reading and writing strings on our stream
 public class StreamString
@@ -387,41 +414,91 @@ public class StreamString
     public StreamString(Stream ioStream)
     {
         this.ioStream = ioStream;
+        logger = new FileLogger(false);
+    }
+    static string UTF8ToWin1251(string sourceStr)
+    {
+        Encoding utf8 = Encoding.UTF8;
+        Encoding win1251 = Encoding.GetEncoding("windows-1251");
+        byte[] utf8Bytes = utf8.GetBytes(sourceStr);
+        byte[] win1251Bytes = Encoding.Convert(utf8, win1251, utf8Bytes);
+        return win1251.GetString(win1251Bytes);
+    }
+    static private string Win1251ToUTF8(string source)
+    {
+        Encoding utf8 = Encoding.UTF8;
+        Encoding win1251 = Encoding.GetEncoding("windows-1251");
+        byte[] utf8Bytes = win1251.GetBytes(source);
+        byte[] win1251Bytes = Encoding.Convert(win1251, utf8, utf8Bytes);
+        source = win1251.GetString(win1251Bytes);
+        return source;
     }
 
     public string ReadString()
     {
-        int len;
+        //int len;
 
         try
         {
-            len = ioStream.ReadByte() * 256;
-            len += ioStream.ReadByte();
-            byte[] inBuffer = new byte[len];
-            ioStream.Read(inBuffer, 0, len);
+            string res = "";
 
-            return Encoding.UTF8.GetString(inBuffer);
+            byte[] inBuffer = new byte[1024];
+            int get = 0;
+            do 
+            {
+                get = ioStream.Read(inBuffer, 0, inBuffer.Length);
+                res += Encoding.UTF8.GetString(inBuffer).TrimEnd('\0');
+                Array.Clear(inBuffer, 0, inBuffer.Length);
+            } while (get >= inBuffer.Length);
+            
+            return res;
         }
         catch (IOException e)
         {
-            logger.Log(string.Format("ReadPipe ERROR: {0}", e.Message), true);
+            logger.Log(string.Format("ReadPipe ERROR: {0}", e.ToString()), true);
         }
         return "";
     }
 
     public int WriteString(string outString)
     {
-        byte[] outBuffer = Encoding.UTF8.GetBytes(outString);
-        int len = outBuffer.Length;
-        if (len > UInt16.MaxValue)
+        try
         {
-            len = (int)UInt16.MaxValue;
-        }
-        ioStream.WriteByte((byte)(len / 256));
-        ioStream.WriteByte((byte)(len & 255));
-        ioStream.Write(outBuffer, 0, len);
-        ioStream.Flush();
+            string to_send = UTF8ToWin1251(outString);
+            byte[] outBuffer = Encoding.GetEncoding("windows-1251").GetBytes(to_send);
+            int len = outBuffer.Length;
+            //if (len > UInt16.MaxValue)
+            //{
+            //    len = (int)UInt16.MaxValue;
+            //}
+            ioStream.Write(outBuffer, 0, len);
+            ioStream.Flush();
 
-        return outBuffer.Length + 2;
+            return outBuffer.Length + 2;
+        }
+        catch (IOException e)
+        {
+            logger.Log(string.Format("WriteString ERROR: {0}", e.ToString()), true);
+        }
+        return 0;
+    }
+}
+
+
+// Contains the method executed in the context of the impersonated user
+public class ReadMessagesToStream
+{
+    private string msg;
+    private StreamString ss;
+
+    public ReadMessagesToStream(StreamString str, string messages)
+    {
+        msg = messages;
+        ss = str;
+    }
+
+    public void Start()
+    {
+        ss.WriteString(msg);
     }
 }
