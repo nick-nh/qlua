@@ -9,4 +9,4 @@
 #include <tchar.h>
 #include <string>
 
-#define BUFSIZE 1024
+#define BUFSIZE 4096
