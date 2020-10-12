@@ -34,17 +34,37 @@ local cache_VolBid
 local OIDelta
 
 _G.Settings = {
-    Name 				= "*delta volume",
+	Name 				= "*delta volume",
+	-- Выводить объем баров
 	showVolume			= 0,
+	-- Признак инверсии значений объемной дельты. Продажа - отрицательные значения. Покупка -положительные значения
 	inverse 			= 1,
+	-- Признак расчета объемной дельты не по показателям сделки, а по количеству сделок за интервал времени
+	-- Если установлено 1, то объемная дельта будет сформирована как разница числа сделок за интервал времени
 	CountQuntOfDeals 	= 0,
+	-- Признак расчета объемной дельты по количеству (объему) сделки
+	-- Значения:
+	-- 0 - расчет объемной дельты ведется по сумме (в деньгах) сделки
+	-- 1 - расчет объемной дельты ведется по количеству сделки
 	sum_quantity		= 1,
+	-- Показывать объемную дельту
 	showDelta			= 1,
+	-- Показывать кумулятивную объемную дельту
 	showCumDelta		= 0,
+	-- Показывать дельту ОИ
 	showOIDelta			= 0,
+	-- Масштабный коэффициент вывода кумулятивной объемной дельты.
+	-- Значение будет умножено на коэффициено, чтобы соотносилось с значением дельты
 	delta_koeff 		= 0.1,
+	-- Фильтр объема сделки при расчете объемной дельты.
+	-- Задается как список значений, разделенных ;
+	-- Пример: 1;2;5;10;100;
+	-- Если задан, то при расчете дельты будут учитываться сделки толкьо указанных объемов
 	dealFilter 			= '',
-	deltaType			= 0, -- 0 - исходя из данных таблицы обезличенных сделок; 1 - исходя из движения цены: снижение - продажа, повышение - покупка.
+    -- Вариант определения направления сделки для расчета дельты
+    -- 0 - направление из ТОС
+    -- 1 - направление считается как дельта от прошлой цены. Если цена снизилась, то продажа, если повысилась, то покупка
+	deltaType			= 0,
 	line =
     {
         {
@@ -122,7 +142,7 @@ end
 local function ReadTradesProcessor(inverse, sum_quantity, filterString, CountQuntOfDeals, deltaType)
 
 	local last_price = 0
-	local last_oi 	 = 0
+	local last_oi
 	local cache_search
 	local cache_index
 	local cache_i = 0
@@ -231,26 +251,26 @@ end
 
 local function Vol(Fsettings)
 
-	local Delta			= {}
-	local LastReadDeals = -1
-	local last_index	= Size()
-	local errors		= 0
-	local ReadTrades	= function() return -1 end
-	local error_log		= {}
+	local Delta				= {}
+	local LastReadDeals 	= -1
+	local last_index		= Size()
+	local errors			= 0
+	local ReadTrades		= function() return -1 end
+	local error_log			= {}
+
+	Fsettings 				= Fsettings or {}
+	local showDelta 		= Fsettings.showDelta or 0
+	local showCumDelta 		= Fsettings.showCumDelta or 0
+	local showOIDelta 		= Fsettings.showOIDelta or 0
+	local showVolume 		= Fsettings.showVolume or 0
+	local inverse 			= Fsettings.inverse or 0
+	local CountQuntOfDeals 	= Fsettings.CountQuntOfDeals or 0
+	local sum_quantity 		= Fsettings.sum_quantity or 1
+	local delta_koeff 		= Fsettings.delta_koeff or 0
+	local deltaType 		= Fsettings.deltaType or 0
+	local filterString 		= Fsettings.dealFilter or ''
 
 	return function(index)
-
-		Fsettings 				= Fsettings or {}
-		local showDelta 		= Fsettings.showDelta or 0
-		local showCumDelta 		= Fsettings.showCumDelta or 0
-		local showOIDelta 		= Fsettings.showOIDelta or 0
-		local showVolume 		= Fsettings.showVolume or 0
-		local inverse 			= Fsettings.inverse or 0
-		local CountQuntOfDeals 	= Fsettings.CountQuntOfDeals or 0
-		local sum_quantity 		= Fsettings.sum_quantity or 1
-		local delta_koeff 		= Fsettings.delta_koeff or 0
-		local deltaType 		= Fsettings.deltaType or 0
-		local filterString 		= Fsettings.dealFilter or ''
 
 		local status, res = pcall(function()
 
