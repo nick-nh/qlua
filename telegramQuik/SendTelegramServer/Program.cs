@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 
+public delegate void OnReplyHandler();
+
 public abstract class LogBase
 {
     protected readonly object lockObj = new object();
@@ -290,9 +292,11 @@ public class PipeTeleServer
             {
                 var msgs = botClient.GetIncomeMessages();
                 if (msgs == null)
-                    msgs = "No new messages";
-                
+                    msgs = "{[===[No new messages]===]}";
+
                 ReadMessagesToStream msgsReader = new ReadMessagesToStream(ss, msgs);
+                ss.ClearMessages += new OnReplyHandler(BotClient.ClearIncomeMessages);
+
                 pipeServer.RunAsClient(msgsReader.Start);
             }
             else
@@ -355,14 +359,14 @@ public class BotClient
                 chat_id.Add(e.Message.Chat.Id.ToString());
                 Settings.DefaultChatId = String.Join(";", chat_id.ToArray());
                 settings.Update();
+
+                await telebotClient.SendTextMessageAsync(
+                  chatId: e.Message.Chat,
+                  text: "Ок " + e.Message.From + ". I`ll subscribe to this chat"
+                );
             }
-
-            income_msgs.Add(e.Message.Text.Trim());
-
-            await telebotClient.SendTextMessageAsync(
-              chatId: e.Message.Chat,
-              text: "Ок " + e.Message.From + ". I`ll subscribe to this chat"
-            );
+            else
+                income_msgs.Add(e.Message.Text.Trim());
         }
     }
     public void Send(string data)
@@ -397,11 +401,15 @@ public class BotClient
     {
         if (income_msgs.Count() > 0)
         {
-            var msgs = "IncomeMessage: " + String.Join(";\n IncomeMessage: ", income_msgs.ToArray());
-            income_msgs.Clear();
+            var msgs = "{[===[" + String.Join("]===], [===[", income_msgs.ToArray()) + "]===]}";
             return msgs;
         }
         return null;
+    }
+
+    public static void ClearIncomeMessages()
+    {
+        income_msgs.Clear();
     }
 }
 
@@ -410,6 +418,7 @@ public class StreamString
 {
     private Stream ioStream;
     private static LogBase logger = null;
+    public event OnReplyHandler ClearMessages;
 
     public StreamString(Stream ioStream)
     {
@@ -436,7 +445,6 @@ public class StreamString
 
     public string ReadString()
     {
-        //int len;
 
         try
         {
@@ -467,13 +475,14 @@ public class StreamString
             string to_send = UTF8ToWin1251(outString);
             byte[] outBuffer = Encoding.GetEncoding("windows-1251").GetBytes(to_send);
             int len = outBuffer.Length;
-            //if (len > UInt16.MaxValue)
-            //{
-            //    len = (int)UInt16.MaxValue;
-            //}
+            if (len > UInt16.MaxValue)
+            {
+                len = (int)UInt16.MaxValue;
+            }
             ioStream.Write(outBuffer, 0, len);
             ioStream.Flush();
 
+            ClearMessages();
             return outBuffer.Length + 2;
         }
         catch (IOException e)
