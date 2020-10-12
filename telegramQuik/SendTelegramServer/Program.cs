@@ -92,9 +92,10 @@ public class Settings
     private static string SettingsPathFile = "";
     protected readonly object lockObj = new object();
 
-    public static string DefaultPipeName = "telegram_pipe";
-    public static string DefaultToken = "";
-    public static string DefaultChatId = "";
+    public static string DefaultPipeName    = "telegram_pipe";
+    public static string DefaultToken       = "";
+    public static string DefaultChatId      = "";
+    public static string DefaultEncoding    = "windows-1251";
 
     public void Read()
     {
@@ -129,6 +130,8 @@ public class Settings
                                 DefaultToken = keyPair[1].Trim();
                             if (keyPair[0].ToUpper().Trim() == "CHAT_ID")
                                 DefaultChatId = keyPair[1].Trim();
+                            if (keyPair[0].ToUpper().Trim() == "USE_ENCODING")
+                                DefaultEncoding = keyPair[1].Trim();
                         }
 
                     }
@@ -158,6 +161,7 @@ public class Settings
             streamWriter.Write("TOKEN = " + DefaultToken + "\n");
             streamWriter.Write("CHAT_ID = " + DefaultChatId + "\n");
             streamWriter.Write("PIPENAME = " + DefaultPipeName);
+            streamWriter.Write("USE_ENCODING = " + DefaultEncoding);
             streamWriter.Flush();
             streamWriter.Close();
         }
@@ -433,14 +437,13 @@ public class StreamString
         byte[] win1251Bytes = Encoding.Convert(utf8, win1251, utf8Bytes);
         return win1251.GetString(win1251Bytes);
     }
-    static private string Win1251ToUTF8(string source)
+    static private string Win1251ToUTF8(string sourceStr)
     {
         Encoding utf8 = Encoding.UTF8;
         Encoding win1251 = Encoding.GetEncoding("windows-1251");
-        byte[] utf8Bytes = win1251.GetBytes(source);
-        byte[] win1251Bytes = Encoding.Convert(win1251, utf8, utf8Bytes);
-        source = win1251.GetString(win1251Bytes);
-        return source;
+        byte[] win1251Bytes = win1251.GetBytes(sourceStr);
+        byte[] utf8Bytes = Encoding.Convert(win1251, utf8, win1251Bytes);
+        return utf8.GetString(utf8Bytes); ;
     }
 
     public string ReadString()
@@ -455,10 +458,13 @@ public class StreamString
             do 
             {
                 get = ioStream.Read(inBuffer, 0, inBuffer.Length);
-                res += Encoding.UTF8.GetString(inBuffer).TrimEnd('\0');
+                res += Encoding.GetEncoding(Settings.DefaultEncoding).GetString(inBuffer).TrimEnd('\0');
                 Array.Clear(inBuffer, 0, inBuffer.Length);
             } while (get >= inBuffer.Length);
-            
+
+            if (Settings.DefaultEncoding != "UTF8")
+                res = Win1251ToUTF8(res);
+
             return res;
         }
         catch (IOException e)
@@ -472,8 +478,11 @@ public class StreamString
     {
         try
         {
-            string to_send = UTF8ToWin1251(outString);
-            byte[] outBuffer = Encoding.GetEncoding("windows-1251").GetBytes(to_send);
+            string to_send = outString;
+            if (Settings.DefaultEncoding != "UTF8")
+                to_send = UTF8ToWin1251(outString);
+
+            byte[] outBuffer = Encoding.GetEncoding(Settings.DefaultEncoding).GetBytes(to_send);
             int len = outBuffer.Length;
             if (len > UInt16.MaxValue)
             {
