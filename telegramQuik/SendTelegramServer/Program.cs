@@ -160,7 +160,7 @@ public class Settings
             var streamWriter = new StreamWriter(SettingsPathFile);
             streamWriter.Write("TOKEN = " + DefaultToken + "\n");
             streamWriter.Write("CHAT_ID = " + DefaultChatId + "\n");
-            streamWriter.Write("PIPENAME = " + DefaultPipeName);
+            streamWriter.Write("PIPENAME = " + DefaultPipeName + "\n");
             streamWriter.Write("USE_ENCODING = " + DefaultEncoding);
             streamWriter.Flush();
             streamWriter.Close();
