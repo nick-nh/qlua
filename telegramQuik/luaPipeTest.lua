@@ -3,13 +3,14 @@ package.cpath  = path.."/?.dll"
 package.path   = path.."/?.lua"
 
 require('luaPipe')
-require "ansi2utf8"
 
-local strin = AnsiToUtf8([[test проверка
-вторая строка
+local strin = [[test РїСЂРѕРІРµСЂРєР°
+РІС‚РѕСЂР°СЏ СЃС‚СЂРѕРєР°
 
-четвертая @:)]])
-
+С‡РµС‚РІРµСЂС‚Р°СЏ @:)
+РїСЏС‚Р°СЏ СЃС‚СЂРѕРєР°
+С€РµСЃС‚Р°СЏ СЃС‚СЂРѕРєР°
+]]
 
 if _G.message then
    _G.print = function(...)
@@ -27,4 +28,18 @@ if _G.message then
 end
 
 
-print(_G.luaPipe.SendMessage('  '..strin, 'telegram_pipe') and 'Отправлено' or 'Ошибка')
+print(_G.luaPipe.SendMessage(strin, 'email_pipe') and 'РћС‚РїСЂР°РІР»РµРЅРѕ' or 'РћС€РёР±РєР°')
+print(_G.luaPipe.SendMessage(strin, 'telegram_pipe') and 'РћС‚РїСЂР°РІР»РµРЅРѕ' or 'РћС€РёР±РєР°')
+local str = _G.luaPipe.GetIncomeMessages('telegram_pipe')
+
+print(tostring(str))
+
+if type(str) == 'string' then
+
+   local t = assert(load('return '..str))()
+
+   if type(t) == 'table' then
+      print(t[1])
+      print(t[2])
+   end
+end
