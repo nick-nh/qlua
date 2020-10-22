@@ -27,6 +27,8 @@ if _G.message then
    end
 end
 
+--Пример запуска сервера отправки
+--    os.execute('start cmd /c call "'..path..'\\telegramServer\\startTeleServer.bat'..'"')
 
 print(_G.luaPipe.SendMessage(strin, 'email_pipe') and 'Отправлено' or 'Ошибка')
 print(_G.luaPipe.SendMessage(strin, 'telegram_pipe') and 'Отправлено' or 'Ошибка')
