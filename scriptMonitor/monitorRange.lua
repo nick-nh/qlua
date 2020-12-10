@@ -1,8 +1,9 @@
 rangeSettings = {
-    bars = 14,
+    bars = 27,
     ratioFactor = 0.7,
-    kstd = 2,
-    Size = 300
+    kstd = 1.8,
+    ATR_factor = 3.1,
+    Size = 700
 }
 
 range_PARAMS_FILE_NAME = getScriptPath().."\\rangeMonitor.csv" -- ИМЯ ЛОГ-ФАЙЛА
@@ -25,10 +26,11 @@ function initRangeBar()
             range_SEC_CODES['bars'] =              {} -- bars
             range_SEC_CODES['ratioFactor'] =       {} -- ratioFactor
             range_SEC_CODES['kstd'] =              {} -- kstd
+            range_SEC_CODES['ATR_factor'] =        {} -- ATR_factor
             for line in rangeParamsFile:lines() do
                 lineCount = lineCount + 1
                 if lineCount > 1 and line ~= "" then
-                    local per1, per2, per3, per4, per5, per6, per7, per8 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
+                    local per1, per2, per3, per4, per5, per6, per7, per8, per9 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
                     range_SEC_CODES['sec_codes'][lineCount-1] = per1
                     range_SEC_CODES['ChartId'][lineCount-1] = per2
                     range_SEC_CODES['interval'][lineCount-1] = tonumber(per3)
@@ -37,11 +39,12 @@ function initRangeBar()
                     range_SEC_CODES['bars'][lineCount-1] = tonumber(per6)
                     range_SEC_CODES['ratioFactor'][lineCount-1] = tonumber(per7)
                     range_SEC_CODES['kstd'][lineCount-1] = tonumber(per8)
+                    range_SEC_CODES['ATR_factor'][lineCount-1] = tonumber(per9)
                 end
             end
+            rangeParamsFile:close()
         end
     
-        rangeParamsFile:close()
     end
 
     calcAlgoValue = nil
@@ -51,6 +54,7 @@ function initRangeBar()
     rangeStart = {}
     prevRangeStart = {}
     lastRange = {}
+    rATR = {}
 end
 
 function findRangeSettings(iSec, interval, _settings)
@@ -63,6 +67,7 @@ function findRangeSettings(iSec, interval, _settings)
                 settings.bars =         range_SEC_CODES['bars'][i] 
                 settings.ratioFactor =  range_SEC_CODES['ratioFactor'][i] 
                 settings.kstd =         range_SEC_CODES['kstd'][i] 
+                settings.ATR_factor =   range_SEC_CODES['ATR_factor'][i] 
                 settings.ChartId =      range_SEC_CODES['ChartId'][i] 
                 settings.isLong =       range_SEC_CODES['isLong'][i] 
                 settings.isShort =      range_SEC_CODES['isShort'][i]
@@ -85,10 +90,11 @@ function rangeBar(iSec, ind, _settings, DS, interval)
 
     local settings = findRangeSettings(iSec, interval, _settings)
 
-    local Size = settings.Size or 500
-    local bars = settings.bars or 64
+    local Size = settings.Size or 1000
+    local bars = settings.bars or 27
     local ratioFactor = settings.ratioFactor or 3
-    local kstd = settings.kstd or 1
+    local kstd = settings.kstd or 1.8
+    local ATR_factor = settings.ATR_factor or 3
     local degree = 1
 
     --myLog(SEC_CODES['sec_codes'][iSec].." bars "..tostring(bars).." ratioFactor "..tostring(ratioFactor).." kstd "..tostring(kstd))
@@ -117,6 +123,8 @@ function rangeBar(iSec, ind, _settings, DS, interval)
     
     p = bars 
     nn = degree+1
+    
+    local periodATR = bars
 
     local index = ind-Size
 
@@ -132,7 +140,9 @@ function rangeBar(iSec, ind, _settings, DS, interval)
     rangeStart[index] = nil			
     prevRangeStart = {}
     prevRangeStart[index] = nil			
-    
+    rATR = {}
+    rATR[index] = 0
+
     lastRange = {}
     lastRange[index] = {0, 0, 0, 0}
     
@@ -157,13 +167,30 @@ function rangeBar(iSec, ind, _settings, DS, interval)
         rangeStart[index] = rangeStart[index-1] 
         prevRangeStart[index] = prevRangeStart[index-1] 
         lastRange[index] = lastRange[index-1] 
+        rATR[index] = rATR[index-1] 
 
         if DS:C(index) ~= nil then       
+
+
             if index - (ind-Size) > bars then
 
                 cacheH[index] = DS:H(index)
                 cacheL[index] = DS:L(index)
                 cacheC[index] = DS:C(index)
+                
+                if index<periodATR then
+                    rATR[index] = 0
+                elseif index==periodATR then
+                    local sum=0
+                    for i = 1, periodATR do
+                        if DS:C(i) ~= nil then
+                            sum = sum + dValue(i)
+                        end
+                    end
+                    rATR[index]=sum / periodATR
+                elseif index>periodATR then
+                    rATR[index]=(rATR[index-1] * (periodATR-1) + dValue(index)) / periodATR
+                end    
 
                 local fx_buffer={}
 
@@ -260,31 +287,54 @@ function rangeBar(iSec, ind, _settings, DS, interval)
                 local scale = getSecurityInfo(CLASS_CODE, SEC_CODE).scale
                 calcAlgoValue[index] = round(fx_buffer[#fx_buffer], scale)
 
-                local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])/fx_buffer[1]*100
-        
+                
                 previous = rangeStart[index] or index-bars
-		
+                
                 if DS:C(previous) == nil then
                     previous = FindExistCandle(previous)
                 end
                 
-                local maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
-                local minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))
-                        
+                local maxC = cacheC[math.max(previous, 1)]
+                local minC = cacheC[math.max(previous, 1)]      
+                for i=math.max(previous, 1)+1,index-1 do
+                    maxC = math.max(cacheC[i], maxC)
+                    minC = math.min(cacheC[i], minC)
+                end 
+                
+                local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])*100/fx_buffer[1]
                 --if deltaRatio < ratioFactor and math.abs(DS:C(index) - fx_buffer[#fx_buffer]) < sq  then                    
-                if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq then
-                    
+                --if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq then
+                if  deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and 
+                    fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq and
+                    ((ATR_factor~=0 and math.abs(maxC-minC) <= ATR_factor*rATR[index]) or ATR_factor == 0)
+                then
+                        
                     --lastRange[index] = {maxC, minC, previous, index}        
                     --if rangeStart[index] == nil then
                     --    rangeStart[index] = previous
                     --end
 
+                    --if rangeStart[index] == nil then
+                    --    if prevRangeStart[index]~=nil then
+                    --        if previous - prevRangeStart[index] < bars then
+                    --            previous = prevRangeStart[index]
+                    --            maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
+                    --            minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
+                    --        end
+                    --    end
+                    --    rangeStart[index] = previous
+                    --end
+    
                     if rangeStart[index] == nil then
                         if prevRangeStart[index]~=nil then
                             if previous - prevRangeStart[index] < bars then
                                 previous = prevRangeStart[index]
-                                maxC = math.max(unpack(cacheC,math.max(previous, 1),index-1))
-                                minC = math.min(unpack(cacheC,math.max(previous, 1),index-1))       
+                                maxC = cacheC[math.max(previous, 1)]
+                                minC = cacheC[math.max(previous, 1)]      
+                                for i=math.max(previous, 1)+1,index-1 do
+                                    maxC = math.max(cacheC[i], maxC)
+                                    minC = math.min(cacheC[i], minC)
+                                end 
                             end
                         end
                         rangeStart[index] = previous
