@@ -7,9 +7,10 @@ TradesFilePath = getWorkingFolder().."\\Deals\\"
 soundFileName = "c:\\windows\\media\\Alarm03.wav"
 showTradeCommands = true
 
-ACCOUNT           = ''        -- Идентификатор счета
+ACCOUNT           = 'L01-00000F00'        -- Идентификатор счета
 --ACCOUNT           = 'NL0011100043'        -- пример Идентификатора счета
-CLIENT_CODE = ''
+CLIENT_CODE = 'S2KWB'
+
 
 --[[
 INTERVALS = {
@@ -36,7 +37,7 @@ INTERVALS = {
     ["settings"] =          {VSASettings,     rangeSettings,  NRTRSettings,   NRTRSettings,   EMA182Settings, RegSettings,   {},             RSISettings},   --настройки алгоритмов, параметры функции алгоритма
     ["recalculatePeriod"] = {0,               60,             60,             60,             60,             60,            0,              0}   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
 }
-]]--
+]]-
 
 INTERVALS = {
     ["names"] =             {"H1VSA",         "H4",           "D",            "dReg",        "Trend",      "dRSI29"     },
@@ -47,11 +48,11 @@ INTERVALS = {
     ["algorithms"] =        {VSA,             rangeBar,       rangeBar,       Reg,           nil,          RSI          },                                --функции алгоритма, определены в подключаемых файлах
     ["signalAlgorithms"] =  {signalVSA,       rangeTest,      rangeTest,      signalReg,     nil,          signalRSI    },                                --функции алгоритма, определены в подключаемых файлах
     ["settings"] =          {VSASettings,     rangeSettings,  rangeSettings,  RegSettings,   {},           RSISettings  },   --настройки алгоритмов, параметры функции алгоритма
-    ["recalculatePeriod"] = {0,               60,             60,             60,            0,            0            }   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
+    ["recalculatePeriod"] = {0,               60,             60,             60,            0,            0            }   --настройки пересчета алгоритмов в минутах. Lля интервалов день и более можно пересчитать данные, чтобы выводит сигнал внутри дня. 0 - не считать
 }
-
+-
 realtimeAlgorithms = {
     ["initAlgorithms"] =    {initVolume},   --функции инициализации алгоритма
     ["functions"] =         {Volume},
-    ["recalculatePeriod"] = {60}
+    ["recalculatePeriod"] = {60}            --секунд
 }
