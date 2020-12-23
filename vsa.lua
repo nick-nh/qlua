@@ -1,350 +1,421 @@
-Settings =
+--[[
+	nick-h@yandex.ru
+	https://github.com/nick-nh/qlua
+
+	VSA
+]]
+
+local logfile = nil
+--logfile		= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
+
+local message       	= _G['message']
+local CandleExist      	= _G['CandleExist']
+local O     			= _G['O']
+local C     			= _G['C']
+local H     			= _G['H']
+local L     			= _G['L']
+local V     			= _G['V']
+local floor 			= math.floor
+local ceil 				= math.ceil
+local math_pow 			= math.pow
+local math_max      	= math.max
+local math_abs      	= math.abs
+local math_min      	= math.min
+local os_time			= os.time
+local max_errors		= 10
+local PlotLines     	= function() end
+local min_price_step 	= 1
+local scale 			= 1
+
+local RGB           	= _G['RGB']
+local TYPE_LINE     	= _G['TYPE_LINE']
+local TYPE_HISTOGRAM    = _G['TYPE_HISTOGRAM']
+local isDark        	= _G.isDarkTheme()
+local line_color    	= isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
+
+_G.Settings =
 {
 	Name = "*VSA",
 	lookBack = 21,
-	volumeFactor = 1,
+	volumeFactor = 1.0,
 	useVolumeMA = 1,
 	volMAPeriod = 21,
+	volMAKoeff = 1.0,
 	useChunk = 1,
-	chunkMA_Factor = 1,
+	chunkMA_Factor = 1.0,
 	useCumulativeDelta = 0,
 	useClosePrice = 1,
 	line=
 	{
 		{
-			Name = "VolEMA",
-			Color = RGB(0, 0, 0),
-			Type = TYPE_LINE,
-			Width = 2
+			Name  	= "VolEMA",
+			Color 	= line_color,
+			Type  	= TYPE_LINE,
+			Width 	= 2
 		}
 	,
 		{
-			Name = "Delta",
-			Color = RGB(0, 0, 0),
-			Type = TYPE_LINE,
-			Width = 2
+			Name 	= "Delta",
+			Color 	= line_color,
+			Type  	= TYPE_LINE,
+			Width 	= 2
 		}
 	,
 		{
-			Name = "Neutral",
-			Color = RGB(0,128, 255),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "Neutral",
+			Color 	= RGB(0,128, 255),
+			Type  	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "Climax High",
-			Color = RGB(255, 0, 0),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "Climax High",
+			Color 	= RGB(255, 0, 0),
+			Type  	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "Low",
-			Color = RGB(150, 150, 150),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "Low",
+			Color 	= RGB(150, 150, 150),
+			Type  	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "Churn",
-			Color = RGB(0,219, 108),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "Churn",
+			Color 	= RGB(0,219, 108),
+			Type  	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "Climax Low",
-			Color = RGB(0, 0, 0),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "Climax Low",
+			Color 	= line_color,
+			Type  	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "Climax Churn",
-			Color = RGB(255,0, 255),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "Climax Churn",
+			Color 	= RGB(255,0, 255),
+			Type  	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "ChunkUp",
-			Color = RGB(0,219, 108),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "ChunkUp",
+			Color 	= RGB(0,219, 108),
+			Type 	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	,
 		{
-			Name = "ChunkDown",
-			Color = RGB(255, 0, 0),
-			Type = TYPE_HISTOGRAM,
-			Width = 3
+			Name 	= "ChunkDown",
+			Color 	= RGB(255, 0, 0),
+			Type 	= TYPE_HISTOGRAM,
+			Width 	= 3
 		}
 	}
 }
 
-MIN_PRICE_STEP 	= 1
-SCALE 			= 1
+local lines = #_G.Settings.line
 
-function Init()
-	myCalculateVolume = CalculateVolume()
-	return #Settings.line
+local function round(num, idp)
+    if num then
+        local mult = 10^(idp or 0)
+        if num >= 0 then
+            return floor(num * mult + 0.5) / mult
+        else
+            return ceil(num * mult - 0.5) / mult
+        end
+    else
+        return num
+    end
 end
 
-function OnCalculate(index)
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
 
-	if index == 1 then
-		local DSInfo = getDataSourceInfo()
-		MIN_PRICE_STEP = getParamEx(DSInfo.class_code, DSInfo.sec_code, "SEC_PRICE_STEP").param_value
-		SCALE = getSecurityInfo(DSInfo.class_code, DSInfo.sec_code).scale
-	end
-
-	return myCalculateVolume(index, Settings)
+local function myLog(...)
+	if logfile==nil then return end
+    logfile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
+    logfile:flush();
 end
 
 ----------------------------------------------------------
-function CalculateVolume()
+local function CalculateVolume(FSettings)
 
-	local cache_volEMA={}
-	local DeltaBuffer={}
-	local DeltaCalculations={}
-	local cache_DeltaEMA={}
+	FSettings 					= FSettings or {}
+	local lookBack 				= FSettings.lookBack or 21
+	local volMAPeriod 			= FSettings.volMAPeriod or 21
+	local volMAKoeff 			= FSettings.volMAKoeff or 1
+	local volumeFactor 			= FSettings.volumeFactor or 1
+	local useVolumeMA 			= FSettings.useVolumeMA or 1
+	local useChunk 				= FSettings.useChunk or 0
+	local chunkMA_Factor 		= FSettings.chunkMA_Factor or 1
+	local useCumulativeDelta 	= FSettings.useCumulativeDelta or 0
+	local useClosePrice 		= FSettings.useClosePrice or 1
 
-	return function(ind, FSettings)
+	local DeltaFactor 			= 2
+	local k 					= 2/(volMAPeriod + 1)
 
-		FSettings = FSettings or {}
-		local index = ind
-		local lookBack = FSettings.lookBack or 21
-		local volMAPeriod = FSettings.volMAPeriod or 21
-		local volumeFactor = FSettings.volumeFactor or 1
-		local useVolumeMA = FSettings.useVolumeMA or 1
-		local useChunk = FSettings.useChunk or 0
-		local chunkMA_Factor = FSettings.chunkMA_Factor or 1
-		local useCumulativeDelta = FSettings.useCumulativeDelta or 0
-		local useClosePrice = FSettings.useClosePrice or 1
+	local cache_volEMA			= {}
+	local DeltaBuffer			= {}
+	local DeltaCalculations		= {}
+	local cache_DeltaEMA		= {}
 
-		local DeltaFactor = 2
+	local error_log				= {}
+	local errors				= 0
+	local max_errors_reach
 
-		local k = 2/(volMAPeriod+1)
+	local p_index
+    local l_index
 
-		if index == 1 then
-			cache_volEMA = {}
-			DeltaBuffer = {}
-			DeltaCalculations = {}
-			cache_DeltaEMA = {}
-			if CandleExist(index) then
-				DeltaBuffer[index]= math.pow(V(index), volumeFactor)
-				DeltaCalculations[index]= math.pow(V(index), volumeFactor)
-				cache_volEMA[index]= math.pow(V(index), volumeFactor)
-				cache_DeltaEMA[index]= math.pow(V(index), volumeFactor)
+	return function(index)
+
+
+		local status, res1, res2, res3, res4, res5, res6, res7, res8, res9, res10 = pcall(function()
+
+			if index == 1 then
+
+				l_index 				= index
+				cache_volEMA 			= {}
+				DeltaBuffer 			= {}
+				DeltaCalculations 		= {}
+				cache_DeltaEMA 			= {}
+
+				if CandleExist(index) then
+					DeltaBuffer[index]			= math_pow(V(index), volumeFactor)
+					DeltaCalculations[index]	= math_pow(V(index), volumeFactor)
+					cache_volEMA[index]			= math_pow(V(index), volumeFactor)
+					cache_DeltaEMA[index]		= math_pow(V(index), volumeFactor)
+				else
+					cache_volEMA[index]			= 0
+					DeltaBuffer[index]			= 0
+					DeltaCalculations[index]	= 0
+					cache_DeltaEMA[index]		= 0
+				end
+				return nil
+			end
+
+			cache_volEMA[index] 		= cache_volEMA[index-1] or 0
+			DeltaBuffer[index] 			= DeltaBuffer[index-1] or 0
+			DeltaCalculations[index] 	= DeltaCalculations[index-1] or 0
+			cache_DeltaEMA[index] 		= cache_DeltaEMA[index-1] or 0
+
+			if not CandleExist(index) then
+				return nil
+			end
+
+			if index ~= l_index then
+				p_index = l_index
+				cache_volEMA[l_index - lookBack] 		= nil
+				DeltaBuffer[l_index - lookBack] 		= nil
+				DeltaCalculations[l_index - lookBack] 	= nil
+				cache_DeltaEMA[l_index - lookBack] 		= nil
+			end
+
+			local priceMax = H(index)
+			local priceMin = L(index)
+
+			if useClosePrice == 1 and useChunk~=1 then
+				priceMax = math_max(O(index), C(index))
+				priceMin = math_min(O(index), C(index))
+			end
+
+			if priceMax == priceMin then priceMax = priceMin + min_price_step end
+
+			local vol = V(index)
+			if useChunk == 1 then
+				vol = round(V(index)*min_price_step/math_abs(priceMax-priceMin), scale)
+			end
+
+			cache_volEMA[index] = k*math_pow(vol, volumeFactor)+(1-k)*cache_volEMA[index-1]
+			local extraVolume 	= math_pow(V(index), volumeFactor)
+
+			if C(index) > C(p_index) then
+				DeltaBuffer[index] = extraVolume
 			else
-				cache_volEMA[index]= 0
-				DeltaBuffer[index]= 0
-				DeltaCalculations[index]= 0
-				cache_DeltaEMA[index]= 0
+				DeltaBuffer[index] = -1*extraVolume
 			end
-			return nil
-		end
-
-		if not CandleExist(index) then
-			cache_volEMA[index] = cache_volEMA[index-1]
-			DeltaBuffer[index] = DeltaBuffer[index-1]
-			DeltaCalculations[index] = DeltaCalculations[index-1]
-			cache_DeltaEMA[index] = cache_DeltaEMA[index-1]
-			return nil
-		end
-
-		local priceMax = H(index)
-		local priceMin = L(index)
-
-		if useClosePrice == 1 and useChunk~=1 then
-			priceMax = math.max(O(index), C(index))
-			priceMin = math.min(O(index), C(index))
-		end
-		if priceMax == priceMin then priceMax = priceMin + MIN_PRICE_STEP end
-
-		local vol = V(index)
-		if useChunk == 1 then
-			vol = round(V(index)*MIN_PRICE_STEP/math.abs(priceMax-priceMin), SCALE)
-		end
-
-		cache_volEMA[index]=k*math.pow(vol, volumeFactor)+(1-k)*cache_volEMA[index-1]
-		--if index >= (Size() - 10) then message('vol '..tostring(vol)..', vol factor '..tostring(volumeFactor)..', ema '..tostring(cache_volEMA[index])) end
-
-		local previous = index-1
-
-		if not CandleExist(previous) then
-			previous = FindExistCandle(previous)
-		end
-
-		if previous == 0 then
-			DeltaBuffer[index] = DeltaBuffer[index-1]
-			DeltaCalculations[index] = DeltaCalculations[index-1]
-			cache_DeltaEMA[index] = cache_DeltaEMA[index-1]
-			return nil
-		end
-
-		local extraVolume = math.pow(V(index), volumeFactor)
-
-		if C(index) > C(previous) then
-			DeltaBuffer[index] = extraVolume
-		else
-			DeltaBuffer[index] = -1*extraVolume
-		end
-		if useCumulativeDelta then
-			DeltaBuffer[index] = DeltaBuffer[index] / DeltaFactor
-		else
-			DeltaBuffer[index] = DeltaBuffer[index] / DeltaFactor
-		end
-
-		DeltaCalculations[index] = DeltaBuffer[index - 1] + extraVolume
-
-		cache_DeltaEMA[index]=k*DeltaCalculations[index]+(1-k)*cache_DeltaEMA[index-1]
-
-		if index < lookBack then
-			return nil
-		end
-
-		local out = math.pow(vol, volumeFactor)
-		local outVolEMA = cache_volEMA[index]
-		local outDeltaEMA = DeltaCalculations[index]
-
-		if useVolumeMA==0 then
-			outVolEMA = nil
-		end
-		if useCumulativeDelta==0 then
-			outDeltaEMA = nil
-		end
-
-		if useChunk == 1 then
-
-			if vol>chunkMA_Factor*cache_volEMA[index] and C(index) > (priceMax + priceMin)/2 then
-
-				return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, nil, out, nil --Chunk Up
-
-			elseif vol>chunkMA_Factor*cache_volEMA[index] and C(index) < (priceMax + priceMin)/2 then
-
-				return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, nil, nil, out --Chunk Down
-
+			if useCumulativeDelta then
+				DeltaBuffer[index] = DeltaBuffer[index] / DeltaFactor
+			else
+				DeltaBuffer[index] = DeltaBuffer[index] / DeltaFactor
 			end
 
-			return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil, nil, nil --low
-		end
+			DeltaCalculations[index] 	= DeltaBuffer[index - 1] + extraVolume
+			cache_DeltaEMA[index]		= k*DeltaCalculations[index] + (1-k)*cache_DeltaEMA[index-1]
 
-		local volClimaxCurrent = V(index) * (priceMax - priceMin)
-		local volChurnCurrent = 0
+			l_index = index
 
-		if volClimaxCurrent > 0 then
-			volChurnCurrent = V(index) / (priceMax - priceMin)
-		end
+			if index < lookBack then
+				return nil
+			end
 
-		local volClimaxLocal = 0
-		local volChurnLocal = 0
-		local climax = 0
-		local churn = 0
-		local v_H = 0
-		local v_L = 0
-		local priceMinLocal = priceMin
-		local priceMaxLocal = priceMax
-		local min_index = 0
+			local out 			= math_pow(vol, volumeFactor)
+			local outVolEMA 	= volMAKoeff*cache_volEMA[index]
+			local outDeltaEMA 	= DeltaCalculations[index]
 
-		for n=index-lookBack + 1,index do
+			if useVolumeMA==0 then
+				outVolEMA = nil
+			end
+			if useCumulativeDelta==0 then
+				outDeltaEMA = nil
+			end
 
-			if CandleExist(n) then
+			if useChunk == 1 then
 
-				priceMinLocal = L(n)
-				priceMaxLocal = H(n)
-
-				if useClosePrice == 1 then
-					priceMinLocal = math.min(O(n), C(n))
-					priceMaxLocal = math.max(O(n), C(n))
+				if vol > chunkMA_Factor*cache_volEMA[index] and C(index) > (priceMax + priceMin)/2 then
+					return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, nil, out, nil --Chunk Up
+				elseif vol > chunkMA_Factor*cache_volEMA[index] and C(index) < (priceMax + priceMin)/2 then
+					return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, nil, nil, out --Chunk Down
 				end
 
-				climax = V(n) * (priceMaxLocal - priceMinLocal)
+				return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil, nil, nil --low
+			end
 
-				-- Previous maximal price range can be found here
+			local volClimaxCurrent = V(index) * (priceMax - priceMin)
+			local volChurnCurrent = 0
 
-				if climax >= volClimaxLocal
-				then
-					volClimaxLocal = climax;
-				end
+			if volClimaxCurrent > 0 then
+				volChurnCurrent = V(index) / (priceMax - priceMin)
+			end
 
-				-- Previous consolidation can be found here
+			local volClimaxLocal 	= 0
+			local volChurnLocal 	= 0
+			local v_H 				= 0
+			local v_L 				= 0
+			local min_index 		= 0
 
-				if climax > 0
-				then
-					churn = V(n) / (priceMaxLocal - priceMinLocal)
+			local priceMinLocal
+			local priceMaxLocal
+			local climax
+			local churn
 
-					if churn >= volChurnLocal
-					then
-						volChurnLocal = churn;
+			for n = index - lookBack + 1, index do
+
+				if CandleExist(n) then
+
+					priceMinLocal = L(n)
+					priceMaxLocal = H(n)
+
+					if useClosePrice == 1 then
+						priceMinLocal = math_min(O(n), C(n))
+						priceMaxLocal = math_max(O(n), C(n))
 					end
-				end
 
-				if v_H < V(n) then v_H = V(n) end
-				if v_L > V(n) then
-					v_L = V(n)
-					min_index = n
-				end
+					climax = V(n) * (priceMaxLocal - priceMinLocal)
 
+					-- Previous maximal price range can be found here
+
+					if climax >= volClimaxLocal
+					then
+						volClimaxLocal = climax;
+					end
+
+					-- Previous consolidation can be found here
+
+					if climax > 0
+					then
+						churn = V(n) / (priceMaxLocal - priceMinLocal)
+
+						if churn >= volChurnLocal
+						then
+							volChurnLocal = churn;
+						end
+					end
+
+					if v_H < V(n) then v_H = V(n) end
+					if v_L > V(n) then
+						v_L = V(n)
+						min_index = n
+					end
+
+				end
 			end
+
+			-- When volume is higher than all previous and price is going down - start or end of the down trend
+
+			if (volClimaxCurrent == volClimaxLocal and C(index) < (priceMax + priceMin) / 2)
+			then
+				return outVolEMA, outDeltaEMA, nil, nil, nil, nil, out, nil, nil, nil --Climax Low
+			end
+
+			-- When volume is extra high and price is not changing - absolute consolidation or fast accummulation / distribution
+
+			if (volClimaxCurrent == volClimaxLocal and volChurnCurrent == volChurnLocal)
+			then
+				return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, out, nil, nil --Climax Churn
+			end
+
+			-- When volume is higher than all previous and price is going up - start or end of the up trend
+
+			if (volClimaxCurrent == volClimaxLocal and C(index) > (priceMax + priceMin) / 2)
+			then
+				return outVolEMA, outDeltaEMA, nil, out, nil, nil, nil, nil, nil, nil --Climax High
+			end
+
+			-- When volume is equal to one seen before mark it as accummulation / distribution - profit is taken
+
+			if (volChurnCurrent == volChurnLocal)
+			then
+				return outVolEMA, outDeltaEMA, nil, nil, nil, out, nil, nil, nil, nil--Churn
+			end
+
+			if (index == min_index)
+			then
+				return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil, nil, nil --Low
+			end
+
+			return outVolEMA, outDeltaEMA, out, nil, nil, nil, nil, nil, nil, nil --neutral
+
+		end)
+		if not status then
+			errors = errors + 1
+			if errors > max_errors and not max_errors_reach then
+				message(_G.Settings.Name ..': Слишком много ошибок при работе индикатора.')
+				max_errors_reach = true
+			end
+			if not error_log[tostring(res1)] then
+				error_log[tostring(res1)] = true
+				myLog('Error CalcFunc: '..tostring(res1))
+				message('Error CalcFunc: '..tostring(res1))
+			end
+			return nil
 		end
-
-        -- When volume is higher than all previous and price is going down - start or end of the down trend
-
-        if (volClimaxCurrent == volClimaxLocal and C(index) < (priceMax + priceMin) / 2)
-        then
-			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, out, nil, nil, nil --Climax Low
-		end
-
-        -- When volume is extra high and price is not changing - absolute consolidation or fast accummulation / distribution
-
-        if (volClimaxCurrent == volClimaxLocal and volChurnCurrent == volChurnLocal)
-        then
- 			return outVolEMA, outDeltaEMA, nil, nil, nil, nil, nil, out, nil, nil --Climax Churn
-		end
-
-        -- When volume is higher than all previous and price is going up - start or end of the up trend
-
-        if (volClimaxCurrent == volClimaxLocal and C(index) > (priceMax + priceMin) / 2)
-        then
- 			return outVolEMA, outDeltaEMA, nil, out, nil, nil, nil, nil, nil, nil --Climax High
-       end
-
-        -- When volume is equal to one seen before mark it as accummulation / distribution - profit is taken
-
-        if (volChurnCurrent == volChurnLocal)
-        then
-			return outVolEMA, outDeltaEMA, nil, nil, nil, out, nil, nil, nil, nil--Churn
-		end
-
-		if (index == min_index)
-        then
-			return outVolEMA, outDeltaEMA, nil, nil, out, nil, nil, nil, nil, nil --Low
-		end
-
-		return outVolEMA, outDeltaEMA, out, nil, nil, nil, nil, nil, nil, nil --neutral
-
+		return res1, res2, res3, res4, res5, res6, res7, res8, res9, res10
 	end
-
 end
-	----------------------------
-function FindExistCandle(I)
 
-	local out = I
-
-	while not CandleExist(out) and out > 0 do
-		out = out -1
+function _G.OnCalculate(index)
+	if index == 1 then
+		local DSInfo 	= _G.getDataSourceInfo()
+		min_price_step 	= _G.getParamEx(DSInfo.class_code, DSInfo.sec_code, "SEC_PRICE_STEP").param_value
+		scale 			= _G.getSecurityInfo(DSInfo.class_code, DSInfo.sec_code).scale
 	end
-
-	return out
-
+	return PlotLines(index)
 end
 
-function round(num, idp)
-	if idp and num then
-	   local mult = 10^(idp or 0)
-	   if num >= 0 then return math.floor(num * mult + 0.5) / mult
-	   else return math.ceil(num * mult - 0.5) / mult end
-	else return num end
+function _G.Init()
+	PlotLines = CalculateVolume(_G.Settings)
+	return lines
+end
+
+function _G.OnChangeSettings()
+    _G.Init()
+end
+
+function _G.OnDestroy()
+	if logfile then logfile:close() end
 end
