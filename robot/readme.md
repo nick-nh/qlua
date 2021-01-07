@@ -302,9 +302,13 @@ presets[newIndex].fields['kATR']        = {caption = 'kATR'         , caption_li
 presets[newIndex].edit_fields = {}
 
 presets[newIndex].edit_fields['period']      = true
+
 presets[newIndex].edit_fields['koef']        = true
+
 presets[newIndex].edit_fields['shift']       = true
+
 presets[newIndex].edit_fields['periodATR']   = true
+
 presets[newIndex].edit_fields['kATR']        = true
 
 
