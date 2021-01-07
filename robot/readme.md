@@ -272,7 +272,9 @@ Update:
 Пример настроек алгоритма:
 
 --Куда поместить кнопку выбора настройки
+
 presets[newIndex].interface_line = 3 -- строка в которой будет расположена команда
+
 presets[newIndex].interface_col = 2  -- колонка в которой будет расположена команда
 
 --Какие значения настроек надо вывести в интерфейс, в указанные места
@@ -288,6 +290,7 @@ presets[newIndex].interface_col = 2  -- колонка в которой буд�
 -- val_col = колонка где будет расположено значение поля
 
 presets[newIndex].fields = {}
+
 presets[newIndex].fields['period']      = {caption = 'period'       , caption_line = 4, caption_col = 1 , val_line = 5, val_col = 1, base_color = nil}
 presets[newIndex].fields['shift']       = {caption = 'shift'        , caption_line = 4, caption_col = 2 , val_line = 5, val_col = 2, base_color = nil}
 presets[newIndex].fields['koef']        = {caption = 'koef'         , caption_line = 4, caption_col = 3 , val_line = 5, val_col = 3, base_color = nil}
@@ -295,7 +298,9 @@ presets[newIndex].fields['periodATR']   = {caption = 'periodATR'    , caption_li
 presets[newIndex].fields['kATR']        = {caption = 'kATR'         , caption_line = 6, caption_col = 1 , val_line = 7, val_col = 1, base_color = nil}
 
 -- возможность редактирования полей настройки
+
 presets[newIndex].edit_fields = {}
+
 presets[newIndex].edit_fields['period']      = true
 presets[newIndex].edit_fields['koef']        = true
 presets[newIndex].edit_fields['shift']       = true
