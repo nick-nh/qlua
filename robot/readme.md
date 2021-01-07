@@ -1,5 +1,7 @@
 Робот для Квика.
 
+Update: адаптирован для lua 5.3 (Квик 8.5 и выше)
+
 Данный робот предназначен для автоматизации торговли, обеспечения автоматического выставления стоп заявок и ведения их, вирутальной торговли.
 Вирутальная торговля нужна для обеспечения возможности совершать сделки для тестирования стратегий или просто тестовой ручной торговли.
 Данные робот содержит в себе модуль оптимизации и алгоритм работы со стоп заявками как и в тестере:https://github.com/nick-nh/qlua/tree/master/tester
@@ -173,11 +175,12 @@ math.floor(getParamEx(CLASS_CODE, SEC_CODE, 'PRICEMAX').param_value - 200*SEC_PR
 
 Встроенный алгоритм реализует трейлинг стопа и тейка. Размер стопа и тейка указывается в пунктах цены.
 При входе в сделку открывается стоп по формуле:
-calcAlgoValue[index-1] - (kATR*ATR[index-1] + 40*SEC_PRICE_STEP,
+calcAlgoValue[index-1] - (kATR*ATR[index-1] + SL_ADD_STEPS*SEC_PRICE_STEP,
 где calcAlgoValue[index-1] - это расчетное значение алгоритма на прошлом баре, для примера - рассчитанное EMA.
     kATR = 0.95 (переменная, можно изменить)
     ATR[index-1] - рассчитанное значение АТР на прошлом баре.
     SEC_PRICE_STEP - минимальный шаг цены инструмента
+    SL_ADD_STEPS - отступ в шагах цены
 Т.о. стоп рассчитывается и не зависит от стопа, указанного в файле параметров.
 Если указать в настройках пресета fixedstop = true, то стоп будет фиксированным, указанным в настройках, независящим от алгоритма и волатильности.
 
@@ -258,3 +261,40 @@ isShort = true
 Установка простая - все положить в любую папку и добавить в скрипты Квика robotAlgo.
 Для вывода на график линий алгоритмов надо использовать библиотеку StaticVar и индикатор algoResults из тестера https://github.com/nick-nh/qlua/tree/master/tester
 Чтобы при вирутальной торговле выводились метки сделок, надо определить ChartId в пресете, а также положить в папку установки робота папку с изображениями из тестера.
+
+Update:
+
+Интерфейс робота формируется декларативно исходя настроек в файле robotTable.lua.
+Использована методика Qtable Wrapper
+
+Команды алгоритмов добавляются исходя из подключеных модулей и настроек внутри них.
+
+Пример настроек алгоритма:
+
+--Куда поместить кнопку выбора настройки
+presets[newIndex].interface_line = 3 -- строка в которой будет расположена команда
+presets[newIndex].interface_col = 2  -- колонка в которой будет расположена команда
+
+--Какие значения настроек надо вывести в интерфейс, в указанные места
+--Описание полей интерфейса
+-- caption_line = строка где будет расположен заголовок поля
+-- caption_col = колонка где будет расположен заголовок поля
+-- val_line = строка где будет расположено значение поля
+-- val_col = колонка где будет расположено значение поля
+presets[newIndex].fields = {}
+presets[newIndex].fields['period']      = {caption = 'period'       , caption_line = 4, caption_col = 1 , val_line = 5, val_col = 1, base_color = nil}
+presets[newIndex].fields['shift']       = {caption = 'shift'        , caption_line = 4, caption_col = 2 , val_line = 5, val_col = 2, base_color = nil}
+presets[newIndex].fields['koef']        = {caption = 'koef'         , caption_line = 4, caption_col = 3 , val_line = 5, val_col = 3, base_color = nil}
+presets[newIndex].fields['periodATR']   = {caption = 'periodATR'    , caption_line = 4, caption_col = 4 , val_line = 5, val_col = 4, base_color = nil}
+presets[newIndex].fields['kATR']        = {caption = 'kATR'         , caption_line = 6, caption_col = 1 , val_line = 7, val_col = 1, base_color = nil}
+
+-- возможность редактирования полей настройки
+presets[newIndex].edit_fields = {}
+presets[newIndex].edit_fields['period']      = true
+presets[newIndex].edit_fields['koef']        = true
+presets[newIndex].edit_fields['shift']       = true
+presets[newIndex].edit_fields['periodATR']   = true
+presets[newIndex].edit_fields['kATR']        = true
+
+
+Т.о. задавая настройки в модуле, скрипт автоматически выведет команды и поля в интерфейс. Рисовать и программировать его не требудется.
