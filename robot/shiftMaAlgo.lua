@@ -1,110 +1,68 @@
-function setTableMAParams(settingsAlgo)
-
-    --можно испрльзовать 5 колонок в трех строках
-    --одна строка уже добавлена, если нужны еще две, то надо добвать строки
-    local rows,_ = GetTableSize(t_id)
-    if rows > 6 then
-        for i=1,4 do
-            DeleteRow(t_id, 7)
-        end        
-    end
-
-    SetCell(t_id, 5, 0, "period", 0)  --i строка, 0 - колонка, v - значение 
-    SetCell(t_id, 5, 1, "shift", 0)  --i строка, 0 - колонка, v - значение 
-    SetCell(t_id, 5, 2, "", 0)  --i строка, 0 - колонка, v - значение 
-    SetCell(t_id, 5, 3, "", 0)  --i строка, 0 - колонка, v - значение 
-    SetCell(t_id, 6, 0, tostring(settingsAlgo.period),          settingsAlgo.period)  
-    SetCell(t_id, 6, 1, tostring(settingsAlgo.shift),      settingsAlgo.shift)
-    SetCell(t_id, 6, 2, "",      0)
-    SetCell(t_id, 6, 3, "",      0)
-    SetCell(t_id, 6, 6, tostring(settingsAlgo.STOP_LOSS), settingsAlgo.STOP_LOSS)  
-    SetCell(t_id, 6, 7, tostring(settingsAlgo.TAKE_PROFIT))
-
-end
-
-function readTableMAParams()
-
-    Settings.period = GetCell(t_id, 6, 0).value
-    Settings.shift = GetCell(t_id, 6, 1).value
-    Settings.STOP_LOSS = GetCell(t_id, 6, 6).value
-    Settings.TAKE_PROFIT = tonumber(GetCell(t_id, 6, 7).image)
-
-end
-
-function readOptimizedMA()
-    local ParamsFile = io.open(PARAMS_FILE_NAME,"r")
-    if ParamsFile ~= nil then
-        local lineCount = 0
-        local SettingsKeys = {}
-        for line in ParamsFile:lines() do
-            lineCount = lineCount + 1
-            if lineCount > 1 and line ~= "" then
-                local per1, per2, per3, per4, per5, per6 = line:match("%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*);%s*(.*)")
-                if INTERVAL == tonumber(per1) then
-                    testSizeBars        = tonumber(per2)
-                    Settings.period     = tonumber(per3)
-                    Settings.shift      = tonumber(per4)
-                    Settings.STOP_LOSS      = tonumber(per5)
-                    Settings.TAKE_PROFIT    = tonumber(per6)
-                end
-            end
-        end
-        ParamsFile:close()
-    else
-        myLog("Файл параметров "..PARAMS_FILE_NAME.." не найден")
-    end
-end
-
-function saveOptimizedMA(settings)
-    
-    local ParamsFile = io.open(PARAMS_FILE_NAME,"w")
-    local firstString = "INTERVAL; testSizeBars; period; shift; STOP_LOSS; TAKE_PROFIT"
-    ParamsFile:write(firstString.."\n")
-    local paramsString = tostring(INTERVAL)..";"..tostring(testSizeBars)..";"..tostring(settings.period)..";"..tostring(settings.shift)..";"..tostring(settings.STOP_LOSS)..";"..tostring(settings.TAKE_PROFIT)
-    ParamsFile:write(paramsString.."\n")
-    ParamsFile:flush()
-    ParamsFile:close()
-
-end
-
 --- Алгоритм
 function initMA()
-    ATR = nil
-    trend=nil
-    calcAlgoValue = nil     --      Возвращаемая таблица
-    calcChartResults = nil     --      Возвращаемая таблица
-
-	EMA=nil
+    calcATR             = true
+    ATR                 = {}
+    trend               = {}
+    calcAlgoValue       = {}
+    dVal                = {}
+    calcChartResults    = {}
+	EMA                 = {}
+	EMA2                = {}
 end
 
 function iterateMA()
-    
-    param1Min = 4
-    param1Max = 82
-    param1Step = 1
 
-    param2Min = 1
-    param2Max = 28
-    param2Step = 1
+    iterateSLTP = true
 
-    if ROBOT_STATE == 'РЕОПТИМИЗАЦИЯ' then
-        param1Min = math.max(param1Min, Settings.period-30)
-        param1Max = math.min(param1Max, Settings.period+30)
-    end    
+    local param1Min = 10
+    local param1Max = 25
+    local param1Step = 1
+
+    local param2Min = 11
+    local param2Max = 40
+    local param2Step = 1
+
+    local param3Min   = 9
+    local param3Max   = 12
+    local param3Step  = 1
+
+    local param4Min   = 0.6
+    local param4Max   = 0.75
+    local param4Step  = 0.05
+
+    if fixedstop then
+        param3Min   = 10
+        param3Max   = 10
+        param3Step  = 1
+
+        param4Min   = 0.65
+        param4Max   = 0.65
+        param4Step  = 0.05
+    end
 
     local settingsTable = {}
     local allCount = 0
 
-    for param1 = param1Min, param1Max, param1Step do               
-        for param2 = param2Min, math.ceil(0.8*param1), param2Step do    
-            allCount = allCount + 1
-            
-            settingsTable[allCount] = {
-                period    = param1,                   
-                shift    = param2
-            }               
+    for param1 = param1Min, param1Max, param1Step do
+
+        _param2Min = math.max(math.ceil(param1+1), param2Min)
+        for param2 = _param2Min, param2Max, param2Step do
+            for param3 = param3Min, param3Max, param3Step do
+                for param4 = param4Min, param4Max, param4Step do
+                    allCount = allCount + 1
+                    settingsTable[allCount] = {
+                        period    = param1,
+                        period2 = param2,
+                        periodATR = param3,
+                        kATR = param4,
+                        Size = Size
+                        }
+                end
+            end
         end
     end
+
+    myLog('iterateMA lines: '..tostring(allCount))
 
     iterateAlgorithm(settingsTable)
 
@@ -112,33 +70,41 @@ end
 
 function MA(index, Fsettings)
 
-    local period = Fsettings.period or 32
-    local shift = Fsettings.shift or 2
+    local period = Fsettings.period or 21
+    local period2 = Fsettings.period2 or 38
+    local periodATR = Fsettings.periodATR or 10
+    kATR = Fsettings.kATR or kATR
 
     local indexToCalc = 1000
     indexToCalc = Fsettings.indexToCalc or indexToCalc
     local beginIndexToCalc = Fsettings.beginIndexToCalc or math.max(1, DS:Size() - indexToCalc)
+    local endIndexToCalc = Fsettings.endIndex or DS:Size()
 
     if index == nil then index = 1 end
-    
-    local kawg = 2/(period+1)
-   
-    if index == beginIndexToCalc then        
 
-        --if ROBOT_STATE ~= 'РЕОПТИМИЗАЦИЯ' then
-        --    myLog("--------------------------------------------------")
-        --    myLog("Показатель Period "..tostring(period))
-        --    myLog("Показатель shift "..tostring(shift))
-        --    myLog("--------------------------------------------------")
-        --end
+    if index == beginIndexToCalc then
+
+        if not ROBOT_STATE:find('ОПТИМИЗАЦИЯ') then
+            myLog("--------------------------------------------------")
+            myLog("Показатель Period "..tostring(period))
+            myLog("Показатель Period2 "..tostring(period2))
+            myLog("Показатель periodATR "..tostring(periodATR))
+            myLog("Показатель kATR "..tostring(kATR))
+            myLog("--------------------------------------------------")
+        end
 
         EMA = {}
-        EMA[index] = 1        
-       
+        EMA[index] = 1
+        EMA2 = {}
+        EMA2[index] = 1
+
         ATR = {}
-        ATR[index] = 0			
+        ATR[index] = 0
+
+        -- В CLOSE_BAR_SIGNAL = 0 режиме trend имеет всего два элемента trend.current - текущее значение и trend.last - прошлое значение
         trend = {}
-        trend[index] = 1
+        trend.current = 0
+        trend.last = 0
         calcAlgoValue = {}
         calcAlgoValue[index] = 0
 
@@ -148,59 +114,127 @@ function MA(index, Fsettings)
         return calcAlgoValue
     end
 
-    EMA[index] = EMA[index-1]			
-    
-    ATR[index] = ATR[index-1]     
+    EMA[index] = EMA[index-1]
+    EMA2[index] = EMA2[index-1]
+
+    ATR[index] = ATR[index-1]
     calcAlgoValue[index] = calcAlgoValue[index-1]
-    trend[index] = trend[index-1] 
     calcChartResults[index] = calcChartResults[index-1]
 
-    if index<period then
+    if index<(periodATR+beginIndexToCalc) then
         ATR[index] = 0
-    elseif index==period then
+    elseif index==(periodATR+beginIndexToCalc) then
         local sum=0
-        for i = 1, period do
+        for i = 1, periodATR do
             sum = sum + dValue(i)
         end
-        ATR[index]=sum / period
-    elseif index>period then
-        ATR[index]=(ATR[index-1] * (period-1) + dValue(index)) / period
-        --ATR[index] = kawg*dValue(index)+(1-kawg)*ATR[index-1]
-    end
-    
-    if index <= beginIndexToCalc + (period + shift + 1) then
-        return calcAlgoValue
+        ATR[index]=sum / periodATR
+    elseif index>(periodATR+beginIndexToCalc) then
+        ATR[index]=(ATR[index-1] * (periodATR-1) + dValue(index)) / periodATR
     end
 
-    EMA[index] = (DS:C(index)+DS:O(index))/2			
-    
+    if index <= beginIndexToCalc + (math.max(period, periodATR) + 1) or index > endIndexToCalc then
+        return calcAlgoValue, trend, calcChartResults
+    end
+
+    local k = 2/(period+1)
+    local k2 = 2/(period2+1)
+
+    EMA[index] = (DS:C(index)+DS:O(index))/2
+    EMA2[index] = (DS:C(index)+DS:O(index))/2
+
     if DS:C(index) ~= nil then
 
         local val = dValue(index,'C')
 
-        EMA[index]=round(kawg*val+(1-kawg)*EMA[index-1], 5)
-                
-        local isUpPinBar = DS:C(index)>DS:O(index) and (DS:H(index)-DS:C(index))/(DS:H(index) - DS:L(index))>=0.5 
-        local isLowPinBar = DS:C(index)<DS:O(index) and (DS:C(index)-DS:L(index))/(DS:H(index) - DS:L(index))>=0.5 
-    
-        local isBuy = (not isUpPinBar and EMA[index] > EMA[index-shift] and EMA[index-1] <= EMA[index-shift-1]) 
-            --or (trend[index] == -1 and EMA[index] > EMA[index-shift] and EMA[index-1] > calcAlgoValue[index-shift])
-        local isSell = (not isLowPinBar and EMA[index] < EMA[index-shift] and EMA[index-1] >= EMA[index-shift-1])
-             --or (trend[index] == 1 and EMA[index] < EMA[index-shift] and EMA[index-1] < EMA[index-shift])
-               
+        EMA[index]=round(k*val+(1-k)*EMA[index-1], 5)
+        EMA2[index]=round(k2*val+(1-k2)*EMA2[index-1], 5)
+
+        --Простое пересечение скользящих, направелнных в одну сторону
+        local isBuy  = trend.current <= 0 and EMA[index] > EMA[index-1] and EMA2[index] > EMA2[index-1] and EMA[index]>EMA2[index] and EMA[index-1]<=EMA2[index-1]
+        local isSell = trend.current >= 0 and EMA[index] < EMA[index-1] and EMA2[index] < EMA2[index-1] and EMA[index]<EMA2[index] and EMA[index-1]>=EMA2[index-1]
+
         if isBuy then
-            trend[index] = 1
+            trend.last = trend.current
+            trend.current = 1
         end
         if isSell then
-            trend[index] = -1
+            trend.last = trend.current
+            trend.current = -1
         end
 
-        calcAlgoValue[index] = EMA[index]
-        --calcAlgoValue[index] = DS:O(index)
-    end                
-    
-    calcChartResults[index] = {EMA[index], EMA[index-shift-1]}
+        calcAlgoValue[index] = DS:C(index)
+    end
+
+    calcChartResults[index] = {EMA[index], EMA2[index]}
+    --myLog("index "..tostring(index)..", EMA "..tostring(EMA[index])..", EMA2 "..tostring(EMA2[index])..", trend: "..tostring(trend.current)..", past trend: "..tostring(trend.last))
 
     return calcAlgoValue, trend, calcChartResults
-    
+
 end
+
+local newIndex = #presets+1
+presets[newIndex] =
+{
+    Name                    = "sEMA M3",
+    NAME_OF_STRATEGY        = 'sEMA',
+    SEC_CODE                = 'SBER',
+    CLASS_CODE              = 'QJSIM',
+    ACCOUNT                 = 'NL0011100043',
+    CLIENT_CODE             = '11056',
+    LIMIT_KIND              = 0,            -- 0 - Т0, 1 - Т1, 2 - Т2
+    QTY_LOTS                = 1,            -- количество для торговли
+    OFFSET                  = 2,            -- (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
+    SPREAD                  = 10,           -- Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на пунктов,
+    ChartId                 = "GRAPH_SI",   -- индентификатор графика, куда выводить метки сделок и данные алгоритма.
+    STOP_LOSS               = 70,           -- Размер СТОП-ЛОССА в пунктах (в рублях)
+    TAKE_PROFIT             = 180,          -- Размер ТЕЙК-ПРОФИТА в пунктах (в рублях)
+    TRAILING_SIZE           = 0,            -- Размер выхода в плюс в пунктах (в рублях), после которого активируется трейлинг
+    TRAILING_SIZE_STEP      = 1,            -- Размер шага трейлинга в пунктах (в рублях)
+    CLOSE_BAR_SIGNAL        = 0,            -- Сигналы на вход поступают: 1 - по закрытию бара; 0 -- в произволное время
+    kATR                    = 0.6,          -- коэффициент ATR для расчета стоп-лосса
+    periodATR               = 12,           -- период ATR для расчета стоп-лосса
+    SetStop                 = true,         -- выставлять ли стоп заявки
+    CloseSLbeforeClearing   = false,        -- снимать ли стоп заявки перед клирингом
+    fixedstop               = true,         -- STOPLOSS не рассчитывать по алгоритму, а брать фиксированным из настроек
+    isLong                  = true,         -- доступен лонг
+    isShort                 = true,         -- доступен шорт
+    trackManualDeals        = true,         -- учитывать ручные сделки не из интерфейса робота,
+    maxStop                 = 85,           -- максимально допустимый стоп в пунктах
+    reopenDealMaxStop       = 75,           -- если сделка переоткрыта после стопа, то максимальный стоп
+    stopShiftIndexWait      = 17,           -- если цена не двигается (на величину стопа), то пересчитать стоп после стольких баров
+    shiftStop               = true,         -- сдвигать стоп (трейил) на величину STOP_LOSS
+    shiftProfit             = false,        -- сдвигать профит (трейил) на величину STOP_LOSS/2
+    reopenPosAfterStop      = 7,            -- если выбило по стопу заявке, то попытаться переоткрыть сделку, после стольких баров
+    INTERVAL                = INTERVAL_M3,  -- Таймфрейм графика (для построения скользящих)
+    testSizeBars            = 3240,         -- размер окна оптимизации стратегии
+    autoReoptimize          = false,        -- надо ли включать оптимизацию перед вечерним клирингом
+    autoClosePosition       = true,         -- надо ли автоматически закрывать позиции перед вечерним клирингом
+    calculateAlgo           = MA,
+    iterateAlgo             = iterateMA,
+    initAlgo                = initMA,
+    settingsAlgo =
+    {
+        period    = 5,
+        period2    = 9
+    }
+}
+
+--Куда поместить кнопку выбора настройки
+presets[newIndex].interface_line = 3
+presets[newIndex].interface_col = 1
+
+--Какие значения настроек надо вывести в интерфейс, в указанные места
+--Описание полей интерфейса
+presets[newIndex].fields = {}
+presets[newIndex].fields['period']      = {caption = 'period'       , caption_line = 4, caption_col = 1 , val_line = 5, val_col = 1, base_color = nil}
+presets[newIndex].fields['period2']     = {caption = 'period2'      , caption_line = 4, caption_col = 2 , val_line = 5, val_col = 2, base_color = nil}
+presets[newIndex].fields['periodATR']   = {caption = 'periodATR'    , caption_line = 4, caption_col = 3 , val_line = 5, val_col = 3, base_color = nil}
+presets[newIndex].fields['kATR']        = {caption = 'kATR'         , caption_line = 4, caption_col = 4 , val_line = 5, val_col = 4, base_color = nil}
+
+-- возможность редактирования полей настройки
+presets[newIndex].edit_fields = {}
+presets[newIndex].edit_fields['period']      = true
+presets[newIndex].edit_fields['period2']     = true
+presets[newIndex].edit_fields['periodATR']   = true
+presets[newIndex].edit_fields['kATR']        = true
