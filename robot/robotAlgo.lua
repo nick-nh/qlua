@@ -369,10 +369,11 @@ function OnInit()
 
     if iterateAlgorithm == nil then isOptimization = false end
 
-    dofile(getScriptPath().."\\shiftMaAlgo.lua")
+    dofile(getScriptPath().."\\regAlgo.lua")
     dofile(getScriptPath().."\\thvAlgo.lua")
-    dofile(getScriptPath().."\\rangeHVAlgo.lua")
+    dofile(getScriptPath().."\\shiftMaAlgo.lua")
     dofile(getScriptPath().."\\ethlerAlgo.lua")
+    dofile(getScriptPath().."\\nrtrAlgo.lua")
 
     --example Пример настроек, если не подключен ни один файл
     if #presets == 0 then
