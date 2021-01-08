@@ -11,6 +11,7 @@ local string_sub    = string.sub
 local math_floor    = math.floor
 local math_ceil     = math.ceil
 local math_max      = math.max
+local math_min      = math.min
 local math_abs      = math.abs
 local math_pow      = math.pow
 local math_sqrt     = math.sqrt
@@ -18,7 +19,7 @@ local math_huge     = math.huge
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2020.09.23',
+    _VERSION     = 'MA lib 2021.01.08',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -136,18 +137,21 @@ end
 
 local function Value(index, data_type, ds)
     local Out = nil
+    if tostring(data_type):upper() == 'TIME' then
+        return (ds and ds:T(index))
+    end
     data_type = (data_type and string_upper(string_sub(data_type,1,1))) or "A"
     if  data_type ~= "A" and index >= 1 then
         if data_type == "O" then		--Open
-            Out = (O and O(index)) or (ds and ds:O(index))
+            Out = (ds and ds:O(index)) or (O and O(index))
         elseif data_type == "H" then 	--High
-            Out = (H and H(index)) or (ds and ds:H(index))
+            Out = (ds and ds:H(index)) or (H and H(index))
         elseif data_type == "L" then	--Low
-            Out = (L and L(index)) or (ds and ds:L(index))
+            Out = (ds and ds:L(index)) or (L and L(index))
         elseif data_type == "C" then	--Close
-            Out = (C and C(index)) or (ds and ds:C(index))
+            Out = (ds and ds:C(index)) or (C and C(index))
         elseif data_type == "V" then	--Volume
-            Out = (V and V(index)) or (ds and ds:V(index))
+            Out = (ds and ds:V(index)) or (V and V(index))
         elseif data_type == "M" then	--Median
             Out = ((Value(index,"H",ds) + Value(index,"L",ds)) / 2)
         elseif data_type == "T" then	--Typical
@@ -155,7 +159,7 @@ local function Value(index, data_type, ds)
         elseif data_type == "W" then	--Weighted
             Out = ((Value(index,"T",ds) * 3 + Value(index,"O",ds))/4)
         elseif data_type == "D" then	--Difference
-            Out = (Value(index,"H",ds) - Value(index,"L",ds))
+            Out = (Value(index,"H",ds) - Value(index,"L", ds))
         end
     elseif data_type == "A" then	--Any
         Out = ds and ds[index]
@@ -521,7 +525,7 @@ local function F_EMA(settings, ds)
         if bars < period then
             bars = bars + 1
             SUM_TMP[index] = (Value(index, data_type, ds) + (SUM_TMP[index-1] or 0))
-            EMA_TMP[index] = rounding(SUM_TMP[index]/bars, scale)
+            EMA_TMP[index] = rounding(SUM_TMP[index]/bars, round, scale)
         else
             EMA_TMP[index] = rounding((EMA_TMP[index-1]*(period-1) + 2*Value(index, data_type, ds))/(period+1), round, scale)
         end
@@ -1173,6 +1177,187 @@ local function F_REG(settings, ds)
 
 end
 
+local function F_RENKO(settings, ds)
+
+    local fATR
+    local fMA
+    local Renko_UP
+    local Renko_DW
+
+    local recalc_index
+    local l_index
+    local trend
+    local begin_index
+    local brick_bars    = 0
+    local Brick         = {}
+    local Data          = {}
+    local Bars          = {}
+    Bars.C = function(self, index) return self[index].Close end
+    Bars.O = function(self, index) return self[index].Open end
+    Bars.H = function(self, index) return self[index].High end
+    Bars.L = function(self, index) return self[index].Low end
+    Bars.T = function(self, index) return self[index].Time end
+    Bars.Size = function(self) return #self end
+
+    settings                = (settings or {})
+    local br_size           = (settings.br_size or 0)
+    local period            = (settings.period or 0)
+    local data_type         = (settings.data_type or 0)
+    local recalc_brick      = (settings.recalc_brick or 0)
+    local min_recalc_brick  = (settings.min_recalc_brick or 0)
+    local shift_limit       = (settings.shift_limit or 0)
+    local std_ma_method     = (settings.std_ma_method or 'SMA')
+    local scale             = (settings.scale or 0)
+    local brickType         = (settings.brickType or 'Std')
+    local k                 = (brickType ~='Fix' or br_size == 0) and (settings.k or 1) or 1
+    local save_bars         = (settings.save_bars or period)
+
+    return function(index)
+
+        if Renko_UP == nil or index == begin_index then
+
+            begin_index     = index
+            Renko_UP        = {}
+            Renko_UP[index] = Value(index, 'High', ds) or 0
+            Renko_DW        = {}
+            Renko_DW[index] = Value(index, 'Low', ds) or 0
+            if brickType ~='Fix' or br_size == 0 then
+                if recalc_brick == 1 then
+                    Brick[index]    = k*(Renko_UP[index] - Renko_DW[index])
+                    if brickType == 'ATR' then
+                        fATR        = M.new({period = period, method = 'ATR'}, ds)
+                        fATR(index)
+                    else
+                        Data        = {}
+                        Data[index] = Value(index, 'M', ds) or 0
+                        fMA         = M.new({period = period, method = std_ma_method, data_type = 'Any'}, Data)
+                        fMA(index)
+                    end
+                else
+
+                    local bars      = {}
+                    local data      = {}
+                    local last_bar  = dsSize(data_type, ds)
+
+                    local calc_f
+                    if brickType == 'ATR' then
+                        bars.C = function(self, i) return self[i].Close end
+                        bars.O = function(self, i) return self[i].Open end
+                        bars.H = function(self, i) return self[i].High end
+                        bars.L = function(self, i) return self[i].Low end
+                        bars.Size = function(self) return #self end
+                        calc_f = M.new({period = period, method = 'ATR'}, bars)
+                        for i = last_bar - 10*period, last_bar - 1 do
+                            bars[#bars + 1] = {Open = Value(i, 'O', ds) or 0, Low = Value(i, 'L', ds) or 0, Close = Value(i, 'C', ds) or 0, High = Value(i, 'H', ds) or 0}
+                            data[#data + 1] = calc_f(#bars)[#bars]
+                        end
+                    else
+                        calc_f = M.new({period = period, method = 'SD', avg_method = std_ma_method, data_type = 'Any'}, bars)
+                        for i = last_bar - 10*period, last_bar - 1 do
+                            bars[#bars + 1] = Value(i, 'M', ds) or 0
+                            data[#data + 1] = calc_f(#bars)[#bars]
+                        end
+                    end
+                    Brick[index] = data[#data]*k
+                end
+            else
+                Brick[index] = br_size/math_pow(10, scale)
+            end
+            l_index         = index
+            trend           = {}
+            trend[index]    = 0
+            Bars[#Bars + 1]   = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+            return Renko_UP, Renko_DW, trend, Brick, Bars
+        end
+
+        if brickType == 'Std' then
+            Data[index] = Data[index-1]
+        end
+        Brick[index]    = Brick[index-1]
+        Renko_UP[index] = Renko_UP[index-1]
+        Renko_DW[index] = Renko_DW[index-1]
+        trend[index]    = trend[index-1]
+
+        local atr
+        if brickType == 'ATR' and recalc_brick == 1 then
+            atr = fATR(index)[index] or Brick[index-1]
+        end
+
+        if not CheckIndex(index) then
+            return Renko_UP, Renko_DW, trend, Brick, Bars
+        end
+
+        local close_h = data_type == 0 and Value(index, 'Close', ds) or Value(index, 'High', ds)
+        local close_l = data_type == 0 and Value(index, 'Close', ds) or Value(index, 'Low', ds)
+        local close   = Value(index, 'Close', ds) > Value(index, 'Open', ds) and close_h or close_l
+
+        if recalc_brick == 1 then
+            if brickType == 'Std' then
+                Data[index] = Value(index, 'M', ds)
+                atr         = Sigma(Data, fMA(index)[index] or close, index - period + 1, index) or Brick[index-1]
+            end
+            if l_index ~= index then
+                brick_bars = brick_bars + 1
+                if brick_bars > period then
+                    recalc_index = index
+                end
+            end
+            if recalc_index == index then
+                brick_bars = 1
+                Brick[index] = min_recalc_brick == 1 and math_min(k*atr, Brick[index]) or k*atr
+                if shift_limit == 1 then
+                    if trend[index] == -1 then Renko_UP[index] = math_min(Renko_UP[index-1], Renko_DW[index-1] + Brick[index]) end
+                    if trend[index] == 1  then Renko_DW[index] = math_max(Renko_DW[index-1], Renko_UP[index-1] - Brick[index]) end
+                end
+            end
+        end
+
+        l_index = index
+
+        if Brick[index-1] == 0 then return Renko_UP, Renko_DW, trend, Brick, Bars end
+
+        if close > Renko_UP[index-1] + Brick[index-1] then
+
+            local bricks = math_floor((close - Renko_UP[index-1])/Brick[index-1])
+            for _ = 1, bricks - 1 do
+                Renko_UP[index] = Renko_UP[index] + Brick[index-1]
+                Renko_DW[index] = math_max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
+                Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+            end
+            Renko_UP[index] = Renko_UP[index] + Brick[index-1]
+
+            Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
+            Renko_DW[index] = math_max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
+            Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+            trend[index]  = 1
+		end
+		if close < Renko_DW[index-1] - Brick[index-1] then
+
+            local bricks    = math_floor((Renko_DW[index-1] - close)/Brick[index-1])
+            for _ = 1, bricks-1 do
+                Renko_DW[index] = Renko_DW[index] - Brick[index-1]
+                Renko_UP[index] = math_min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
+                Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_UP[index], Close = Renko_DW[index], High = Renko_DW[index], Time = Value(index, 'Time', ds)}
+            end
+
+            Renko_DW[index] = Renko_DW[index] - Brick[index-1]
+            Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
+            Renko_UP[index] = math_min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
+            Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_UP[index], Close = Renko_DW[index], High = Renko_DW[index], Time = Value(index, 'Time', ds)}
+            trend[index]  = -1
+        end
+        Renko_UP[index-save_bars] = nil
+        Renko_DW[index-save_bars] = nil
+        trend[index-save_bars]    = nil
+        Brick[index-save_bars]    = nil
+        if brickType == 'Std' then
+            Data[index-save_bars]     = nil
+        end
+
+        return Renko_UP, Renko_DW, trend, Brick, Bars
+     end
+end
+
 local function MA(settings, ds)
 
     settings = (settings or {})
@@ -1206,6 +1391,8 @@ local function MA(settings, ds)
         return F_REG(settings, ds)
     elseif method == "REMA" then
         return F_REMA(settings, ds)
+    elseif method == "RENKO" then
+        return F_RENKO(settings, ds)
     else
         return nil
     end
