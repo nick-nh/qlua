@@ -231,6 +231,7 @@ local function F_RENKO(settings, ds)
         end
         l_index = index
         -- myLog(index, os.date('%Y.%m.%d %H:%M', os.time(_G.T(index))), 'Brick', Brick[index], 'close', close, 'up', Renko_UP[index], close - Renko_UP[index], 'dw', Renko_DW[index], Renko_DW[index] - close)
+        if Brick[index-1] == 0 then return Renko_UP, Renko_DW, r_trend, Brick end
         if close > Renko_UP[index-1] + Brick[index-1] then
             Renko_UP[index] = Renko_UP[index] + (Brick[index-1] == 0  and 0 or math_floor((close - Renko_UP[index-1])/Brick[index-1])*Brick[index-1])
             Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
