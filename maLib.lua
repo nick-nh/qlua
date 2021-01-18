@@ -19,7 +19,7 @@ local math_huge     = math.huge
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.01.08',
+    _VERSION     = 'MA lib 2021.01.18',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -1358,6 +1358,116 @@ local function F_RENKO(settings, ds)
      end
 end
 
+--Moving Average Convergence/Divergence ("MACD")
+local function F_MACD(settings, ds)
+
+    settings            = (settings or {})
+
+    local method        = (settings.method or "EMA")
+    local short_period  = (settings.short_period or 12)
+    local long_period   = (settings.long_period or 26)
+    local signal_method = (settings.signal_method or "SMA")
+    local signal_period = (settings.signal_period or 9)
+    local percent       = (settings.percent or 'on')
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "off")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or math_max(long_period, short_period, signal_period))
+    local begin_index   = 1
+
+    if (signal_method~="SMA") and (signal_method~="EMA") then signal_method = "SMA" end
+
+    local t_MACD    = {0}
+    local s_MACD    = {0}
+
+    local MACD_MA   = M.new({period = signal_period, method = signal_method,   data_type = "Any",      round = round, scale = scale}, t_MACD)
+	local Short_MA  = M.new({period = short_period,  method = method,          data_type = data_type,  round = round, scale = scale}, ds)
+	local Long_MA   = M.new({period = long_period,   method = method,          data_type = data_type,  round = round, scale = scale}, ds)
+
+    return function (index)
+        if t_MACD[index-1] == nil then begin_index = index end
+
+        t_MACD[index] = t_MACD[index-1] or 0
+        s_MACD[index] = s_MACD[index-1] or 0
+
+        local So = Short_MA(index)
+        local Lo = Long_MA(index)
+        local i  = (index - begin_index) - math_max(short_period, long_period) + 1
+
+        if (i > 0) then
+            if percent:lower() == 'off' then
+                t_MACD[index] = So[index] - Lo[index]
+            else
+                t_MACD[index] = 100*(So[index] - Lo[index])/Lo[index]
+            end
+            s_MACD[index] = MACD_MA(index)[index]
+        end
+        t_MACD[index - save_bars] = nil
+        s_MACD[index - save_bars] = nil
+        return t_MACD, s_MACD
+    end, t_MACD, s_MACD
+end
+
+-- Stochastic oscillator
+local function F_STOCH(settings, ds)
+
+    settings            = (settings or {})
+
+    local method        = (settings.method or "SMA")
+    local period        = (settings.period or 5)
+    local shift         = (settings.shift or 3)
+    local period_d      = (settings.period_d or 3)
+    local method_d      = (settings.method_d or "SMA")
+    local round         = (settings.round or "off")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or math_max(period_d, period, shift))
+    local begin_index   = 1
+
+	local high_buff = {}
+	local low_buff  = {}
+
+    local range_hl  = {}
+    local range_cl  = {}
+	local stoch     = {}
+
+    local RHL_MA    = M.new({period = shift,    method = method,   data_type = "Any", round = round, scale = scale}, range_hl)
+	local RCL_MA    = M.new({period = shift,    method = method,   data_type = "Any", round = round, scale = scale}, range_cl)
+	local DMA       = M.new({period = period_d, method = method_d, data_type = "Any", round = round, scale = scale}, stoch)
+
+    return function (index)
+        if stoch[index-1] == nil then begin_index = index end
+
+		high_buff[index]    = M.Value(index, "H", ds) or high_buff[index-1]
+		low_buff[index]     = M.Value(index, "L", ds) or low_buff[index-1]
+        stoch[index]        = stoch[index-1] or 0
+        range_hl[index]     = range_hl[index-1] or 0
+        range_cl[index]     = range_cl[index-1] or 0
+
+        if not M.CheckIndex(index, ds) then
+            RHL_MA(index)
+            RCL_MA(index)
+            return stoch, DMA(index)
+        end
+
+        local HH            = math_max(unpack(high_buff, math_max(index-period+1, begin_index),index))
+        local LL            = math_min(unpack(low_buff,  math_max(index-period+1, begin_index),index))
+
+        range_hl[index]     = HH - LL
+        range_cl[index]     = M.Value(index, "C", ds) - LL
+        local rcl           = RCL_MA(index)[index]
+        local rhl           = RHL_MA(index)[index]
+        stoch[index]        = rcl*100/rhl
+
+        stoch[index-save_bars]      = nil
+        high_buff[index-save_bars]  = nil
+        low_buff[index-save_bars]   = nil
+        range_hl[index-save_bars]   = nil
+        range_cl[index-save_bars]   = nil
+
+        return stoch, DMA(index)
+    end
+end
+
 local function MA(settings, ds)
 
     settings = (settings or {})
@@ -1393,6 +1503,10 @@ local function MA(settings, ds)
         return F_REMA(settings, ds)
     elseif method == "RENKO" then
         return F_RENKO(settings, ds)
+    elseif method == "MACD" then
+        return F_MACD(settings, ds)
+    elseif method == "STOCH" then
+        return F_STOCH(settings, ds)
     else
         return nil
     end
