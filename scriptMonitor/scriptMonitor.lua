@@ -14,10 +14,6 @@ INTERVAL = 15 -- --текущий интервал
 
 START_TIME                    = '10:00:00'               -- Начало торговли
 STOP_TIME                     = '18:50:00'               -- Окончание торговли
-
-PocketPopAll = false -- доставать все транзакции из кармана транзакций
-PocketPopAll_time = '10:00:05' -- время когда надо выполнить все транзакции из кармана транзакций
-isPocketPopAll_done = false
 --------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------
 
@@ -376,17 +372,6 @@ function main() -- Функция, реализующая основной по�
 
             -- Если торговый день закончился, выходит в цикл по дням
             if ServerDT_sec >= StopTime_sec then PrevDayNumber = ServerDT.day break end
-
-            if PocketPopAll and not isPocketPopAll_done then
-                if ServerDT_sec == os.time(StrToTime(PocketPopAll_time)) then
-                    isPocketPopAll_done = true
-                    package.path = ""
-                    package.cpath = getScriptPath().. "\\".."QuikPocketPopAll.dll"
-                    local tr = require "QuikPocketPopAll"
-                    tr.Do()
-                    tr = nil
-                end
-            end
 
             for i,v in ipairs(SEC_CODES['sec_codes']) do
 
