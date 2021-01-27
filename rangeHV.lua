@@ -630,3 +630,30 @@ function round(num, idp)
 end
 
 function toYYYYMMDDHHMMSS(datetime)
+    if type(datetime) ~= "table" then
+       --message("в функции toYYYYMMDDHHMMSS неверно задан параметр: datetime="..tostring(datetime))
+       return ""
+    else
+       local Res = tostring(datetime.year)
+       if #Res == 1 then Res = "000"..Res end
+       local month = tostring(datetime.month)
+       if #month == 1 then Res = Res.."/0"..month; else Res = Res..'/'..month; end
+       local day = tostring(datetime.day)
+       if #day == 1 then Res = Res.."/0"..day; else Res = Res..'/'..day; end
+       local hour = tostring(datetime.hour)
+       if #hour == 1 then Res = Res.." 0"..hour; else Res = Res..' '..hour; end
+       local minute = tostring(datetime.min)
+       if #minute == 1 then Res = Res..":0"..minute; else Res = Res..':'..minute; end
+       local sec = tostring(datetime.sec);
+       if #sec == 1 then Res = Res..":0"..sec; else Res = Res..':'..sec; end;
+       return Res
+    end
+ end --toYYYYMMDDHHMMSS
+ 
+ function isnil(a,b)
+    if a == nil then
+       return b
+    else
+       return a
+    end;
+ end
