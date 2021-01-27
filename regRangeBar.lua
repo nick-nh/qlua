@@ -12,6 +12,7 @@ Settings=
     bars = 27,
     ratioFactor = 0.7,
     kstd = 1.8,
+    ATR_factor = 3.1,
 	line =
 	{		
 		{
@@ -92,14 +93,13 @@ function dValue(i,param)
 		return (H(i) + L(i)+C(i))/3
 	elseif   v == "W" then
 		return (H(i) + L(i)+2*C(i))/4
-	elseif   v == "ATR" then
-	
-		local previous = i-1
-		
+	elseif v == "ATR" then
+		local previous = i-1		
 		if not CandleExist(previous) then
 			previous = FindExistCandle(previous)
-		end
-	
+        end
+        
+        if H(i)==nil or L(i) == nil or C(previous) == nil then return 0; end
 		return math.max(math.abs(H(i) - L(i)), math.abs(H(i) - C(previous)), math.abs(C(previous) - L(i)))
 	else
 		return C(i)
@@ -114,6 +114,7 @@ function rangeBar()
 	local cacheH={}
     local cacheC={}
 	local sx={}
+	local ATR={}
 	local calculated_buffer={}
     local prevRangeStart = {}
     local rangeStart = {}
@@ -128,7 +129,10 @@ function rangeBar()
 		local bars = Fsettings.bars or 64
 		local ratioFactor = Fsettings.ratioFactor or 3
 		local kstd = Fsettings.kstd or 1
+		local ATR_factor = Fsettings.ATR_factor or 3
         local degree = 1
+
+        local periodATR = bars
         		
 		local out1 = nil
         local out2 = nil
@@ -175,6 +179,9 @@ function rangeBar()
             prevRangeStart = {}
             prevRangeStart[index] = nil		
             
+            ATR = {}
+            ATR[index] = 0
+
             calculated_buffer = {}
             
             lastRange = {}
@@ -208,11 +215,29 @@ function rangeBar()
             lastRange[index] = lastRange[index-1] 
             lastSignal[index] = lastSignal[index-1] 
         end
-            
-		if not CandleExist(index) then
+        
+        ATR[index] = ATR[index-1] 
+
+        if not CandleExist(index) then
 			return nil
 		end
-		if index <= Size()-500 then
+        
+        if index<periodATR then
+            ATR[index] = 0
+        elseif index==periodATR then
+            local sum=0
+            for i = 1, periodATR do
+                if CandleExist(i) then
+                    sum = sum + dValue(i, 'ATR')
+                end
+            end
+            ATR[index]=sum / periodATR
+        elseif index>periodATR then
+            ATR[index]=(ATR[index-1] * (periodATR-1) + dValue(index, 'ATR')) / periodATR
+            --ATR[index] = kawg*dValue(index)+(1-kawg)*ATR[index-1]
+        end
+
+        if index <= Size()-500 then
 			return nil
 		end
 
@@ -337,7 +362,10 @@ function rangeBar()
 
             local deltaRatio = math.abs(fx_buffer[#fx_buffer]-fx_buffer[1])*100/fx_buffer[1]
 
-            if deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq then
+            if  deltaRatio < ratioFactor and fx_buffer[#fx_buffer] < maxC and 
+                fx_buffer[#fx_buffer] > minC and math.abs(maxC-minC) < 2*sq and
+                ((ATR_factor~=0 and math.abs(maxC-minC) <= ATR_factor*ATR[index]) or ATR_factor == 0)
+            then
 
                 if rangeStart[index] == nil then
                     if prevRangeStart[index]~=nil then
@@ -410,3 +438,29 @@ function round(num, idp)
 end
 
 function toYYYYMMDDHHMMSS(datetime)
+    if type(datetime) ~= "table" then
+       return ""
+    else
+       local Res = tostring(datetime.year)
+       if #Res == 1 then Res = "000"..Res end
+       local month = tostring(datetime.month)
+       if #month == 1 then Res = Res.."/0"..month; else Res = Res..'/'..month; end
+       local day = tostring(datetime.day)
+       if #day == 1 then Res = Res.."/0"..day; else Res = Res..'/'..day; end
+       local hour = tostring(datetime.hour)
+       if #hour == 1 then Res = Res.." 0"..hour; else Res = Res..' '..hour; end
+       local minute = tostring(datetime.min)
+       if #minute == 1 then Res = Res..":0"..minute; else Res = Res..':'..minute; end
+       local sec = tostring(datetime.sec);
+       if #sec == 1 then Res = Res..":0"..sec; else Res = Res..':'..sec; end;
+       return Res
+    end
+ end --toYYYYMMDDHHMMSS
+ 
+ function isnil(a,b)
+    if a == nil then
+       return b
+    else
+       return a
+    end;
+ end
