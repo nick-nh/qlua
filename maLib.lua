@@ -1363,7 +1363,7 @@ local function F_MACD(settings, ds)
 
     settings            = (settings or {})
 
-    local method        = (settings.method or "EMA")
+    local method        = (settings.ma_method or "EMA")
     local short_period  = (settings.short_period or 12)
     local long_period   = (settings.long_period or 26)
     local signal_method = (settings.signal_method or "SMA")
