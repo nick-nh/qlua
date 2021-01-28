@@ -2969,7 +2969,7 @@ function getSLTP_Price(AtPrice, Type, qty, fixed)
                     myLog('calculated shiftSL '..tostring(shiftSL)..' slPrice '..tostring(slPrice)..', sl_stopprice: '..tostring(sl_stopprice))
                     isitReopenAfterStop = false
                 else
-                    if isPriceMove and oldStop then
+                    if isPriceMove and oldStop~=0 then
                         sl_stopprice	= round(oldStop + priceMoveVal, SCALE) -- Уровень цены, когда активируется Стоп-лосс
                         myLog('isPriceMove sl_stopprice '..tostring(sl_stopprice))
                     elseif oldStop~=0 then
@@ -2979,7 +2979,7 @@ function getSLTP_Price(AtPrice, Type, qty, fixed)
                     end
                 end
             else
-                sl_stopprice = oldStop
+                sl_stopprice	= round(AtPrice - STOP_LOSS*priceKoeff, SCALE) -- Уровень цены, когда активируется Стоп-лосс
             end
 
             if oldStop~=0 then
@@ -3024,7 +3024,7 @@ function getSLTP_Price(AtPrice, Type, qty, fixed)
                     myLog('calculated shiftSL '..tostring(shiftSL)..' slPrice '..tostring(slPrice)..' sl_stopprice '..tostring(sl_stopprice))
                     isitReopenAfterStop = false
                 else
-                    if isPriceMove and oldStop then
+                    if isPriceMove and oldStop ~= 0 then
                         sl_stopprice	= round(oldStop - priceMoveVal, SCALE) -- Уровень цены, когда активируется Стоп-лосс
                         myLog('isPriceMove sl_stopprice '..tostring(sl_stopprice))
                     elseif oldStop~=0 then
@@ -3034,7 +3034,7 @@ function getSLTP_Price(AtPrice, Type, qty, fixed)
                     end
                 end
             else
-                sl_stopprice = oldStop
+                sl_stopprice	= round(AtPrice + STOP_LOSS*priceKoeff, SCALE)
             end
 
             if oldStop~=0 then
