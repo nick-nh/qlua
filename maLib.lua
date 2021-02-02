@@ -15,11 +15,14 @@ local math_min      = math.min
 local math_abs      = math.abs
 local math_pow      = math.pow
 local math_sqrt     = math.sqrt
+local math_exp      = math.exp
+local math_log      = math.log
 local math_huge     = math.huge
+local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.01.18',
+    _VERSION     = 'MA lib 2021.02.02',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -44,6 +47,16 @@ local  function Sum(input, start, finish)
     local output    = 0
     for i=start, finish or #input do
       output = output + input[i]
+    end
+    return output
+end
+
+local  function wSum(input, start, finish)
+    start           = start or 1
+    finish          = finish or #input
+    local output    = 0
+    for i=start, finish or #input do
+      output = output + input[i]*(start-i+1)
     end
     return output
 end
@@ -464,6 +477,37 @@ local function F_SMA(settings, ds)
     end
 end
 
+--[[Произвольная Weighted Moving Average (LWMA) — Произвольная (функция)-взвешенная скользящая средняя
+]]
+local function F_LambdaWMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "off")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local lambda    = type(settings.weight_func) == 'function' and settings.weight_func or function(i) return i end
+    local LWMA_TMP  = {}
+    local bars      = 0
+    return function(index)
+        LWMA_TMP[index]  = LWMA_TMP[index-1] or 0
+        local sum, n     = 0, 0
+        bars             = bars < period and (bars + 1) or period
+        local w
+        for i = 1, bars do
+            if CheckIndex(index-bars+i, ds) then
+                w   = lambda(i)
+                sum = sum + (Value(index-bars+i, data_type, ds) or 0)*w
+                n   = n + w
+            end
+        end
+        LWMA_TMP[index]  = rounding(sum/n, round, scale)
+        LWMA_TMP[index-save_bars] = nil
+        return LWMA_TMP
+    end
+end
+
 --[[Standard Deviation
 ]]
 local function F_SD(settings, ds)
@@ -500,6 +544,56 @@ local function F_SD(settings, ds)
         SD[index-save_bars]     = nil
         input[index-save_bars]  = nil
         return SD, avg
+    end
+end
+
+--[[Fractal Adaptive Moving Average]]
+local function F_FRAMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "off")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or (2*period))
+
+    local bars      = 0
+    local FRAMA_TMP = {}
+    local h_buff    = {}
+    local l_buff    = {}
+
+    local HH        = function(index, length)
+        return math_max(table_unpack(h_buff, index-length+1, index))
+    end
+    local LL        = function(index, length)
+        return math_min(table_unpack(l_buff, index-length+1, index))
+    end
+    local N        = function(index, length)
+        return (HH(index, length) - LL(index, length))/length
+    end
+    local D        = function(index)
+        return (math_log(N(index, period) + N(index-period, period)) - math_log(N(index, 2*period)))/math_log(2)
+    end
+    local A        = function(index)
+        return math_exp(-4.6*(D(index)-1))
+    end
+    return function(index)
+        local val        = Value(index, data_type, ds)
+        FRAMA_TMP[index] = FRAMA_TMP[index-1] or val
+        h_buff[index]    = h_buff[index-1] or 0
+        l_buff[index]    = l_buff[index-1] or 0
+        if not CheckIndex(index, ds) then
+            return FRAMA_TMP
+        end
+        h_buff[index] = Value(index, 'High', ds)
+        l_buff[index] = Value(index, 'Low', ds)
+        if bars >= 2*period then
+            local a = A(index)
+            FRAMA_TMP[index] = rounding(a*val + (1-a)*FRAMA_TMP[index-1], round, scale)
+        else
+            bars = bars + 1
+        end
+        FRAMA_TMP[index-save_bars] = nil
+        return FRAMA_TMP
     end
 end
 
@@ -559,6 +653,40 @@ local function F_WMA(settings, ds)
         end
         WMA_TMP[index-save_bars] = nil
         return WMA_TMP
+    end
+end
+
+--[[
+Hull Moving Average
+HMA= LWMA(2*LWMA(n/2) − LWMA(n)),sqrt(n))
+]]
+local function F_HMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "off")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local fLwma     = F_LambdaWMA({period = period, data_type = data_type}, ds)
+    local fLwma2    = F_LambdaWMA({period = M.rounding(period/2, 'on'), data_type = data_type}, ds)
+    local swma      = {}
+    local fHMA      = F_LambdaWMA({period = M.rounding(math_sqrt(period), 'on'), data_type = 'Any'}, swma)
+
+    local HMA_TMP = {}
+    return function(index)
+        HMA_TMP[index] = HMA_TMP[index-1] or 0
+        if not CheckIndex(index, ds) then
+            return HMA_TMP
+        end
+        if HMA_TMP[index-1] == nil then
+            HMA_TMP[index] = rounding(Value(index, data_type, ds), round, scale)
+        else
+            swma[index]    = 2*fLwma2(index)[index] - fLwma(index)[index]
+            HMA_TMP[index] = rounding(fHMA(index)[index], round, scale)
+        end
+        HMA_TMP[index-save_bars] = nil
+        return HMA_TMP
     end
 end
 
@@ -1237,7 +1365,7 @@ local function F_RENKO(settings, ds)
 
                     local bars      = {}
                     local data      = {}
-                    local last_bar  = dsSize(data_type, ds)
+                    local last_bar  = dsSize('Close', ds)
 
                     local calc_f
                     if brickType == 'ATR' then
@@ -1283,7 +1411,7 @@ local function F_RENKO(settings, ds)
             atr = fATR(index)[index] or Brick[index-1]
         end
 
-        if not CheckIndex(index) then
+        if not CheckIndex(index, ds) then
             return Renko_UP, Renko_DW, trend, Brick, Bars
         end
 
@@ -1468,6 +1596,101 @@ local function F_STOCH(settings, ds)
     end
 end
 
+---@param settings table
+---@param ds table
+local function F_RSI(settings, ds)
+
+    settings            = (settings or {})
+
+    local period        = (settings.period or 14)
+    local data_type     = (settings.data_type or "Close")
+    local save_bars     = (settings.save_bars or period)
+
+    local RSI
+	local Up
+	local Down
+	local val_Up
+	local val_Down
+
+    local prev_index    = 0
+    local last_index    = 0
+    local begin_index   = 0
+
+    return function(index)
+
+        if RSI == nil or index == begin_index then
+
+            begin_index = index
+
+            RSI         = {}
+            Up          = {}
+            Down        = {}
+            val_Up      = {}
+            val_Down    = {}
+
+            RSI[index]  = 0
+            Up[index]   = 0
+            Down[index] = 0
+            prev_index  = index
+            begin_index = index
+            last_index  = index
+            return RSI
+        end
+
+        RSI[index]  = RSI[index-1]
+        Up[index]   = Up[index-1]
+        Down[index] = Down[index-1]
+
+        if not M.CheckIndex(index, ds) then return RSI end
+        if last_index ~= index then
+            prev_index = last_index
+        end
+
+        local val       = M.Value(index, data_type, ds)
+        local prev_val  = M.Value(prev_index, data_type, ds)
+        if prev_val < val then
+            Up[index] = val - prev_val
+        else
+            Up[index] = 0
+        end
+        if prev_val > val then
+            Down[index] = prev_val - val
+        else
+            Down[index] = 0
+        end
+
+        local calc = index - begin_index + 1
+
+        if (calc == period) or (calc == period+1) then
+            local sumU = 0
+            local sumD = 0
+            for i = index-period+1, index do
+                sumU = sumU + Up[i]
+                sumD = sumD + Down[i]
+            end
+            val_Up[index]   = sumU/period
+            val_Down[index] = sumD/period
+        end
+        if calc > period+1 then
+            val_Up[index]   = (val_Up[prev_index] * (period-1) + Up[index]) / period
+            val_Down[index] = (val_Down[prev_index] * (period-1) + Down[index]) / period
+        end
+        if calc >= period then
+            RSI[index] = 100 / (1 + (val_Down[index] / val_Up[index]))
+        end
+
+        last_index = index
+
+        RSI[index - save_bars]         = nil
+        val_Up[index - save_bars]      = nil
+        val_Down[index - save_bars]    = nil
+        Up[index - save_bars]          = nil
+        Down[index - save_bars]        = nil
+
+        return RSI
+    end
+end
+
 local function MA(settings, ds)
 
     settings = (settings or {})
@@ -1485,8 +1708,14 @@ local function MA(settings, ds)
         return F_SMMA(settings, ds)
     elseif method == "WMA" then
         return F_WMA(settings, ds)
+    elseif method == "LWMA" then
+        return F_LambdaWMA(settings, ds)
+    elseif method == "HMA" then
+        return F_HMA(settings, ds)
     elseif method == "TEMA" then
         return F_TEMA(settings, ds)
+    elseif method == "FRAMA" then
+        return F_FRAMA(settings, ds)
     elseif method == "AMA" then
         return F_AMA(settings, ds)
     elseif method == "ATR" then
@@ -1507,6 +1736,8 @@ local function MA(settings, ds)
         return F_MACD(settings, ds)
     elseif method == "STOCH" then
         return F_STOCH(settings, ds)
+    elseif method == "RSI" then
+        return F_RSI(settings, ds)
     else
         return nil
     end
@@ -1515,6 +1746,7 @@ end
 M.new         = MA
 M.Slice       = Slice
 M.Sum         = Sum
+M.wSum        = wSum
 M.Sigma       = Sigma
 M.Normalize   = Normalize
 M.Correlation = Correlation
