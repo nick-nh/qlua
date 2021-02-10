@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
@@ -536,9 +536,17 @@ public class BotClient
         chat_id = chatid.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         try
         {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
             telebotClient = new TelegramBotClient(token);
         }
         catch (System.ArgumentException e)
+        {
+            logger.Log(string.Format("TelegramBotClient ERROR: {0}", e.Message), true);
+            logger.Close();
+            throw new Exception("ERROR: Telegram Bot Client not init!");
+        }
+        catch (System.Net.WebException e)
         {
             logger.Log(string.Format("TelegramBotClient ERROR: {0}", e.Message), true);
             logger.Close();
@@ -552,6 +560,9 @@ public class BotClient
         {
             logger.Log("Chat ID not set yet", true);
         }
+
+        foreach (var chat in chat_id)
+            logger.Log(string.Format("Start Bot to Chats {0}", chat));
 
         telebotClient.OnMessage += Bot_OnMessage;
         telebotClient.StartReceiving();
@@ -569,7 +580,8 @@ public class BotClient
         {
             logger.Log(string.Format("Received a text message in chat {0}:\n", e.Message.Chat.Id), true);
             logger.Log(string.Format("{0}", e.Message.Text));
-            if (chat_id.FirstOrDefault(item => item == e.Message.Chat.Id.ToString()) == null)
+            if (chat_id.Count() == 0)
+            //& (chat_id.FirstOrDefault(item => item == e.Message.Chat.Id.ToString()) == null)
             {
                 chat_id.Add(e.Message.Chat.Id.ToString());
                 Settings.DefaultChatId = String.Join(";", chat_id.ToArray());
@@ -600,7 +612,7 @@ public class BotClient
 
                     Task.Delay(100).Wait();
                 }
-                logger.Log(string.Format("Send Result: {0}", run_task.Result));
+                logger.Log(string.Format("Send to {0} Result: {1}", chat, run_task.Result));
             }
         }
         catch (AggregateException ex)
