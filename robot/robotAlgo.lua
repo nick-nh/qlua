@@ -95,7 +95,7 @@ PrevDayNumber               = 0
 clearingTime                = 5
 -----------------------------
 --виртуальная торговля
-VIRTUAL_TRADE               = true       --переключение Shift+V
+VIRTUAL_TRADE               = false       --переключение Shift+V
 getDOMPrice                 = true
 vlastDealPrice              = 0
 vdealProfit                 = 0
@@ -2620,37 +2620,53 @@ function GetPriceForMarketOrder(Type, level_price)
 
 end
 
---Получает цену открытия заявки, приведенной к шагу цены инструмента
+-- Получение цены в правильном представленнии для выставления транзакции
+---@param price number
+---@param SCALE number|nil
+function format_to_scale(price, SCALE)
+
+    local status,res = pcall(function()
+
+        SCALE = SCALE or 0
+        price = tostring(price):gsub(',', '.')
+        -- Ищет в числе позицию запятой, или точки
+        local dot_pos   = price:find('%.')
+
+        if SCALE > 0 then
+            -- Если передано целое число
+            if dot_pos == nil then
+                -- Добавляет к числу '.' и необходимое количество нулей и возвращает результат
+                price = price..'.'..string_rep('0', SCALE)
+            else -- передано вещественное число
+                local remain = price:sub(dot_pos+1, -1)
+                local scale  = remain:len()
+                if scale ~= SCALE then
+                    price = price:sub(1, dot_pos)..remain:sub(1, math_min(scale, SCALE))
+                    price = price..(SCALE > scale and string_rep('0', SCALE - scale) or '')
+                end
+            end
+        elseif dot_pos ~= nil and SCALE == 0 then
+            price = price:sub(1, dot_pos-1)
+        end
+        return price
+    end)
+    if not status then
+        myLog('format_to_scale: '..tostring(res))
+        return price
+    end
+    return res
+end
+
+-- Получение цены в правильном представленнии для выставления транзакции
 function GetCorrectPrice(price) -- STRING
-    -- Получает точность цены по инструменту
-    -- Получает минимальный шаг цены инструмента
-    local PriceStep = tonumber(getParamEx(CLASS_CODE, SEC_CODE, "SEC_PRICE_STEP").param_value)
-    -- Если после запятой должны быть цифры
-    if SCALE > 0 then
-       price = tostring(price)
-       -- Ищет в числе позицию запятой, или точки
-       local dot_pos = price:find('.')
-       local comma_pos = price:find(',')
-       -- Если передано целое число
-       if dot_pos == nil and comma_pos == nil then
-          -- Добавляет к числу ',' и необходимое количество нулей и возвращает результат
-          price = price..','
-          for i=1,SCALE do price = price..'0' end
-          return price
-       else -- передано вещественное число
-          -- Если нужно, заменяет запятую на точку
-          if comma_pos ~= nil then price:gsub(',', '.') end
-          -- Округляет число до необходимого количества знаков после запятой
-          price = round(tonumber(price), SCALE)
-          -- Корректирует на соответствие шагу цены
-          price = round(price/PriceStep)*PriceStep
-          price = string.gsub(tostring(price),'[%.]+', ',')
-          return price
-       end
-    else -- После запятой не должно быть цифр
-       -- Корректирует на соответствие шагу цены
-       price = round(price/PriceStep)*PriceStep
-       return tostring(math.floor(price))
+    local status,res = pcall(function()
+        return round(round(price/SEC_PRICE_STEP)*SEC_PRICE_STEP, SCALE)
+    end)
+
+    if status then return res
+    else
+        myLog(NAME_OF_STRATEGY..' Error GetCorrectPrice: '..tostring(res))
+        return price
     end
 end
 
@@ -2862,7 +2878,7 @@ function SetOrder(price, Type, qty)
     T['ACTION']         = 'NEW_ORDER'            -- Тип транзакции ('NEW_ORDER' - новая заявка)
     T['TYPE']           = 'L'                    -- Тип ('L' - лимитированная, 'M' - рыночная)
     T['OPERATION']      = operation              -- Операция ('B' - buy, или 'S' - sell)
-    T['PRICE']          = GetCorrectPrice(price) -- Цена
+    T['PRICE']          = format_to_scale(GetCorrectPrice(price), SCALE) -- Цена
     T['QUANTITY']       = tostring(qty)          -- Количество
     T["COMMENT"]        = NAME_OF_STRATEGY
 
@@ -3148,9 +3164,9 @@ function SL_TP(AtPrice, Type, qty)
         STOP_ORDER_KIND     = "SIMPLE_STOP_ORDER"
     end
 
-    sl_Price = GetCorrectPrice(sl_Price)
-    tp_Price = GetCorrectPrice(tp_Price)
-    price    = GetCorrectPrice(price)
+    sl_Price = format_to_scale(GetCorrectPrice(sl_Price), SCALE)
+    tp_Price = format_to_scale(GetCorrectPrice(tp_Price), SCALE)
+    price    = format_to_scale(GetCorrectPrice(price), SCALE)
 
     --myLog(NAME_OF_STRATEGY..' Установка ТЕЙК-ПРОФИТ: '..tp_Price..' и СТОП-ЛОСС: '..sl_Price)
 
@@ -3202,13 +3218,13 @@ function SL_TP(AtPrice, Type, qty)
         -- "OFFSET" - (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль,
         -- то Тейк-профит сработает только когда цена вернется минимум на 2 шага цены назад,
         -- это может потенциально увеличить прибыль
-        Transaction["OFFSET"]              = GetCorrectPrice(offset*priceKoeff)
+        Transaction["OFFSET"]              = format_to_scale(GetCorrectPrice(offset*priceKoeff), SCALE)
         Transaction["OFFSET_UNITS"]        = "PRICE_UNITS" -- Единицы измерения отступа ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
         -- "SPREAD" - Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на 100 шагов цены,
         -- которая АВТОМАТИЧЕСКИ УДОВЛЕТВОРИТСЯ ПО ТЕКУЩЕЙ ЛУЧШЕЙ ЦЕНЕ,
         -- но то, что цена значительно хуже, спасет от проскальзывания,
         -- иначе, сделка может просто не закрыться (заявка на закрытие будет выставлена, но цена к тому времени ее уже проскочит)
-        Transaction["SPREAD"]              = GetCorrectPrice(spread*priceKoeff)
+        Transaction["SPREAD"]              = format_to_scale(GetCorrectPrice(spread*priceKoeff), SCALE)
         Transaction["SPREAD_UNITS"]        = "PRICE_UNITS" -- Единицы измерения защитного спрэда ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
     elseif STOP_ORDER_KIND == "TAKE_PROFIT_STOP_ORDER" then
 		Transaction["STOP_ORDER_KIND"]     = STOP_ORDER_KIND -- Тип стоп-заявки
@@ -3216,13 +3232,13 @@ function SL_TP(AtPrice, Type, qty)
         -- "OFFSET" - (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль,
         -- то Тейк-профит сработает только когда цена вернется минимум на 2 шага цены назад,
         -- это может потенциально увеличить прибыль
-        Transaction["OFFSET"]              = GetCorrectPrice(offset*priceKoeff)
+        Transaction["OFFSET"]              = format_to_scale(GetCorrectPrice(offset*priceKoeff), SCALE)
         Transaction["OFFSET_UNITS"]        = "PRICE_UNITS" -- Единицы измерения отступа ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
         -- "SPREAD" - Когда сработает Тейк-профит, выставится заявка по цене хуже текущей на 100 шагов цены,
         -- которая АВТОМАТИЧЕСКИ УДОВЛЕТВОРИТСЯ ПО ТЕКУЩЕЙ ЛУЧШЕЙ ЦЕНЕ,
         -- но то, что цена значительно хуже, спасет от проскальзывания,
         -- иначе, сделка может просто не закрыться (заявка на закрытие будет выставлена, но цена к тому времени ее уже проскочит)
-        Transaction["SPREAD"]              = GetCorrectPrice(spread*priceKoeff)
+        Transaction["SPREAD"]              = format_to_scale(GetCorrectPrice(spread*priceKoeff), SCALE)
         Transaction["SPREAD_UNITS"]        = "PRICE_UNITS" -- Единицы измерения защитного спрэда ("PRICE_UNITS" - шаг цены, или "PERCENTS" - проценты)
     else
         Transaction["STOPPRICE"]           = sl_Price -- Цена Тейк-Профита
