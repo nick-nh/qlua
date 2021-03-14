@@ -33,3 +33,6 @@ Update.
 
 Небольшое видео работы
 https://youtu.be/14c4nQiDdfU
+
+Пример настроек
+https://youtu.be/Vy_m7qUwirY
