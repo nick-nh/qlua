@@ -13,7 +13,7 @@ echo %EXE% is running
 goto END
 :ProcessNotFound
 echo %EXE% is not running. Restart.
-start %~dp0\%EXE%
+start /d "%~dp0" %EXE%
 goto END
 :END
 echo Finished!
