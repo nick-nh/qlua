@@ -1541,7 +1541,7 @@ function GetTotalnet(justGetCount)
                         if BALANCE_TYPE == 1 then
                             pos = currentbal
                         else
-                            pos =  math_round(currentbal/LOTSIZE)
+                            pos =  round(currentbal/LOTSIZE)
                         end
                     else
                         local money_limit = getItem('money_limits', 0)
@@ -1551,7 +1551,7 @@ function GetTotalnet(justGetCount)
                             if BALANCE_TYPE == 1 then
                                 pos = money_limit.currentbal
                             else
-                                pos = math_round(money_limit.currentbal/LOTSIZE)
+                                pos = round(money_limit.currentbal/LOTSIZE)
                             end
                         end
                     end
@@ -2641,7 +2641,7 @@ function format_to_scale(price, SCALE)
                 local remain = price:sub(dot_pos+1, -1)
                 local scale  = remain:len()
                 if scale ~= SCALE then
-                    price = price:sub(1, dot_pos)..remain:sub(1, math_min(scale, SCALE))
+                    price = price:sub(1, dot_pos)..remain:sub(1, math.min(scale, SCALE))
                     price = price..(SCALE > scale and string_rep('0', SCALE - scale) or '')
                 end
             end
