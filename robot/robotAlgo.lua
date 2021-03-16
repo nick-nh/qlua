@@ -1703,7 +1703,7 @@ end
 --Реакция на изменение размера позиции для рынка акций
 function OnDepoLimit(depo_limit)
 
-    if not VIRTUAL_TRADE and depo_limit.sec_code == SEC_CODE and depo_limit.limit_kind == 0 then
+    if not VIRTUAL_TRADE and depo_limit.sec_code == SEC_CODE and depo_limit.limit_kind == LIMIT_KIND then
         curOpenCount = depo_limit.currentbal/LOTSIZE
     end
 end
