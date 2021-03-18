@@ -479,7 +479,7 @@ end
 
 --[[Произвольная Weighted Moving Average (LWMA) — Произвольная (функция)-взвешенная скользящая средняя
 ]]
-local function F_LambdaWMA(settings, ds)
+local function F_LWMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
@@ -658,7 +658,7 @@ end
 
 --[[
 Hull Moving Average
-HMA= LWMA(2*LWMA(n/2) − LWMA(n)),sqrt(n))
+HMA= LWMA(2*LWMA(n/2) ? LWMA(n)),sqrt(n))
 ]]
 local function F_HMA(settings, ds)
 
@@ -668,10 +668,10 @@ local function F_HMA(settings, ds)
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
-    local fLwma     = F_LambdaWMA({period = period, data_type = data_type}, ds)
-    local fLwma2    = F_LambdaWMA({period = M.rounding(period/2, 'on'), data_type = data_type}, ds)
+    local fLwma     = F_LWMA({period = period, data_type = data_type}, ds)
+    local fLwma2    = F_LWMA({period = M.rounding(period/2, 'on'), data_type = data_type}, ds)
     local swma      = {}
-    local fHMA      = F_LambdaWMA({period = M.rounding(math_sqrt(period), 'on'), data_type = 'Any'}, swma)
+    local fHMA      = F_LWMA({period = M.rounding(math_sqrt(period), 'on'), data_type = 'Any'}, swma)
 
     local HMA_TMP = {}
     return function(index)
@@ -1536,6 +1536,51 @@ local function F_MACD(settings, ds)
     end, t_MACD, s_MACD
 end
 
+-- Bollinger Bands
+local function F_BOL(settings, ds)
+
+    settings            = (settings or {})
+
+    local method        = (settings.avg_method or "SMA")
+    local period        = (settings.period or 20)
+    local k_std         = (settings.k_std or 2)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "off")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+    local begin_index   = 1
+
+    if (method~="SMA") and (method~="EMA") then method = "SMA" end
+
+    local bb_up         = {}
+    local bb_dw         = {}
+
+    local BOL_SDMA      = M.new({method = "SD", avg_method = method, not_shifted = true, data_type = data_type, period = period, round = round, scale = scale}, ds)
+
+    return function (index)
+        if bb_up[index-1] == nil then begin_index = index end
+
+        bb_up[index] = bb_up[index-1] or 0
+        bb_dw[index] = bb_dw[index-1] or 0
+
+        local bb_sd, bb_ma  = BOL_SDMA(index)
+
+        local i  = (index - begin_index) - period + 1
+
+        if (i > 0) then
+            local bb      = (bb_ma or {})[index] or 0
+            local bb_sdma = (bb_sd or {})[index] or 0
+            bb_dw[index]  = bb - k_std*bb_sdma
+            bb_up[index]  = bb + k_std*bb_sdma
+        end
+
+        bb_up[index - save_bars] = nil
+        bb_dw[index - save_bars] = nil
+        bb_ma[index - save_bars] = nil
+        return bb_up, bb_dw, bb_ma
+    end
+end
+
 -- Stochastic oscillator
 local function F_STOCH(settings, ds)
 
@@ -1691,56 +1736,41 @@ local function F_RSI(settings, ds)
     end
 end
 
+local FUNCTOR = {
+    SMA     = F_SMA,
+    EMA     = F_EMA,
+    SD      = F_SD,
+    VMA     = F_VMA,
+    SMMA    = F_SMMA,
+    WMA     = F_WMA,
+    LWMA    = F_LWMA,
+    HMA     = F_HMA,
+    TEMA    = F_TEMA,
+    FRAMA   = F_FRAMA,
+    AMA     = F_AMA,
+    ATR     = F_ATR,
+    THV     = F_THV,
+    NRTR    = F_NRTR,
+    NRMA    = F_NRMA,
+    REG     = F_REG,
+    REMA    = F_REMA,
+    RENKO   = F_RENKO,
+    MACD    = F_MACD,
+    STOCH   = F_STOCH,
+    RSI     = F_RSI,
+    BOL     = F_BOL
+}
+
 local function MA(settings, ds)
 
     settings = (settings or {})
     local method    = (settings.method or "EMA")
 
-    if method == "SMA" then
-        return F_SMA(settings, ds)
-    elseif method == "EMA" then
-        return F_EMA(settings, ds)
-    elseif method == "SD" then
-        return F_SD(settings, ds)
-    elseif method == "VMA" then
-        return F_VMA(settings, ds)
-    elseif method == "SMMA" then
-        return F_SMMA(settings, ds)
-    elseif method == "WMA" then
-        return F_WMA(settings, ds)
-    elseif method == "LWMA" then
-        return F_LambdaWMA(settings, ds)
-    elseif method == "HMA" then
-        return F_HMA(settings, ds)
-    elseif method == "TEMA" then
-        return F_TEMA(settings, ds)
-    elseif method == "FRAMA" then
-        return F_FRAMA(settings, ds)
-    elseif method == "AMA" then
-        return F_AMA(settings, ds)
-    elseif method == "ATR" then
-        return F_ATR(settings, ds)
-    elseif method == "THV" then
-        return F_THV(settings, ds)
-    elseif method == "NRTR" then
-        return F_NRTR(settings, ds)
-    elseif method == "NRMA" then
-        return F_NRMA(settings, ds)
-    elseif method == "REG" then
-        return F_REG(settings, ds)
-    elseif method == "REMA" then
-        return F_REMA(settings, ds)
-    elseif method == "RENKO" then
-        return F_RENKO(settings, ds)
-    elseif method == "MACD" then
-        return F_MACD(settings, ds)
-    elseif method == "STOCH" then
-        return F_STOCH(settings, ds)
-    elseif method == "RSI" then
-        return F_RSI(settings, ds)
-    else
+    if not FUNCTOR[method] then
         return nil
     end
+
+    return FUNCTOR[method](settings, ds)
 end
 
 M.new         = MA
