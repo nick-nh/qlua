@@ -225,6 +225,7 @@ end
 
 --=======================================================================================================
 -- Errors
+---@param mes string
 local function ScriptError(mes)
     if not error_cache[mes] then
         log.error(mes)
@@ -466,6 +467,7 @@ end
 --=======================================================================================================
 -- Оповещения
 ---@param msg string
+---@param pipe_name string
 local function SendTeleMessage(msg, pipe_name)
     return _G.luaPipe.SendMessage(msg, pipe_name)
 end
@@ -613,7 +615,7 @@ local function FillTradeRefs()
 
 end
 
---Обработка стека накопленных действий
+--Обработка очереди накопленных действий
 function DoCommand()
 
     if #email_buff > 0 and os_time() - last_email_check >= Params.EMAIL_SEND_INTERVAL then
@@ -662,6 +664,7 @@ function DoCommand()
     end
 end
 
+---@param mes string
 local function ProcessAction(mes)
     message(mes, 2)
     log.warn('---------------------------------------------------------------------------')
@@ -671,6 +674,11 @@ local function ProcessAction(mes)
     if Params.PLAY_SOUND == 1 then COMMANDS_QUEUE[#COMMANDS_QUEUE+1] = {action = 'PaySound', value = Params.SOUND_FILE} end
 end
 
+---@param Sec table - таблица с описанием инструмента
+---@param info_string string - строка параметра "Таблицы текущих торгов"
+---@param filter_limit number - значение фильтра
+---@param sign number - знак. 1 - больше, -1 - меньше
+---@return function
 local function FilterProcessor(Sec, info_string, filter_limit, sign)
 
     local check, msg = GetCheckServerInfo(Sec.class_code, Sec.sec_code, info_string)
@@ -687,7 +695,12 @@ local function FilterProcessor(Sec, info_string, filter_limit, sign)
     end
 end
 
-
+---@param Sec table - таблица с описанием инструмента
+---@param info_string string - строка параметра "Таблицы текущих торгов"
+---@param check_interval number - интервал проверки в сек.
+---@param msg_interval number - интервал отправки сообщений в сек.
+---@param change_limit number - предел изменения параметра для наступления события
+---@return function
 local function CheckProcessor(Sec, info_string, check_interval, msg_interval, change_limit)
 
     local check, msg = GetCheckServerInfo(Sec.class_code, Sec.sec_code, info_string)
@@ -730,6 +743,12 @@ local function CheckProcessor(Sec, info_string, check_interval, msg_interval, ch
     end
 end
 
+---@param Sec table - таблица с описанием инструмента
+---@param info_string string - строка параметра "Таблицы текущих торгов"
+---@param check_interval number - интервал проверки в сек.
+---@param msg_interval number - интервал отправки сообщений в сек.
+---@param change_limit number - предел изменения параметра для наступления события
+---@return function
 local function CheckEMAProcessor(Sec, info_string, check_interval, msg_interval, change_limit, ema_period)
 
     local check, msg = GetCheckServerInfo(Sec.class_code, Sec.sec_code, info_string)
