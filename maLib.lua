@@ -1319,7 +1319,8 @@ local function F_RENKO(settings, ds)
     local brick_bars    = 0
     local Brick         = {}
     local Data          = {}
-    local Bars          = {}
+    local Bars          = setmetatable({}, {__len = function(t) return t._NUM end})
+    Bars._NUM           = 0
     Bars.C = function(self, index) return self[index].Close end
     Bars.O = function(self, index) return self[index].Open end
     Bars.H = function(self, index) return self[index].High end
@@ -1394,8 +1395,9 @@ local function F_RENKO(settings, ds)
             l_index         = index
             trend           = {}
             trend[index]    = 0
-            Bars[#Bars + 1]   = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
-            return Renko_UP, Renko_DW, trend, Brick, Bars
+            Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+            Bars._NUM       = Bars._NUM + 1
+        return Renko_UP, Renko_DW, trend, Brick, Bars
         end
 
         if brickType == 'Std' then
@@ -1451,12 +1453,14 @@ local function F_RENKO(settings, ds)
                 Renko_UP[index] = Renko_UP[index] + Brick[index-1]
                 Renko_DW[index] = math_max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
                 Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                Bars._NUM       = Bars._NUM + 1
             end
             Renko_UP[index] = Renko_UP[index] + Brick[index-1]
 
             Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
             Renko_DW[index] = math_max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
             Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+            Bars._NUM       = Bars._NUM + 1
             trend[index]  = 1
 		end
 		if close < Renko_DW[index-1] - Brick[index-1] then
@@ -1465,13 +1469,15 @@ local function F_RENKO(settings, ds)
             for _ = 1, bricks-1 do
                 Renko_DW[index] = Renko_DW[index] - Brick[index-1]
                 Renko_UP[index] = math_min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
-                Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_UP[index], Close = Renko_DW[index], High = Renko_DW[index], Time = Value(index, 'Time', ds)}
+                Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_DW[index], Close = Renko_DW[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                Bars._NUM       = Bars._NUM + 1
             end
 
             Renko_DW[index] = Renko_DW[index] - Brick[index-1]
             Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
             Renko_UP[index] = math_min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
-            Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_UP[index], Close = Renko_DW[index], High = Renko_DW[index], Time = Value(index, 'Time', ds)}
+            Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_DW[index], Close = Renko_DW[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+            Bars._NUM       = Bars._NUM + 1
             trend[index]  = -1
         end
         Renko_UP[index-save_bars] = nil
