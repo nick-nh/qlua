@@ -4,9 +4,12 @@
 
 	VSA
 ]]
+local sound_file_name = "c:\\windows\\media\\Alarm03.wav"
+
+local w32 = (function() local status, res = pcall(function() return require("w32"); end) if status then return res end; end)()
 
 local logfile = nil
---logfile		= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
+--logfile				= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
 
 local message       	= _G['message']
 local CandleExist      	= _G['CandleExist']
@@ -15,9 +18,10 @@ local C     			= _G['C']
 local H     			= _G['H']
 local L     			= _G['L']
 local V     			= _G['V']
+local Size     			= _G['Size']
 local floor 			= math.floor
 local ceil 				= math.ceil
-local math_pow 			= math.pow
+local math_pow      	= function(x, y) return x^y end
 local math_max      	= math.max
 local math_abs      	= math.abs
 local math_min      	= math.min
@@ -33,18 +37,37 @@ local TYPE_HISTOGRAM    = _G['TYPE_HISTOGRAM']
 local isDark        	= _G.isDarkTheme()
 local line_color    	= isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 
+local intervals_rep     = {}
+intervals_rep[0]        = 'TICK'
+intervals_rep[1]        = 'M1'
+intervals_rep[2]        = 'M2'
+intervals_rep[3]        = 'M3'
+intervals_rep[4]        = 'M4'
+intervals_rep[5]        = 'M5'
+intervals_rep[6]        = 'M6'
+intervals_rep[10]       = 'M10'
+intervals_rep[15]       = 'M15'
+intervals_rep[30]       = 'M30'
+intervals_rep[60]       = 'H1'
+intervals_rep[120]      = 'H2'
+intervals_rep[240]      = 'H4'
+intervals_rep[1440]     = 'D1'
+intervals_rep[10080]    = 'W'
+intervals_rep[23200]    = 'M'
+
 _G.Settings =
 {
 	Name = "*VSA",
-	lookBack = 21,
-	volumeFactor = 1.0,
-	useVolumeMA = 1,
-	volMAPeriod = 21,
-	volMAKoeff = 1.0,
-	useChunk = 1,
-	chunkMA_Factor = 1.0,
-	useCumulativeDelta = 0,
-	useClosePrice = 1,
+	lookBack 			= 21,
+	volumeFactor 		= 1.0,
+	useVolumeMA 		= 1,
+	volMAPeriod 		= 21,
+	volMAKoeff 			= 1.0,
+	useChunk 			= 1,
+	chunkMA_Factor 		= 1.0,
+	useCumulativeDelta 	= 0,
+	useClosePrice 		= 1,
+	trigger_vol 		= 0,
 	line=
 	{
 		{
@@ -152,6 +175,13 @@ local function myLog(...)
     logfile:flush();
 end
 
+local function PaySoundFile()
+	if not w32 then return end
+    w32.mciSendString("CLOSE QUIK_MP3")
+    w32.mciSendString("OPEN \"" .. sound_file_name .. "\" TYPE MpegVideo ALIAS QUIK_MP3")
+    w32.mciSendString("PLAY QUIK_MP3")
+end
+
 ----------------------------------------------------------
 local function CalculateVolume(FSettings)
 
@@ -165,6 +195,7 @@ local function CalculateVolume(FSettings)
 	local chunkMA_Factor 		= FSettings.chunkMA_Factor or 1
 	local useCumulativeDelta 	= FSettings.useCumulativeDelta or 0
 	local useClosePrice 		= FSettings.useClosePrice or 1
+	local trigger_vol 			= FSettings.trigger_vol or 1
 
 	local DeltaFactor 			= 2
 	local k 					= 2/(volMAPeriod + 1)
@@ -180,6 +211,8 @@ local function CalculateVolume(FSettings)
 
 	local p_index
     local l_index
+    local ds_info
+	local trigger_index
 
 	return function(index)
 
@@ -188,6 +221,7 @@ local function CalculateVolume(FSettings)
 
 			if index == 1 then
 
+				ds_info 				= _G.getDataSourceInfo()
 				l_index 				= index
 				cache_volEMA 			= {}
 				DeltaBuffer 			= {}
@@ -272,6 +306,12 @@ local function CalculateVolume(FSettings)
 			end
 			if useCumulativeDelta==0 then
 				outDeltaEMA = nil
+			end
+
+			if trigger_vol ~= 0 and index == Size() and trigger_index ~= index and V(index) > trigger_vol then
+				trigger_index = index
+				PaySoundFile()
+				message(tostring(ds_info.class_code)..'|'..tostring(ds_info.sec_code)..', '..tostring(intervals_rep[ds_info.interval])..': '..os.date('%Y.%m.%d %H:%M', os.time(T(index)))..' Объем выше: '..tostring(trigger_vol))
 			end
 
 			if useChunk == 1 then
