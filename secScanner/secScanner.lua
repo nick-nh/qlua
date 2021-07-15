@@ -1,7 +1,7 @@
 _G.load   = _G.loadfile or _G.load
 
 local LICENSE = {
-    _VERSION     = 'secScanner 2021.06.16',
+    _VERSION     = 'secScanner 2021.07.14',
     _DESCRIPTION = 'quik sec scaner',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -482,7 +482,7 @@ function SendMessage(email_text, pipe_name, sec_state)
     local status,res = pcall(function()
         log.info('SendMessage text: '..email_text)
         if email_text ~= '' then
-            email_text = " -----------------"..os_date('%Y-%m-%d %H:%M:%S', os_time(SERVER_TIME)).." -----------------".. "\n"..NAME_OF_STRATEGY..' '..email_text
+            email_text = " -----------------"..NAME_OF_STRATEGY..": "..os_date('%Y-%m-%d %H:%M:%S', os_time(SERVER_TIME)).." -----------------".. "\n"..' '..email_text
             if not SendTeleMessage(email_text, pipe_name) then
                 log.warn('Сообщение не отправлено')
                 os.execute('start cmd /c call "'..SEND_EMAIL_EXE_PATH..'"')
@@ -679,7 +679,7 @@ end
 ---@param filter_limit number - значение фильтра
 ---@param sign number - знак. 1 - больше, -1 - меньше
 ---@return function
-local function FilterProcessor(Sec, info_string, filter_limit, sign)
+local function FilterProcessor(Sec, info_string, filter_limit, sign, memory)
 
     local check, msg = GetCheckServerInfo(Sec.class_code, Sec.sec_code, info_string)
     if not check then
@@ -690,8 +690,12 @@ local function FilterProcessor(Sec, info_string, filter_limit, sign)
     filter_limit = filter_limit or 0
     sign         = sign or 1
 
+    local last_cond
+
     return function()
-        return sign*(GetServerInfo(Sec.class_code, Sec.sec_code, info_string) - filter_limit) > 0
+        if memory and last_cond then return true end
+        last_cond = sign*(GetServerInfo(Sec.class_code, Sec.sec_code, info_string) - filter_limit) > 0
+        return last_cond
     end
 end
 
@@ -727,15 +731,15 @@ local function CheckProcessor(Sec, info_string, check_interval, msg_interval, ch
                 local cur_value = GetServerInfo(Sec.class_code, Sec.sec_code, info_string)
                 if last_value  ~= cur_value and last_value ~= 0 then
                     local d_value = round((cur_value - last_value)*100/last_value, 2)
-                    -- log.debug('CheckProcessor', Sec.sec_name, 'last_value', last_value, 'd_value', d_value)
-                    last_value  = cur_value
+                    -- log.debug('CheckProcessor', Sec.sec_name, 'last_value', last_value, 'cur_value', cur_value, 'd_value', d_value)
                     if math_abs(d_value) >= change_limit then
                         if cur_time - last_msg >= msg_interval then
                             last_msg = cur_time
-                            ProcessAction(NAME_OF_STRATEGY..', '..Sec.sec_name..': '..'значительное изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" на: '..tostring(d_value)..'%')
+                            ProcessAction(Sec.sec_name..': '..'значительное изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" на: '..tostring(d_value)..'%')
                         end
                     end
                 end
+                last_value  = cur_value
             end
 
         end)
@@ -803,7 +807,7 @@ local function CheckEMAProcessor(Sec, info_string, check_interval, msg_interval,
                 if k_value >= change_limit then
                     if cur_time - last_msg >= msg_interval then
                         last_msg = cur_time
-                        ProcessAction(NAME_OF_STRATEGY..', '..Sec.sec_name..': '..'изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" более чем в: '..tostring(round(k_value, 2))..' ema')
+                        ProcessAction(Sec.sec_name..': '..'изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" более чем в: '..tostring(round(k_value, 2))..' ema')
                     end
                 end
                 last_value  = cur_value
@@ -850,10 +854,11 @@ local function FillAlgoFunctor()
         ALGO_FUNCTOR[#ALGO_FUNCTOR+1] =  {}
         local algo      = ALGO_FUNCTOR[#ALGO_FUNCTOR]
         algo.filters    = {}
-        algo.filters[#algo.filters+1]   = FilterProcessor(Sec, 'VALTODAY', 7000000, 1)
+        algo.filters[#algo.filters+1]   = FilterProcessor(Sec, 'VALTODAY', 7000000, 1, true)
         algo.alerts     = {}
-        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 1, 600, 2.5)
-        algo.alerts[#algo.alerts+1]     = CheckEMAProcessor(Sec, 'VALTODAY', 120, 600, 3.5, 5)
+        -- algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 0, 600, 2)
+        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 5, 600, 2)
+        algo.alerts[#algo.alerts+1]     = CheckEMAProcessor(Sec, 'VALTODAY', 120, 600, 3, 5)
     end
 
     SEC_CODES = nil
