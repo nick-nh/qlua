@@ -9,7 +9,7 @@ local sound_file_name = "c:\\windows\\media\\Alarm03.wav"
 local w32 = (function() local status, res = pcall(function() return require("w32"); end) if status then return res end; end)()
 
 local logfile = nil
---logfile				= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
+-- logfile				= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
 
 local message       	= _G['message']
 local CandleExist      	= _G['CandleExist']
@@ -18,6 +18,7 @@ local C     			= _G['C']
 local H     			= _G['H']
 local L     			= _G['L']
 local V     			= _G['V']
+local T     			= _G['T']
 local Size     			= _G['Size']
 local floor 			= math.floor
 local ceil 				= math.ceil
@@ -183,24 +184,9 @@ local function PaySoundFile()
 end
 
 ----------------------------------------------------------
-local function CalculateVolume(FSettings)
+local function CalculateVolume()
 
-	FSettings 					= FSettings or {}
-	local lookBack 				= FSettings.lookBack or 21
-	local volMAPeriod 			= FSettings.volMAPeriod or 21
-	local volMAKoeff 			= FSettings.volMAKoeff or 1
-	local volumeFactor 			= FSettings.volumeFactor or 1
-	local useVolumeMA 			= FSettings.useVolumeMA or 1
-	local useChunk 				= FSettings.useChunk or 0
-	local chunkMA_Factor 		= FSettings.chunkMA_Factor or 1
-	local useCumulativeDelta 	= FSettings.useCumulativeDelta or 0
-	local useClosePrice 		= FSettings.useClosePrice or 1
-	local trigger_vol 			= FSettings.trigger_vol or 1
-
-	local DeltaFactor 			= 2
-	local k 					= 2/(volMAPeriod + 1)
-
-	local cache_volEMA			= {}
+	local cache_volEMA
 	local DeltaBuffer			= {}
 	local DeltaCalculations		= {}
 	local cache_DeltaEMA		= {}
@@ -214,12 +200,27 @@ local function CalculateVolume(FSettings)
     local ds_info
 	local trigger_index
 
-	return function(index)
+	return function(index, FSettings)
 
 
 		local status, res1, res2, res3, res4, res5, res6, res7, res8, res9, res10 = pcall(function()
 
-			if index == 1 then
+			FSettings 					= FSettings or {}
+			local lookBack 				= FSettings.lookBack or 21
+			local volMAPeriod 			= FSettings.volMAPeriod or 21
+			local volMAKoeff 			= FSettings.volMAKoeff or 1
+			local volumeFactor 			= FSettings.volumeFactor or 1
+			local useVolumeMA 			= FSettings.useVolumeMA or 1
+			local useChunk 				= FSettings.useChunk or 0
+			local chunkMA_Factor 		= FSettings.chunkMA_Factor or 1
+			local useCumulativeDelta 	= FSettings.useCumulativeDelta or 0
+			local useClosePrice 		= FSettings.useClosePrice or 1
+			local trigger_vol 			= FSettings.trigger_vol or 1
+
+			local DeltaFactor 			= 2
+			local k 					= 2/(volMAPeriod + 1)
+
+			if index == 1 or cache_volEMA == nil then
 
 				ds_info 				= _G.getDataSourceInfo()
 				l_index 				= index
@@ -444,11 +445,11 @@ function _G.OnCalculate(index)
 		min_price_step 	= _G.getParamEx(DSInfo.class_code, DSInfo.sec_code, "SEC_PRICE_STEP").param_value
 		scale 			= _G.getSecurityInfo(DSInfo.class_code, DSInfo.sec_code).scale
 	end
-	return PlotLines(index)
+	return PlotLines(index, _G.Settings)
 end
 
 function _G.Init()
-	PlotLines = CalculateVolume(_G.Settings)
+	PlotLines = CalculateVolume()
 	return lines
 end
 
