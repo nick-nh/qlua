@@ -341,7 +341,7 @@ local function Get2PoleSSF(settings, ds)
     local data_type = (settings.data_type or "Close")
 
     local pi        = math.pi
-    local arg       = math.sqrt(2)*pi/period
+    local arg       = math.sqrt(2)*pi/(0.5*period)
     local a1        = math.exp(-arg)
     local b1        = 2*a1*math.cos(arg)
     local c2        = b1
@@ -365,7 +365,7 @@ local function Get3PoleSSF(settings, ds)
     local data_type = (settings.data_type or "Close")
 
     local pi        = math.pi
-    local arg       = pi/period
+    local arg       = pi/(0.5*period)
     local a1        = math.exp(-arg)
     local b1        = 2*a1*math.cos(1.738*arg)
     local c1        = a1*a1
