@@ -99,15 +99,15 @@ local function Algo(Fsettings, ds)
 			avgZeros[index] = avgZeros[index-1]
 			edsma[index]    = edsma[index-1]
 
-			if not maLib.CheckIndex(index, ds) then
+            --Ehlers Super Smoother Filter
+            local ssf = fSSF(index)
+
+            if not maLib.CheckIndex(index, ds) then
 				return
 			end
 
             zeros[index]    = val - (maLib.Value(maLib.GetIndex(index, 2, ds, data_type), data_type, ds))
             avgZeros[index] = (zeros[index] + zeros[index-1])/2
-
-            --Ehlers Super Smoother Filter
-            local ssf = fSSF(index)
 
             --Rescale filter in terms of Standard Deviations
             local stdev         = maLib.Sigma(ssf, nil, index - period + 1, index)
