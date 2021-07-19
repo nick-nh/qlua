@@ -155,12 +155,6 @@ local function Algo(Fsettings, ds)
                 return
             end
 
-			sdso[index]    = sdso[index-1]
-
-			if not maLib.CheckIndex(index, ds) then
-				return
-			end
-
             sdso[index] = fSD(index)[index]
             out1, out2  = fSO(index)
         end)
