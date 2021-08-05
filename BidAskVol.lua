@@ -4,7 +4,7 @@
 ]]
 
 local logfile = nil
---logfile				= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
+-- logfile				= io.open(_G.getWorkingFolder().."\\LuaIndicators\\volume.txt", "w")
 
 local SEC_CODE 		= ""
 local CLASS_CODE 	= ""
@@ -37,6 +37,8 @@ _G.Settings = {
 	Name 				= "*delta volume",
 	-- Выводить объем баров
 	showVolume			= 0,
+	-- Показывать объемную дельту отдельного бара, вместо данных покупок/продаж
+	showBarDelta		= 0,
 	-- Признак инверсии значений объемной дельты. Продажа - отрицательные значения. Покупка -положительные значения
 	inverse 			= 1,
 	-- Признак расчета объемной дельты не по показателям сделки, а по количеству сделок за интервал времени
@@ -50,7 +52,7 @@ _G.Settings = {
 	-- Показывать объемную дельту
 	showDelta			= 1,
 	-- Показывать кумулятивную объемную дельту
-	showCumDelta		= 0,
+	showCumDelta		= 1,
 	-- Показывать дельту ОИ
 	showOIDelta			= 0,
 	-- Масштабный коэффициент вывода кумулятивной объемной дельты.
@@ -103,7 +105,7 @@ _G.Settings = {
 -- ѕользовательcкие функции
 local function myLog(text)
 	if not logfile then return end
-	logfile:write(tostring(os_date("%c",os_time())).." "..text.."\n");
+	logfile:write(tostring(os_date("%c", os_time())).." "..text.."\n");
 	logfile:flush();
 end
 
@@ -147,6 +149,8 @@ local function ReadTradesProcessor(inverse, sum_quantity, filterString, CountQun
 	local cache_index
 	local cache_i = 0
 
+	myLog("ReadTradesProcessor init"..' inverse '..tostring(inverse)..' sum_quantity '..tostring(sum_quantity))
+
 	return function(index, timeFrom, timeTo, firstindex)
 
 		local status,res = pcall(function()
@@ -159,7 +163,7 @@ local function ReadTradesProcessor(inverse, sum_quantity, filterString, CountQun
 				local trade 	= getItem("all_trades", 0)
 				local datetime 	= os_time(trade.datetime)
 				if datetime > timeTo then
-					return
+					return firstindex-1
 				end
 			end
 
@@ -252,13 +256,16 @@ end
 local function Vol(Fsettings)
 
 	local Delta				= {}
+	local CumDelta			= {}
 	local LastReadDeals 	= -1
 	local last_index		= Size()
 	local errors			= 0
 	local ReadTrades		= function() return -1 end
 	local error_log			= {}
+	local max_errors_reach
 
 	Fsettings 				= Fsettings or {}
+	local showBarDelta 		= Fsettings.showBarDelta or 0
 	local showDelta 		= Fsettings.showDelta or 0
 	local showCumDelta 		= Fsettings.showCumDelta or 0
 	local showOIDelta 		= Fsettings.showOIDelta or 0
@@ -275,12 +282,14 @@ local function Vol(Fsettings)
 		local status, res = pcall(function()
 
 			if index == 1 then
-				--myLog("tradeDate "..os_date("%c",os_time(tradeDate))..' index '..tostring(index)..' call_count '..tostring(call_count))
+				-- myLog("tradeDate "..os_date("%c",os_time(tradeDate))..' index '..tostring(index)..' call_count '..tostring(call_count))
 				last_index				= Size()
 				cache_VolBid			= {}
 				cache_VolAsk			= {}
 				Delta					= {}
 				Delta[index]			= 0
+				CumDelta				= {}
+				CumDelta[index]			= 0
 				OIDelta					= {}
 				OIDelta[index]			= 0
 				LastReadDeals			= -1
@@ -289,6 +298,7 @@ local function Vol(Fsettings)
 			end
 
 			Delta[index] 			= Delta[index-1] or 0
+			CumDelta[index] 		= CumDelta[index-1] or 0
 			OIDelta[index] 			= OIDelta[index] or 0
 			cache_VolAsk[index]		= cache_VolAsk[index] or 0
 			cache_VolBid[index]		= cache_VolBid[index] or 0
@@ -320,7 +330,8 @@ local function Vol(Fsettings)
 				else
 					localDelta = cache_VolBid[ind]+cache_VolAsk[ind]
 				end
-				Delta[ind] = Delta[ind] + localDelta*delta_koeff
+				Delta[ind] 		= localDelta
+				CumDelta[ind] 	= CumDelta[ind] + localDelta*delta_koeff
 			end
 
 			--myLog("------------------------------------------------------------")
@@ -330,8 +341,8 @@ local function Vol(Fsettings)
 			if last_index < Size() then
 				LastReadDeals = ReadTrades(index-1, os_time(T(last_index)), timeFrom, LastReadDeals+1)
 				calc_delta(last_index)
-				SetValue(last_index, 1, showDelta == 1 and cache_VolAsk[last_index])
-				SetValue(last_index, 2, showDelta == 1 and cache_VolBid[last_index])
+				SetValue(last_index, 1, showDelta == 1 and (showBarDelta == 0 and cache_VolAsk[last_index] or (Delta[last_index] < 0 and Delta[last_index])))
+				SetValue(last_index, 2, showDelta == 1 and (showBarDelta == 0 and cache_VolBid[last_index] or (Delta[last_index] > 0 and Delta[last_index])))
 				SetValue(last_index, 3, showCumDelta == 1 and Delta[last_index])
 				SetValue(last_index, 4, showOIDelta == 1 and OIDelta[last_index])
 				SetValue(last_index, 5, showVolume == 1 and V(last_index))
@@ -343,7 +354,7 @@ local function Vol(Fsettings)
 			end
 			LastReadDeals = ReadTrades(index, timeFrom, timeTo, LastReadDeals+1)
 			--myLog("LastReadDeals "..tostring(LastReadDeals))
-			--myLog("cache_VolAsk "..tostring(cache_VolAsk[index])..", cache_VolBid "..tostring(cache_VolBid[index]))
+			-- myLog(' index '..tostring(index)..' '..os_date('%d.%m.%Y %H:%M:%S', timeFrom).." cache_VolAsk "..tostring(cache_VolAsk[index])..", cache_VolBid "..tostring(cache_VolBid[index]))
 			--myLog('all vol '..tostring(cache_VolAsk[index] + cache_VolBid[index]))
 
 			calc_delta(index)
@@ -351,7 +362,10 @@ local function Vol(Fsettings)
 		end)
 		if not status then
 			errors = errors + 1
-			if errors > max_errors then message(_G.Settings.Name ..': Слишком много ошибок при работе индикатора.') end
+			if errors > max_errors and not max_errors_reach then
+				message(_G.Settings.Name ..': Слишком много ошибок при работе индикатора.')
+				max_errors_reach = true
+			end
             if not error_log[tostring(res)] then
                 error_log[tostring(res)] = true
                 myLog('Error CalcFunc: '..tostring(res))
@@ -361,7 +375,11 @@ local function Vol(Fsettings)
 		end
 
 		----myLog("Delta "..tostring(Delta[index]))
-		return showDelta == 1 and cache_VolAsk[index], showDelta == 1 and cache_VolBid[index], showCumDelta == 1 and Delta[index], showOIDelta == 1 and OIDelta[index], showVolume == 1 and V(index)
+		return 	showDelta == 1 and (showBarDelta == 0 and cache_VolAsk[index] or (Delta[index] < 0 and Delta[index])),
+				showDelta == 1 and (showBarDelta == 0 and cache_VolBid[index] or (Delta[index] > 0 and Delta[index])),
+				showCumDelta == 1 and Delta[index],
+				showOIDelta == 1 and OIDelta[index],
+				showVolume == 1 and V(index)
 	end
 end
 
@@ -378,11 +396,13 @@ function _G.OnCalculate(index)
 end
 
 function _G.Init()
-	myVol = Vol(_G.Settings)
+	call_count 	= 0
+	myVol 		= Vol(_G.Settings)
 	return 5
 end
 
 function _G.OnChangeSettings()
+	myLog("OnChangeSettings")
     _G.Init()
 end
 
