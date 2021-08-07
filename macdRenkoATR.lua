@@ -20,21 +20,21 @@ local line_color        = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 
 _G.Settings= {
     Name 		        = "*macdRenkoATR",
-    short_period        = 12,                   -- Период расчета короткой ma
-    long_period         = 26,                   -- Период расчета длинной ma
-    method              = 'EMA',                -- Метод расчета ma
-    signal_period       = 9,                    -- Период расчета сигнальной ma
-    signal_method       = 'SMA',                -- Метод расчета сигнальной ma
-    percent             = 'ON',                 -- Метод расчета ma
-    period              = 28,                   -- Период расчета ATR
-    k                   = 1.0,                  -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
+    short_period        = 12,                   -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° РєРѕСЂРѕС‚РєРѕР№ ma
+    long_period         = 26,                   -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° РґР»РёРЅРЅРѕР№ ma
+    method              = 'EMA',                -- РњРµС‚РѕРґ СЂР°СЃС‡РµС‚Р° ma
+    signal_period       = 9,                    -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° СЃРёРіРЅР°Р»СЊРЅРѕР№ ma
+    signal_method       = 'SMA',                -- РњРµС‚РѕРґ СЂР°СЃС‡РµС‚Р° СЃРёРіРЅР°Р»СЊРЅРѕР№ ma
+    percent             = 'ON',                 -- РњРµС‚РѕРґ СЂР°СЃС‡РµС‚Р° ma
+    period              = 28,                   -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° ATR
+    k                   = 2.8,                  -- СЂР°Р·РјРµСЂ СЃРєРѕР»СЊР·СЏС‰РµРіРѕ С„РёР»СЊС‚СЂР°, РёСЃРїРѕР»СЊР·СѓРµРјС‹Р№ РїСЂРё РІС‹С‡РёСЃР»РµРЅРёРё СЂР°Р·РјРµСЂР° Р±Р»РѕРєР° РѕС‚ РІРµР»РёС‡РёРЅС‹ ATR РєР°Рє k*ATR
     data_type           = 1,                    -- 0 - Close; 1 - High|Low
-    br_size             = 0,                    -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
-    recalc_brick        = 0,                    -- Пересчитывать размер блока каждый период-бар
-    shift_limit         = 0,                    -- Сдвигать границу по пересчитанному размеру блока
-    min_recalc_brick    = 0,                    -- Минимизировать размер блока при пересчете
-    --Для установки значения, необходимо поставить * перед выбранным вариантом.
-    brickType           = '*ATR; Std; Fix',     -- Тип расчета Renko; ATR; Std - стандартное отклонение; Fix - фиксированный размер, заданный в br_size
+    br_size             = 0,                    -- Р¤РёРєСЃРёСЂРѕРІР°РЅРЅС‹Р№ СЂР°Р·РјРµСЂ С€Р°РіР°. Р•СЃР»Рё Р·Р°РґР°РЅ, С‚Рѕ СЃС‚СЂРѕРёС‚СЃСЏ РїРѕ СѓРєР°Р·Р°РЅРЅРѕРјСѓ СЂР°Р·РјРµСЂСѓ (РІ РїСѓРЅРєС‚Р°С…)
+    recalc_brick        = 1,                    -- РџРµСЂРµСЃС‡РёС‚С‹РІР°С‚СЊ СЂР°Р·РјРµСЂ Р±Р»РѕРєР° РєР°Р¶РґС‹Р№ РїРµСЂРёРѕРґ-Р±Р°СЂ
+    shift_limit         = 1,                    -- РЎРґРІРёРіР°С‚СЊ РіСЂР°РЅРёС†Сѓ РїРѕ РїРµСЂРµСЃС‡РёС‚Р°РЅРЅРѕРјСѓ СЂР°Р·РјРµСЂСѓ Р±Р»РѕРєР°
+    min_recalc_brick    = 0,                    -- РњРёРЅРёРјРёР·РёСЂРѕРІР°С‚СЊ СЂР°Р·РјРµСЂ Р±Р»РѕРєР° РїСЂРё РїРµСЂРµСЃС‡РµС‚Рµ
+    --Р”Р»СЏ СѓСЃС‚Р°РЅРѕРІРєРё Р·РЅР°С‡РµРЅРёСЏ, РЅРµРѕР±С…РѕРґРёРјРѕ РїРѕСЃС‚Р°РІРёС‚СЊ * РїРµСЂРµРґ РІС‹Р±СЂР°РЅРЅС‹Рј РІР°СЂРёР°РЅС‚РѕРј.
+    brickType           = '*ATR; Std; Fix',     -- РўРёРї СЂР°СЃС‡РµС‚Р° Renko; ATR; Std - СЃС‚Р°РЅРґР°СЂС‚РЅРѕРµ РѕС‚РєР»РѕРЅРµРЅРёРµ; Fix - С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Р№ СЂР°Р·РјРµСЂ, Р·Р°РґР°РЅРЅС‹Р№ РІ br_size
     std_ma_method       = 'SMA',
     line = {
         {
@@ -103,7 +103,6 @@ local function Algo(Fsettings, ds)
     local sma_data      = {}
     local lma_data      = {}
     local t_MACD        = {}
-    local s_MACD        = {}
     local last_delta    = 1
 
     local fRenko
@@ -120,6 +119,7 @@ local function Algo(Fsettings, ds)
     settings.shift_limit       = (Fsettings.shift_limit or 0)
     settings.std_ma_method     = (Fsettings.std_ma_method or 'SMA')
     settings.k                 = (Fsettings.k or 1)
+    settings.get_bars          = true
     local brickType            = (Fsettings.brickType or 'Std')
 	for val in string.gmatch(brickType or '*ATR', "([^;]+)") do
         if (val:find('*')) then
@@ -137,9 +137,8 @@ local function Algo(Fsettings, ds)
             if fRenko == nil or index == 1 then
                 local ds_info 	 = _G.getDataSourceInfo()
                 settings.scale   = (tonumber(_G.getParamEx(ds_info.class_code, ds_info.sec_code,"SEC_SCALE").param_value) or 0)
-                fRenko           = maLib.new(settings, ds)
-                local res        = {fRenko(index)}
-                rbars            = res[5]
+                fRenko, rbars    = maLib.new(settings, ds)
+                fRenko(index)
                 c_rbars          = 1
                 l_index          = index
                 sfMA              = maLib.new({period = short_period, method = method}, rbars)
@@ -147,13 +146,11 @@ local function Algo(Fsettings, ds)
                 lfMA              = maLib.new({period = long_period, method = method}, rbars)
                 lma_data[c_rbars] = lfMA(index)[c_rbars]
                 t_MACD[index]     = 0
-                s_MACD[index]     = 0
                 fMACD_MA          = maLib.new({period = signal_period, method = signal_method,  data_type = "Any"}, t_MACD)
                 return
             end
 
             t_MACD[index]   = t_MACD[index-1] or 0
-            s_MACD[index]   = s_MACD[index-1] or 0
 
             local ds_size   = maLib.dsSize(settings.data_type, ds)
             local calc_bar  = (index == ds_size and index - 1 or index)
@@ -196,7 +193,6 @@ local function Algo(Fsettings, ds)
             end
 
             t_MACD[index - save_bars] = nil
-            s_MACD[index - save_bars] = nil
 
         end)
         if not status then
