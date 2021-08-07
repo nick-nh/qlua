@@ -19,17 +19,17 @@ local line_color    = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 
 _G.Settings= {
     Name 		        = "*emaRenkoATR",
-    ema_period          = 14,                   -- Период расчета ema
+    ema_period          = 14,                   -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° ema
     smoothLines         = 0,
-    period              = 28,                   -- Период расчета ATR
-    k                   = 1.0,                  -- размер скользящего фильтра, используемый при вычислении размера блока от величины ATR как k*ATR
+    period              = 28,                   -- РџРµСЂРёРѕРґ СЂР°СЃС‡РµС‚Р° ATR
+    k                   = 1.0,                  -- СЂР°Р·РјРµСЂ СЃРєРѕР»СЊР·СЏС‰РµРіРѕ С„РёР»СЊС‚СЂР°, РёСЃРїРѕР»СЊР·СѓРµРјС‹Р№ РїСЂРё РІС‹С‡РёСЃР»РµРЅРёРё СЂР°Р·РјРµСЂР° Р±Р»РѕРєР° РѕС‚ РІРµР»РёС‡РёРЅС‹ ATR РєР°Рє k*ATR
     data_type           = 1,                    -- 0 - Close; 1 - High|Low
-    br_size             = 0,                    -- Фиксированный размер шага. Если задан, то строится по указанному размеру (в пунктах)
-    recalc_brick        = 0,                    -- Пересчитывать размер блока каждый период-бар
-    shift_limit         = 0,                    -- Сдвигать границу по пересчитанному размеру блока
-    min_recalc_brick    = 0,                    -- Минимизировать размер блока при пересчете
-    --Для установки значения, необходимо поставить * перед выбранным вариантом.
-    brickType           = '*ATR; Std; Fix',     -- Тип расчета Renko; ATR; Std - стандартное отклонение; Fix - фиксированный размер, заданный в br_size
+    br_size             = 0,                    -- Р¤РёРєСЃРёСЂРѕРІР°РЅРЅС‹Р№ СЂР°Р·РјРµСЂ С€Р°РіР°. Р•СЃР»Рё Р·Р°РґР°РЅ, С‚Рѕ СЃС‚СЂРѕРёС‚СЃСЏ РїРѕ СѓРєР°Р·Р°РЅРЅРѕРјСѓ СЂР°Р·РјРµСЂСѓ (РІ РїСѓРЅРєС‚Р°С…)
+    recalc_brick        = 0,                    -- РџРµСЂРµСЃС‡РёС‚С‹РІР°С‚СЊ СЂР°Р·РјРµСЂ Р±Р»РѕРєР° РєР°Р¶РґС‹Р№ РїРµСЂРёРѕРґ-Р±Р°СЂ
+    shift_limit         = 0,                    -- РЎРґРІРёРіР°С‚СЊ РіСЂР°РЅРёС†Сѓ РїРѕ РїРµСЂРµСЃС‡РёС‚Р°РЅРЅРѕРјСѓ СЂР°Р·РјРµСЂСѓ Р±Р»РѕРєР°
+    min_recalc_brick    = 0,                    -- РњРёРЅРёРјРёР·РёСЂРѕРІР°С‚СЊ СЂР°Р·РјРµСЂ Р±Р»РѕРєР° РїСЂРё РїРµСЂРµСЃС‡РµС‚Рµ
+    --Р”Р»СЏ СѓСЃС‚Р°РЅРѕРІРєРё Р·РЅР°С‡РµРЅРёСЏ, РЅРµРѕР±С…РѕРґРёРјРѕ РїРѕСЃС‚Р°РІРёС‚СЊ * РїРµСЂРµРґ РІС‹Р±СЂР°РЅРЅС‹Рј РІР°СЂРёР°РЅС‚РѕРј.
+    brickType           = '*ATR; Std; Fix',     -- РўРёРї СЂР°СЃС‡РµС‚Р° Renko; ATR; Std - СЃС‚Р°РЅРґР°СЂС‚РЅРѕРµ РѕС‚РєР»РѕРЅРµРЅРёРµ; Fix - С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Р№ СЂР°Р·РјРµСЂ, Р·Р°РґР°РЅРЅС‹Р№ РІ br_size
     std_ma_method       = 'SMA',
     line = {
         {
@@ -92,6 +92,7 @@ local function Algo(Fsettings, ds)
     settings.shift_limit       = (Fsettings.shift_limit or 0)
     settings.std_ma_method     = (Fsettings.std_ma_method or 'SMA')
     settings.k                 = (Fsettings.k or 1)
+    settings.get_bars          = true
     local brickType            = (Fsettings.brickType or 'Std')
 	for val in string.gmatch(brickType or '*ATR', "([^;]+)") do
         if (val:find('*')) then
@@ -109,9 +110,8 @@ local function Algo(Fsettings, ds)
             if fRenko == nil or index == 1 then
                 local ds_info 	 = _G.getDataSourceInfo()
                 settings.scale   = (tonumber(_G.getParamEx(ds_info.class_code, ds_info.sec_code,"SEC_SCALE").param_value) or 0)
-                fRenko           = maLib.new(settings, ds)
-                local res        = {fRenko(index)}
-                rbars            = res[5]
+                fRenko, rbars    = maLib.new(settings, ds)
+                fRenko(index)
                 c_rbars          = 1
                 l_index          = index
                 fMA              = maLib.new({period = period, method = 'EMA'}, rbars)
