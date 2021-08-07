@@ -13,7 +13,7 @@ local math_ceil     = math.ceil
 local math_max      = math.max
 local math_min      = math.min
 local math_abs      = math.abs
-local math_pow      = math.pow
+local math_pow      = function(x, y) return x^y end
 local math_sqrt     = math.sqrt
 local math_exp      = math.exp
 local math_log      = math.log
@@ -22,7 +22,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.02.02',
+    _VERSION     = 'MA lib 2021.08.07',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -457,7 +457,7 @@ local function F_SMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -483,7 +483,7 @@ local function F_LWMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -514,13 +514,13 @@ local function F_SD(settings, ds)
 
     local period        = (settings.period or 9)
     local data_type     = (settings.data_type or "Close")
-    local round         = (settings.round or "off")
-    local avg_method    = (settings.avg_method or 'SMA')
+    local round         = (settings.round or "OFF")
+    local ma_method     = (settings.ma_method or 'SMA')
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
     local not_shifted   = settings.not_shifted
 
-    local fMA           = M.new({period = period, data_type = data_type, method = avg_method, round = round, scale = scale}, ds)
+    local fMA           = M.new({period = period, data_type = data_type, method = ma_method, round = round, scale = scale}, ds)
     local SD            = {}
     local input         = {}
     return function(index)
@@ -552,7 +552,7 @@ local function F_FRAMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or (2*period))
 
@@ -604,7 +604,7 @@ local function F_EMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -636,7 +636,7 @@ local function F_WMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -664,7 +664,7 @@ local function F_HMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -697,7 +697,7 @@ local function F_VMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -734,7 +734,7 @@ local function F_SMMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -766,7 +766,7 @@ local function F_TEMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
@@ -802,7 +802,7 @@ local function F_AMA(settings, ds)
     local fast_period   = (settings.fast_period or 2)
     local slow_period   = (settings.slow_period or 30)
     local data_type     = (settings.data_type or "Close")
-    local round         = (settings.round or "off")
+    local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
 
@@ -861,7 +861,7 @@ local function F_REMA(settings, ds)
 
     local alpha         = (settings.alpha or 0.1)
     local data_type     = (settings.data_type or "Close")
-    local round         = (settings.round or "off")
+    local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local period        = (2/alpha) - 1
     local cc            = 1- alpha
@@ -947,6 +947,122 @@ local function F_REMA(settings, ds)
      end
 end
 
+--[[Elder's Force I ("EFI")
+]]
+local function F_EFI(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local ma_method = (settings.ma_method or "EMA")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local fEFI
+    local fi
+    local EFI
+
+    local p_data
+    local l_index
+
+    return function(index)
+
+        if fEFI == nil then
+            fi          = {}
+            fEFI        = M.new({period = period, method = ma_method,   data_type = "Any", round = round, scale = scale}, fi)
+            EFI         = {}
+            fi[index]   = 0
+            EFI[index]  = 0
+            p_data      = Value(index, data_type, ds)
+            l_index     = index
+            return EFI
+        end
+
+        fi[index]       = fi[index-1]
+        EFI[index]      = EFI[index-1]
+
+        if not CheckIndex(index, ds) then
+            fEFI(index - 1)
+            fi[index-save_bars]  = nil
+            EFI[index-save_bars] = nil
+            return EFI
+        end
+
+        if index ~= l_index then p_data = Value(l_index, data_type, ds) end
+
+        local cur   = Value(index, data_type, ds)
+        fi[index-1] = (cur == 0 and 0 or (1 - p_data/cur) * Value(index, "Volume", ds))
+        EFI[index]  = fEFI(index - 1)[index - 1]
+
+        l_index     = index
+        fi[index-save_bars]  = nil
+        EFI[index-save_bars] = nil
+        return EFI
+     end
+end
+
+--[[WR (Williams' % Range)
+]]
+local function F_WRI(settings, ds)
+
+    local period    = (settings.period or 9)
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period) + 1
+
+	local HH
+	local LL
+    local WRI
+    local bars      = 0
+    local l_index
+
+    return function(index)
+
+        if WRI == nil then
+            HH          = {}
+            HH[index]   = Value(index, "High", ds)
+            LL          = {}
+            LL[index]   = Value(index, "low", ds)
+            WRI         = {}
+            WRI[index]  = 0
+            return WRI
+        end
+
+        HH[index]       = HH[index-1]
+        LL[index]       = LL[index-1]
+        WRI[index]      = WRI[index-1]
+
+        if index ~= l_index then bars = bars + 1 end
+
+        if not CheckIndex(index, ds) then
+            WRI[index-save_bars] = nil
+            HH[index-save_bars] = nil
+            LL[index-save_bars] = nil
+            return WRI
+        end
+
+        HH[index]   = Value(index, "High", ds)
+        LL[index]   = Value(index, "low", ds)
+
+        if bars <= period then
+            WRI[index-save_bars] = nil
+            HH[index-save_bars] = nil
+            LL[index-save_bars] = nil
+            return WRI
+        end
+
+        local vHH   = math_max(unpack(HH, index - period, index))
+        local vLL   = math_min(unpack(LL, index - period, index))
+        WRI[index]  = rounding(-100*(vHH-Value(index, "Close", ds))/(vHH-vLL), round, scale)
+        l_index     = index
+
+        WRI[index-save_bars] = nil
+        HH[index-save_bars]  = nil
+        LL[index-save_bars]  = nil
+        return WRI
+     end
+end
+
 --[[THV
 ]]
 local function F_THV(settings, ds)
@@ -954,7 +1070,7 @@ local function F_THV(settings, ds)
     local period        = (settings.period or 9)
     local koef          = (settings.koef or 1)
     local data_type     = (settings.data_type or "Close")
-    local round         = (settings.round or "off")
+    local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
 
@@ -1039,15 +1155,17 @@ local function F_NRTR(settings, ds)
     local bufHigh
     local bufLow
     local NRTR
+    local trend
+    local reverse
     local begin_index
 
     settings        = (settings or {})
+    local period    = (settings.period or 10)
     local k         = (settings.k or 0.5)
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or (settings.period or 10))
 
-    local trend     = 0
 
     return function(index)
 
@@ -1055,6 +1173,10 @@ local function F_NRTR(settings, ds)
             begin_index     = index
             NRTR = {}
             NRTR[index]     = Value(index, 'Close', ds) or 0
+            reverse = {}
+            reverse[index]  = Value(index, 'Close', ds) or 0
+            trend   = {}
+            trend[index]    = 0
             bufHigh = {}
             bufHigh[index]  = Value(index, 'High', ds) or 0
             bufLow = {}
@@ -1065,37 +1187,41 @@ local function F_NRTR(settings, ds)
         NRTR[index]     = NRTR[index-1]
         bufHigh[index]  = bufHigh[index-1]
         bufLow[index]   = bufLow[index-1]
+        trend[index]    = trend[index-1]
+        reverse[index]  = reverse[index-1]
 
         if not CheckIndex(index, ds) then
-            return NRTR
+            return NRTR, trend, reverse
         end
+
+        bufHigh[index]  = Value(index, 'High', ds)
+        bufLow[index]   = Value(index, 'Low', ds)
+
+        if index - begin_index < period then return NRTR, trend, reverse end
 
         local val       = Value(index, 'Close', ds)
 
-        if trend >= 0 then
-            local val_h = Value(index, 'High', ds)
-            if val_h > bufHigh[index] then bufHigh[index] = val_h end
-            local reverse   = bufHigh[index]*(1-k/100)
-			if val <= reverse then
-                reverse         = val*(1+k/100)
-                bufLow[index]   = val
-                trend           = -1
+        if trend[index] >= 0 then
+            local val_h     = math_max(unpack(bufHigh, index-period+1, index))
+            reverse[index]  = math_max(val_h*(1-k/100), reverse[index-1])
+			if val <= reverse[index] then
+                reverse[index]  = val*(1+k/100)
+                trend[index]    = -1
             end
-            NRTR[index]= rounding(reverse, round, scale)
-		end
-		if trend < 0 then
-            local val_l = Value(index, 'Low', ds)
-            if val_l < bufLow[index] then bufLow[index] = val_l end
-            local reverse   = bufLow[index]*(1+k/100)
-			if val >= reverse then
-                reverse         = val*(1-k/100)
-                bufHigh[index]  = val
-                trend           = 1
+            NRTR[index] = rounding(reverse[index], round, scale)
+		elseif trend[index] < 0 then
+            local val_l     = math_min(unpack(bufLow, index-period+1, index))
+            reverse[index]  = math_min(val_l*(1+k/100), reverse[index-1])
+			if val >= reverse[index] then
+                reverse[index]  = val*(1-k/100)
+                trend[index]    = 1
 			end
-            NRTR[index]= rounding(reverse, round, scale)
+            NRTR[index] = rounding(reverse[index], round, scale)
 		end
-        NRTR[index-save_bars] = nil
-        return NRTR
+        NRTR[index-save_bars]       = nil
+        trend[index-save_bars]      = nil
+        reverse[index-save_bars]    = nil
+        return NRTR, trend, reverse
      end
 end
 
@@ -1107,7 +1233,7 @@ local function F_NRMA(settings, ds)
     local sharp     = (settings.sharp or 2)
     local ma_period = (settings.ma_period or 3)
     local ma_method = (settings.ma_method or 'SMA')
-    local round     = (settings.round or "off")
+    local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local calc_type = (settings.calc_type or 0)
     local save_bars = (settings.save_bars or ma_period)
@@ -1174,7 +1300,7 @@ local function F_REG(settings, ds)
     local fx_buffer
 	local sx
     local input
-
+    local calc_buffer
     local nn = degree + 1
     local ai = {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
 	local b  = {}
@@ -1185,23 +1311,28 @@ local function F_REG(settings, ds)
 
 		if fx_buffer == nil or index == 1 then
 
-			fx_buffer  = {}
-			sql_buffer = {}
-			sqh_buffer = {}
-            input      = {}
+            calc_buffer = {}
+            fx_buffer   = {}
+			sql_buffer  = {}
+			sqh_buffer  = {}
+            input       = {}
 			--- sx
 			sx={}
 			sx[1] = period + 1
             local sum
-			for mi = 0, nn*2-2 do
+			for mi = 1, nn*2-2 do
                 sum=0
-                for n = 1, period do
+                for n = 0, period do
 					sum = sum + math_pow(n,mi)
 				end
 			    sx[mi+1]=sum
 			end
 
 			return nil
+		end
+
+		if calc_buffer[index] ~= nil then
+			return fx_buffer, sqh_buffer, sql_buffer
 		end
 
         if not CheckIndex(index, ds) or index < period then
@@ -1214,7 +1345,7 @@ local function F_REG(settings, ds)
         local sum
 		for mi=1, nn do
 			sum = 0
-			for n = 1, period do
+			for n = 0, period do
 				if CheckIndex(index+n-period, ds) then
                     input[#input + 1] = Value(index+n-period, data_type, ds)
                     if mi == 1 then
@@ -1279,25 +1410,27 @@ local function F_REG(settings, ds)
 		end
 
 		---
-		for n = 1, period do
+		for n = 0, period do
 			sum=0
 			for kk = 1, degree do
 				sum = sum + x[kk+1]*math_pow(n,kk)
 			end
-			fx_buffer[n]=x[1] + sum
+			fx_buffer[index+n-period]=x[1] + sum
 		end
 
         local sse = 0
-        for n = 1, period do
-            sse = sse + math_pow(fx_buffer[n] - input[n], 2)
+        for n = 0, period do
+            sse = sse + math_pow(fx_buffer[index+n-period] - input[n+1], 2)
         end
 
         sse = math_sqrt(sse/(period-1))*kstd
 
-		for n = 1, period do
-			sqh_buffer[n]=fx_buffer[n]+sse
-			sql_buffer[n]=fx_buffer[n]-sse
+		for n = 0, period do
+			sqh_buffer[index+n-period]=fx_buffer[index+n-period]+sse
+			sql_buffer[index+n-period]=fx_buffer[index+n-period]-sse
 		end
+
+        calc_buffer[index] = true
 
 		return fx_buffer, sqh_buffer, sql_buffer
 
@@ -1319,27 +1452,32 @@ local function F_RENKO(settings, ds)
     local brick_bars    = 0
     local Brick         = {}
     local Data          = {}
-    local Bars          = setmetatable({}, {__len = function(t) return t._NUM end})
-    Bars._NUM           = 0
-    Bars.C = function(self, index) return self[index].Close end
-    Bars.O = function(self, index) return self[index].Open end
-    Bars.H = function(self, index) return self[index].High end
-    Bars.L = function(self, index) return self[index].Low end
-    Bars.T = function(self, index) return self[index].Time end
-    Bars.Size = function(self) return #self end
 
     settings                = (settings or {})
-    local br_size           = (settings.br_size or 0)
+    local brick_size        = (settings.br_size or 0)
     local period            = (settings.period or 0)
     local data_type         = (settings.data_type or 0)
-    local recalc_brick      = (settings.recalc_brick or 0)
-    local min_recalc_brick  = (settings.min_recalc_brick or 0)
-    local shift_limit       = (settings.shift_limit or 0)
+    local recalc_brick      = (settings.recalc_brick or 0) == 1
+    local min_recalc_brick  = (settings.min_recalc_brick or 0) == 1
+    local shift_limit       = (settings.shift_limit or 0) == 1
     local std_ma_method     = (settings.std_ma_method or 'SMA')
     local scale             = (settings.scale or 0)
-    local brickType         = (settings.brickType or 'Std')
-    local k                 = (brickType ~='Fix' or br_size == 0) and (settings.k or 1) or 1
+    local brick_type        = (settings.brickType or 'Std')
+    local brick_koeff       = (brick_type ~='Fix' or brick_size == 0) and (settings.k or 1) or 1
     local save_bars         = (settings.save_bars or period)
+    local get_bars          = settings.get_bars
+
+    local Bars              = setmetatable({}, {__len = function(t) return t._NUM end})
+    Bars._NUM               = 0
+    if get_bars then
+        Bars.C = function(self, index) return self[index].Close end
+        Bars.O = function(self, index) return self[index].Open end
+        Bars.H = function(self, index) return self[index].High end
+        Bars.L = function(self, index) return self[index].Low end
+        Bars.T = function(self, index) return self[index].Time end
+        Bars.Size = function(self) return #self end
+    end
+
 
     return function(index)
 
@@ -1350,10 +1488,10 @@ local function F_RENKO(settings, ds)
             Renko_UP[index] = Value(index, 'High', ds) or 0
             Renko_DW        = {}
             Renko_DW[index] = Value(index, 'Low', ds) or 0
-            if brickType ~='Fix' or br_size == 0 then
-                if recalc_brick == 1 then
-                    Brick[index]    = k*(Renko_UP[index] - Renko_DW[index])
-                    if brickType == 'ATR' then
+            if brick_type ~='Fix' or brick_size == 0 then
+                if recalc_brick then
+                    Brick[index]    = brick_koeff*(Renko_UP[index] - Renko_DW[index])
+                    if brick_type == 'ATR' then
                         fATR        = M.new({period = period, method = 'ATR'}, ds)
                         fATR(index)
                     else
@@ -1369,7 +1507,7 @@ local function F_RENKO(settings, ds)
                     local last_bar  = dsSize('Close', ds)
 
                     local calc_f
-                    if brickType == 'ATR' then
+                    if brick_type == 'ATR' then
                         bars.C = function(self, i) return self[i].Close end
                         bars.O = function(self, i) return self[i].Open end
                         bars.H = function(self, i) return self[i].High end
@@ -1381,26 +1519,28 @@ local function F_RENKO(settings, ds)
                             data[#data + 1] = calc_f(#bars)[#bars]
                         end
                     else
-                        calc_f = M.new({period = period, method = 'SD', avg_method = std_ma_method, data_type = 'Any'}, bars)
+                        calc_f = M.new({period = period, method = 'SD', ma_method = std_ma_method, data_type = 'Any'}, bars)
                         for i = last_bar - 10*period, last_bar - 1 do
                             bars[#bars + 1] = Value(i, 'M', ds) or 0
                             data[#data + 1] = calc_f(#bars)[#bars]
                         end
                     end
-                    Brick[index] = data[#data]*k
+                    Brick[index] = data[#data]*brick_koeff
                 end
             else
-                Brick[index] = br_size/math_pow(10, scale)
+                Brick[index] = brick_size/math_pow(10, scale)
             end
             l_index         = index
             trend           = {}
             trend[index]    = 0
-            Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
-            Bars._NUM       = Bars._NUM + 1
-        return Renko_UP, Renko_DW, trend, Brick, Bars
+            if get_bars then
+                Bars[#Bars + 1]   = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                Bars._NUM         = Bars._NUM + 1
+            end
+            return Renko_UP, Renko_DW, trend, Brick, Bars
         end
 
-        if brickType == 'Std' then
+        if brick_type == 'Std' then
             Data[index] = Data[index-1]
         end
         Brick[index]    = Brick[index-1]
@@ -1409,7 +1549,7 @@ local function F_RENKO(settings, ds)
         trend[index]    = trend[index-1]
 
         local atr
-        if brickType == 'ATR' and recalc_brick == 1 then
+        if brick_type == 'ATR' and recalc_brick then
             atr = fATR(index)[index] or Brick[index-1]
         end
 
@@ -1421,8 +1561,8 @@ local function F_RENKO(settings, ds)
         local close_l = data_type == 0 and Value(index, 'Close', ds) or Value(index, 'Low', ds)
         local close   = Value(index, 'Close', ds) > Value(index, 'Open', ds) and close_h or close_l
 
-        if recalc_brick == 1 then
-            if brickType == 'Std' then
+        if recalc_brick then
+            if brick_type == 'Std' then
                 Data[index] = Value(index, 'M', ds)
                 atr         = Sigma(Data, fMA(index)[index] or close, index - period + 1, index) or Brick[index-1]
             end
@@ -1434,8 +1574,8 @@ local function F_RENKO(settings, ds)
             end
             if recalc_index == index then
                 brick_bars = 1
-                Brick[index] = min_recalc_brick == 1 and math_min(k*atr, Brick[index]) or k*atr
-                if shift_limit == 1 then
+                Brick[index] = min_recalc_brick and math_min(brick_koeff*atr, Brick[index]) or brick_koeff*atr
+                if shift_limit then
                     if trend[index] == -1 then Renko_UP[index] = math_min(Renko_UP[index-1], Renko_DW[index-1] + Brick[index]) end
                     if trend[index] == 1  then Renko_DW[index] = math_max(Renko_DW[index-1], Renko_UP[index-1] - Brick[index]) end
                 end
@@ -1452,15 +1592,19 @@ local function F_RENKO(settings, ds)
             for _ = 1, bricks - 1 do
                 Renko_UP[index] = Renko_UP[index] + Brick[index-1]
                 Renko_DW[index] = math_max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
-                Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
-                Bars._NUM       = Bars._NUM + 1
+                if get_bars then
+                    Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                    Bars._NUM       = Bars._NUM + 1
+                end
             end
             Renko_UP[index] = Renko_UP[index] + Brick[index-1]
 
-            Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
+            Brick[index]    = recalc_brick and brick_koeff*atr or Brick[index-1]
             Renko_DW[index] = math_max(Renko_UP[index-1], Renko_UP[index] - Brick[index])
-            Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
-            Bars._NUM       = Bars._NUM + 1
+            if get_bars then
+                Bars[#Bars + 1] = {index = index, Open = Renko_DW[index], Low = Renko_DW[index], Close = Renko_UP[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                Bars._NUM       = Bars._NUM + 1
+            end
             trend[index]  = 1
 		end
 		if close < Renko_DW[index-1] - Brick[index-1] then
@@ -1469,27 +1613,31 @@ local function F_RENKO(settings, ds)
             for _ = 1, bricks-1 do
                 Renko_DW[index] = Renko_DW[index] - Brick[index-1]
                 Renko_UP[index] = math_min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
-                Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_DW[index], Close = Renko_DW[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
-                Bars._NUM       = Bars._NUM + 1
+                if get_bars then
+                    Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_DW[index], Close = Renko_DW[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                    Bars._NUM       = Bars._NUM + 1
+                end
             end
 
             Renko_DW[index] = Renko_DW[index] - Brick[index-1]
-            Brick[index]    = recalc_brick == 1 and k*atr or Brick[index-1]
+            Brick[index]    = recalc_brick and brick_koeff*atr or Brick[index-1]
             Renko_UP[index] = math_min(Renko_DW[index-1], Renko_DW[index] + Brick[index])
-            Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_DW[index], Close = Renko_DW[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
-            Bars._NUM       = Bars._NUM + 1
+            if get_bars then
+                Bars[#Bars + 1] = {index = index, Open = Renko_UP[index], Low = Renko_DW[index], Close = Renko_DW[index], High = Renko_UP[index], Time = Value(index, 'Time', ds)}
+                Bars._NUM       = Bars._NUM + 1
+            end
             trend[index]  = -1
         end
         Renko_UP[index-save_bars] = nil
         Renko_DW[index-save_bars] = nil
         trend[index-save_bars]    = nil
         Brick[index-save_bars]    = nil
-        if brickType == 'Std' then
+        if brick_type == 'Std' then
             Data[index-save_bars]     = nil
         end
 
         return Renko_UP, Renko_DW, trend, Brick, Bars
-     end
+     end, Bars
 end
 
 --Moving Average Convergence/Divergence ("MACD")
@@ -1504,10 +1652,12 @@ local function F_MACD(settings, ds)
     local signal_period = (settings.signal_period or 9)
     local percent       = (settings.percent or 'on')
     local data_type     = (settings.data_type or "Close")
-    local round         = (settings.round or "off")
+    local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or math_max(long_period, short_period, signal_period))
     local begin_index   = 1
+
+    local trend         = {}
 
     if (signal_method~="SMA") and (signal_method~="EMA") then signal_method = "SMA" end
 
@@ -1523,6 +1673,7 @@ local function F_MACD(settings, ds)
 
         t_MACD[index] = t_MACD[index-1] or 0
         s_MACD[index] = s_MACD[index-1] or 0
+		trend[index]  = trend[index-1]
 
         local So = Short_MA(index)
         local Lo = Long_MA(index)
@@ -1530,16 +1681,18 @@ local function F_MACD(settings, ds)
 
         if (i > 0) then
             if percent:lower() == 'off' then
-                t_MACD[index] = So[index] - Lo[index]
+                t_MACD[index] = rounding(So[index] - Lo[index], round, scale)
             else
-                t_MACD[index] = 100*(So[index] - Lo[index])/Lo[index]
+                t_MACD[index] = rounding(100*(So[index] - Lo[index])/Lo[index], round, scale)
             end
             s_MACD[index] = MACD_MA(index)[index]
+            trend[index]  = s_MACD[index] >= 0 and 1 or -1
         end
         t_MACD[index - save_bars] = nil
         s_MACD[index - save_bars] = nil
-        return t_MACD, s_MACD
-    end, t_MACD, s_MACD
+		trend[index - save_bars]  = nil
+        return t_MACD, s_MACD, trend
+    end, t_MACD, s_MACD, trend
 end
 
 -- Bollinger Bands
@@ -1547,21 +1700,21 @@ local function F_BOL(settings, ds)
 
     settings            = (settings or {})
 
-    local method        = (settings.avg_method or "SMA")
+    local ma_method     = (settings.ma_method or "SMA")
     local period        = (settings.period or 20)
     local k_std         = (settings.k_std or 2)
     local data_type     = (settings.data_type or "Close")
-    local round         = (settings.round or "off")
+    local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
     local begin_index   = 1
 
-    if (method~="SMA") and (method~="EMA") then method = "SMA" end
+    if (ma_method~="SMA") and (ma_method~="EMA") then ma_method = "SMA" end
 
     local bb_up         = {}
     local bb_dw         = {}
 
-    local BOL_SDMA      = M.new({method = "SD", avg_method = method, not_shifted = true, data_type = data_type, period = period, round = round, scale = scale}, ds)
+    local BOL_SDMA      = M.new({method = "SD", ma_method = ma_method, not_shifted = true, data_type = data_type, period = period, round = round, scale = scale}, ds)
 
     return function (index)
         if bb_up[index-1] == nil then begin_index = index end
@@ -1576,8 +1729,8 @@ local function F_BOL(settings, ds)
         if (i > 0) then
             local bb      = (bb_ma or {})[index] or 0
             local bb_sdma = (bb_sd or {})[index] or 0
-            bb_dw[index]  = bb - k_std*bb_sdma
-            bb_up[index]  = bb + k_std*bb_sdma
+            bb_dw[index]  = rounding(bb - k_std*bb_sdma, round, scale)
+            bb_up[index]  = rounding(bb + k_std*bb_sdma, round, scale)
         end
 
         bb_up[index - save_bars] = nil
@@ -1592,12 +1745,12 @@ local function F_STOCH(settings, ds)
 
     settings            = (settings or {})
 
-    local method        = (settings.method or "SMA")
+    local ma_method     = (settings.ma_method or "SMA")
     local period        = (settings.period or 5)
     local shift         = (settings.shift or 3)
     local period_d      = (settings.period_d or 3)
     local method_d      = (settings.method_d or "SMA")
-    local round         = (settings.round or "off")
+    local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or math_max(period_d, period, shift))
     local begin_index   = 1
@@ -1609,9 +1762,9 @@ local function F_STOCH(settings, ds)
     local range_cl  = {}
 	local stoch     = {}
 
-    local RHL_MA    = M.new({period = shift,    method = method,   data_type = "Any", round = round, scale = scale}, range_hl)
-	local RCL_MA    = M.new({period = shift,    method = method,   data_type = "Any", round = round, scale = scale}, range_cl)
-	local DMA       = M.new({period = period_d, method = method_d, data_type = "Any", round = round, scale = scale}, stoch)
+    local RHL_MA    = M.new({period = shift,    method = ma_method,   data_type = "Any", round = round, scale = scale}, range_hl)
+	local RCL_MA    = M.new({period = shift,    method = ma_method,   data_type = "Any", round = round, scale = scale}, range_cl)
+	local DMA       = M.new({period = period_d, method = method_d,    data_type = "Any", round = round, scale = scale}, stoch)
 
     return function (index)
         if stoch[index-1] == nil then begin_index = index end
@@ -1635,7 +1788,7 @@ local function F_STOCH(settings, ds)
         range_cl[index]     = M.Value(index, "C", ds) - LL
         local rcl           = RCL_MA(index)[index]
         local rhl           = RHL_MA(index)[index]
-        stoch[index]        = rcl*100/rhl
+        stoch[index]        = rounding(rcl*100/rhl, round, scale)
 
         stoch[index-save_bars]      = nil
         high_buff[index-save_bars]  = nil
@@ -1656,6 +1809,8 @@ local function F_RSI(settings, ds)
     local period        = (settings.period or 14)
     local data_type     = (settings.data_type or "Close")
     local save_bars     = (settings.save_bars or period)
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
 
     local RSI
 	local Up
@@ -1727,7 +1882,7 @@ local function F_RSI(settings, ds)
             val_Down[index] = (val_Down[prev_index] * (period-1) + Down[index]) / period
         end
         if calc >= period then
-            RSI[index] = 100 / (1 + (val_Down[index] / val_Up[index]))
+            RSI[index] = rounding(100 / (1 + (val_Down[index] / val_Up[index])), round, scale)
         end
 
         last_index = index
@@ -1742,6 +1897,132 @@ local function F_RSI(settings, ds)
     end
 end
 
+
+local function F_SAR(settings, ds)
+
+    settings            = (settings or {})
+
+    local period        = (settings.period or 21)
+    local dev           = (settings.dev or 3)
+    local save_bars     = (settings.save_bars or period)
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+
+    local cache_H   = nil
+	local cache_L   = nil
+	local H_index   = nil
+	local L_index   = nil
+	local cache_SAR = nil
+	local trend     = nil
+	local AMA2      = nil
+	local CC        = nil
+	local CC_N      = nil
+	local ATR       = nil
+	local signal    = nil
+
+    local ZZZ
+    local begin_index
+
+	return function(index)
+
+		if cache_H == nil then
+            begin_index  = index
+            cache_H     = {}
+			cache_L     = {}
+			H_index     = {}
+			L_index     = {}
+			cache_SAR   = {}
+			trend       = {}
+			AMA2        = {}
+			CC          = {}
+			CC_N        = {}
+			ATR         = {}
+			signal      = {}
+
+			CC[index]           = ds:C(index)
+			CC_N[index]         = (ds:C(index) + ds:H(index) + ds:L(index))/3
+			cache_H[index]      = ds:H(index)
+			cache_L[index]      = ds:L(index)
+			cache_SAR[index]    = rounding(ds:L(index) - 2*(ds:H(index) - ds:L(index)), round, scale)
+			AMA2[index]         = (ds:C(index) + ds:O(index))/2
+			trend[index]        = 1
+			ATR[index]          = math_abs(ds:H(index) - ds:L(index))
+			return cache_SAR, trend, signal
+		end
+		------------------------------
+		trend[index]        = trend[index-1]
+		cache_H[index]      = cache_H[index-1]
+		cache_L[index]      = cache_L[index-1]
+        H_index[index]      = H_index[index-1]
+        L_index[index]      = L_index[index-1]
+        ATR[index]          = ATR[index-1]
+		cache_SAR[index]    = cache_SAR[index-1]
+		CC[index]           = CC[index-1]
+		AMA2[index]         = AMA2[index-1]
+        CC_N[index]         = CC_N[index-1]
+        signal[index]       = signal[index-1]
+
+		trend[index - save_bars]        = nil
+		cache_H[index - save_bars]      = nil
+		cache_L[index - save_bars]      = nil
+		ATR[index - save_bars]          = nil
+		cache_SAR[index - save_bars]    = nil
+		CC[index - save_bars]           = nil
+		AMA2[index - save_bars]         = nil
+        CC_N[index - save_bars]         = nil
+        signal[index - save_bars]       = nil
+
+        if not ds:C(index) then return cache_SAR, trend, signal end
+
+		ZZZ                 = math_max(math_abs(ds:H(index) - ds:L(index)), math_abs(ds:H(index) - ds:C(index-1)), math_abs(ds:L(index) - ds:C(index-1)))
+        ATR[index]          = (ATR[index-1]*(period-1) + ZZZ)/period
+		CC[index]           = ds:C(index)
+		AMA2[index]         = (2/(period/2+1))*CC[index] + (1-2/(period/2+1))*AMA2[index-1]
+		CC_N[index]         = (ds:C(index) - AMA2[index])/2 + AMA2[index]
+
+        if index - begin_index == 2 then
+			return cache_SAR, trend, signal
+		end
+
+        if trend[index] == 1 then
+
+			if cache_H[index] < CC[index] then
+				cache_H[index]  = CC[index]
+                H_index[index]  = index
+			end
+
+            cache_SAR[index] = math_max((cache_H[index]-ATR[index]*dev), cache_SAR[index-1])
+
+            if (cache_SAR[index] > CC_N[index])and(cache_SAR[index] > ds:C(index)) then
+				trend[index]        = -1
+				cache_L[index]      = CC[index]
+				L_index[index]      = index
+                cache_SAR[index]    = rounding(cache_L[index]+ATR[index]*dev, round, scale)
+				signal[index]       = rounding(cache_H[index]-ATR[index]*dev, round, scale)
+			end
+
+        elseif trend[index] == -1 then
+
+            if cache_L[index] > CC[index] then
+				cache_L[index]  = CC[index]
+                L_index[index]  = index
+			end
+
+            cache_SAR[index] = math_min((cache_L[index]+ATR[index]*dev), cache_SAR[index-1])
+
+            if (cache_SAR[index] < CC_N[index]) and (cache_SAR[index] < ds:C(index)) then
+				trend[index]        = 1
+				cache_H[index]      = CC[index]
+				H_index[index]      = index
+				cache_SAR[index]    = rounding(cache_H[index]-ATR[index]*dev, round, scale)
+                signal[index]       = rounding(cache_L[index]+ATR[index]*dev, round, scale)
+			end
+		end
+
+        return cache_SAR, trend, signal, H_index, L_index
+	end
+end
+
 local FUNCTOR = {
     SMA     = F_SMA,
     EMA     = F_EMA,
@@ -1754,6 +2035,8 @@ local FUNCTOR = {
     TEMA    = F_TEMA,
     FRAMA   = F_FRAMA,
     AMA     = F_AMA,
+    EFI     = F_EFI,
+    WRI     = F_WRI,
     ATR     = F_ATR,
     THV     = F_THV,
     NRTR    = F_NRTR,
@@ -1764,7 +2047,8 @@ local FUNCTOR = {
     MACD    = F_MACD,
     STOCH   = F_STOCH,
     RSI     = F_RSI,
-    BOL     = F_BOL
+    BOL     = F_BOL,
+    SAR     = F_SAR
 }
 
 local function MA(settings, ds)
@@ -1791,8 +2075,8 @@ M.Get2PoleSSF = Get2PoleSSF
 M.Get3PoleSSF = Get3PoleSSF
 
 M.CheckIndex  = CheckIndex
-M.GetIndex    = GetIndex
 M.rounding    = rounding
+M.GetIndex    = GetIndex
 M.Value       = Value
 M.dsSize      = dsSize
 
