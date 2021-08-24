@@ -188,12 +188,14 @@ end
 
 local function GetNextBigIndex(index, big_index, big_interval, settings)
     local status,res = pcall(function()
-		local line = getCandlesByIndex(settings.indTag, 0, big_index - settings.indOffset, 1)
-		if index == Size() then myLog('GetNextBigIndex  index: '..tostring(index)..' - '..toYYYYMMDDHHMMSS(T(index))..', big_index: '..tostring(big_index)..' - '..toYYYYMMDDHHMMSS(line[#line].datetime)) end
-		if os_time(T(index)) >= os_time(line[#line].datetime)+big_interval*60 then
-			big_index = min(big_index+1, getNumCandles(settings.indTag) - settings.indOffset)
-			if index == Size() then myLog('new big_index: '..tostring(big_index)) end
-			return big_index
+		local line,_, l = getCandlesByIndex(settings.indTag, 0, big_index - settings.indOffset, 1)
+		if l then
+			if index == Size() then myLog('GetNextBigIndex  index: '..tostring(index)..' - '..toYYYYMMDDHHMMSS(T(index))..', big_index: '..tostring(big_index)..' - '..toYYYYMMDDHHMMSS(line[#line].datetime)) end
+			if os_time(T(index)) >= os_time(line[#line].datetime)+big_interval*60 then
+				big_index = min(big_index+1, getNumCandles(settings.indTag) - settings.indOffset)
+				if index == Size() then myLog('new big_index: '..tostring(big_index)) end
+				return big_index
+			end
 		end
 		return big_index
 	end)
@@ -210,8 +212,8 @@ end
 
 local function GetBigLine(big_index, line_index, settings)
     local status,res = pcall(function()
-		local line = getCandlesByIndex(settings.indTag, line_index, big_index - settings.indOffset, 1)
-		if type(line) == 'table' and line[#line] then
+		local line,_, l = getCandlesByIndex(settings.indTag, line_index, big_index - settings.indOffset, 1)
+		if l and type(line) == 'table' and line[#line] then
 			return line[#line].close
 		else
 			myLog('GetBigLine ошибка получения значения индикатора big_index: '..tostring(big_index)..', line: '..tostring(line_index))
