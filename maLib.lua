@@ -8,6 +8,8 @@ local Size  = _G['Size']
 local table_remove  = table.remove
 local string_upper  = string.upper
 local string_sub    = string.sub
+local string_len    = string.len
+local string_match  = string.match
 local math_floor    = math.floor
 local math_ceil     = math.ceil
 local math_max      = math.max
@@ -17,15 +19,60 @@ local math_pow      = function(x, y) return x^y end
 local math_sqrt     = math.sqrt
 local math_exp      = math.exp
 local math_log      = math.log
+local os_time       = os.time
+local os_date       = os.date
 local math_huge     = math.huge
 local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.08.07',
+    _VERSION     = 'MA lib 2021.11.10',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
+
+local function is_date(val)
+    local status = pcall(function() return type(val) == "table" and os_time(val); end)
+    return status
+end
+
+---@param strT string
+local function FixStrTime(strT)
+    strT=tostring(strT)
+    local hour, min, sec = 0, 0, 0
+    local len = string_len(strT)
+    if len==8 then
+       hour,min,sec = string_match(strT,"(%d%d)%p(%d%d)%p(%d%d)")
+    elseif len==7 then
+        hour,min,sec  = string_match(strT,"(%d)%p(%d%d)%p(%d%d)")
+    elseif len==6 then
+        hour,min,sec  = string_match(strT,"(%d%d)(%d%d)(%d%d)")
+    elseif len==5 then
+        hour,min,sec  = string_match(strT,"(%d)(%d%d)(%d%d)")
+    elseif len==4 then
+        hour,min  = string_match(strT,"(%d%d)(%d%d)")
+    end
+    return hour,min,sec
+end
+
+-- Приводит время из строкового формата ЧЧ:ММ:CC к формату datetime
+---@param str_time string
+local function StrToTime(str_time, sdt)
+    if type(str_time) ~= 'string' then return os_date('*t') end
+    if not is_date(sdt) then os_date('*t') end
+    local h,m,s = FixStrTime(str_time)
+    sdt.hour    = tonumber(h)
+    sdt.min     = tonumber(m)
+    sdt.sec     = s==nil and 0 or tonumber(s)
+    return sdt
+end
+
+-- Приводит время из строкового формата ЧЧ:ММ[:CC] к формату datetime
+---@param str_time string
+---@param sdt table|nil
+local function GetStringTime(str_time, sdt)
+    return str_time==0 and {} or (StrToTime(#tostring(str_time)<6 and tostring(str_time)..':00' or tostring(str_time), sdt))
+end
 
 ------------------------------------------------------------------
     --Moving Average
@@ -464,13 +511,18 @@ local function F_SMA(settings, ds)
     local fSum      = F_SUM(settings, ds)
     local SMA_TMP   = {}
     local bars      = 0
+    local l_index
     return function(index)
         SMA_TMP[index]  = SMA_TMP[index-1] or 0
         local sum       = fSum(index, (Value(index, data_type, ds) or 0))[index]
         if not CheckIndex(index, ds) then
             return SMA_TMP
         end
-        bars            = bars < period and (bars + 1) or period
+        if l_index ~= index then
+            l_index = index
+            bars = bars + 1
+        end
+        bars            = bars < period and bars or period
         SMA_TMP[index]  = rounding(sum/bars, round, scale)
         SMA_TMP[index-save_bars] = nil
         return SMA_TMP
@@ -490,10 +542,15 @@ local function F_LWMA(settings, ds)
     local lambda    = type(settings.weight_func) == 'function' and settings.weight_func or function(i) return i end
     local LWMA_TMP  = {}
     local bars      = 0
+    local l_index
     return function(index)
         LWMA_TMP[index]  = LWMA_TMP[index-1] or 0
         local sum, n     = 0, 0
-        bars             = bars < period and (bars + 1) or period
+        if l_index ~= index then
+            l_index = index
+            bars = bars + 1
+        end
+        bars = bars < period and bars or period
         local w
         for i = 1, bars do
             if CheckIndex(index-bars+i, ds) then
@@ -576,6 +633,7 @@ local function F_FRAMA(settings, ds)
     local A        = function(index)
         return math_exp(-4.6*(D(index)-1))
     end
+    local l_index
     return function(index)
         local val        = Value(index, data_type, ds)
         FRAMA_TMP[index] = FRAMA_TMP[index-1] or val
@@ -586,11 +644,13 @@ local function F_FRAMA(settings, ds)
         end
         h_buff[index] = Value(index, 'High', ds)
         l_buff[index] = Value(index, 'Low', ds)
+        if l_index ~= index then
+            l_index = index
+            bars = bars + 1
+        end
         if bars >= 2*period then
             local a = A(index)
             FRAMA_TMP[index] = rounding(a*val + (1-a)*FRAMA_TMP[index-1], round, scale)
-        else
-            bars = bars + 1
         end
         FRAMA_TMP[index-save_bars] = nil
         return FRAMA_TMP
@@ -611,13 +671,17 @@ local function F_EMA(settings, ds)
     local bars      = 0
     local SUM_TMP = {}
     local EMA_TMP = {}
+    local l_index
     return function(index)
         EMA_TMP[index] = EMA_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return EMA_TMP
         end
-        if bars < period then
+        if l_index ~= index then
+            l_index = index
             bars = bars + 1
+        end
+        if bars < period then
             SUM_TMP[index] = (Value(index, data_type, ds) + (SUM_TMP[index-1] or 0))
             EMA_TMP[index] = rounding(SUM_TMP[index]/bars, round, scale)
         else
@@ -707,6 +771,7 @@ local function F_VMA(settings, ds)
     local VMA_ACC   = {}
     local VMA_VACC  = {}
     local bars      = 0
+    local l_index
     return function (index)
         VMA[index]  = VMA[index-1] or 0
         if not CheckIndex(index, ds) then
@@ -715,12 +780,16 @@ local function F_VMA(settings, ds)
         local vol       = Value(index, "Volume", ds) or 0
         VMA_ACC[index]  = fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]
         VMA_VACC[index] = fSumV(index, vol)[index]
-        if bars >= period then
+        if l_index ~= index then
+            l_index = index
+            bars = bars + 1
+        end
+        if bars > period then
             local sum   = VMA_ACC[index] - (VMA_ACC[index-period] or 0)
             local sum_v = VMA_VACC[index] - (VMA_VACC[index-period] or 0)
             VMA[index] = sum_v == 0 and VMA[index] or rounding(sum/sum_v, round, scale)
         else
-            bars = bars + 1
+            VMA[index] = VMA_VACC[index] == 0 and VMA[index] or rounding(VMA_ACC[index]/VMA_VACC[index], round, scale)
         end
         VMA[index-save_bars] = nil
         return VMA
@@ -741,6 +810,7 @@ local function F_SMMA(settings, ds)
     local SMMA_TMP  = {}
     local fSum      = F_SUM(settings, ds)
     local bars      = 0
+    local l_index
     return function(index)
         SMMA_TMP[index] = SMMA_TMP[index-1] or 0
         local val       = (Value(index, data_type, ds) or 0)
@@ -748,8 +818,11 @@ local function F_SMMA(settings, ds)
         if not CheckIndex(index, ds) then
             return SMMA_TMP
         end
-        if bars <= period then
+        if l_index ~= index then
+            l_index = index
             bars = bars + 1
+        end
+        if bars <= period then
             SMMA_TMP[index] = rounding(sum/bars, round, scale)
         elseif bars > period then
             SMMA_TMP[index] = rounding((sum - SMMA_TMP[index-1] + val)/period, round, scale)
@@ -1306,7 +1379,7 @@ local function F_REG(settings, ds)
 	local b  = {}
 	local x  = {}
 
-    return function(index)
+    return function(index, recacl)
 
 
 		if fx_buffer == nil or index == 1 then
@@ -1318,11 +1391,11 @@ local function F_REG(settings, ds)
             input       = {}
 			--- sx
 			sx={}
-			sx[1] = period + 1
+			-- sx[1] = period + 1
             local sum
-			for mi = 1, nn*2-2 do
+			for mi = 0, nn*2-2 do
                 sum=0
-                for n = 0, period do
+                for n = 1, period do
 					sum = sum + math_pow(n,mi)
 				end
 			    sx[mi+1]=sum
@@ -1331,7 +1404,7 @@ local function F_REG(settings, ds)
 			return nil
 		end
 
-		if calc_buffer[index] ~= nil then
+		if not recacl and calc_buffer[index] ~= nil then
 			return fx_buffer, sqh_buffer, sql_buffer
 		end
 
@@ -1345,7 +1418,7 @@ local function F_REG(settings, ds)
         local sum
 		for mi=1, nn do
 			sum = 0
-			for n = 0, period do
+			for n = 1, period do
 				if CheckIndex(index+n-period, ds) then
                     input[#input + 1] = Value(index+n-period, data_type, ds)
                     if mi == 1 then
@@ -1410,7 +1483,7 @@ local function F_REG(settings, ds)
 		end
 
 		---
-		for n = 0, period do
+		for n = 1, period do
 			sum=0
 			for kk = 1, degree do
 				sum = sum + x[kk+1]*math_pow(n,kk)
@@ -1419,13 +1492,13 @@ local function F_REG(settings, ds)
 		end
 
         local sse = 0
-        for n = 0, period do
-            sse = sse + math_pow(fx_buffer[index+n-period] - input[n+1], 2)
+        for n = 1, period do
+            sse = sse + math_pow(fx_buffer[index+n-period] - input[n], 2)
         end
 
         sse = math_sqrt(sse/(period-1))*kstd
 
-		for n = 0, period do
+		for n = 1, period do
 			sqh_buffer[index+n-period]=fx_buffer[index+n-period]+sse
 			sql_buffer[index+n-period]=fx_buffer[index+n-period]-sse
 		end
@@ -1673,7 +1746,7 @@ local function F_MACD(settings, ds)
 
         t_MACD[index] = t_MACD[index-1] or 0
         s_MACD[index] = s_MACD[index-1] or 0
-		trend[index]  = trend[index-1]
+		trend[index]  = trend[index-1] or 1
 
         local So = Short_MA(index)
         local Lo = Long_MA(index)
@@ -1919,7 +1992,8 @@ local function F_SAR(settings, ds)
 	local CC_N      = nil
 	local ATR       = nil
 	local signal    = nil
-
+    local last_zz   = nil
+    local wave_data
     local ZZZ
     local begin_index
 
@@ -1938,6 +2012,7 @@ local function F_SAR(settings, ds)
 			CC_N        = {}
 			ATR         = {}
 			signal      = {}
+            wave_data   = {}
 
 			CC[index]           = ds:C(index)
 			CC_N[index]         = (ds:C(index) + ds:H(index) + ds:L(index))/3
@@ -1947,7 +2022,10 @@ local function F_SAR(settings, ds)
 			AMA2[index]         = (ds:C(index) + ds:O(index))/2
 			trend[index]        = 1
 			ATR[index]          = math_abs(ds:H(index) - ds:L(index))
-			return cache_SAR, trend, signal
+            wave_data.max       = ds:H(index)
+            wave_data.min       = ds:L(index)
+            last_zz             = wave_data[trend[index] == 1 and 'max' or 'min']
+			return cache_SAR, trend, signal, last_zz
 		end
 		------------------------------
 		trend[index]        = trend[index-1]
@@ -1972,7 +2050,7 @@ local function F_SAR(settings, ds)
         CC_N[index - save_bars]         = nil
         signal[index - save_bars]       = nil
 
-        if not ds:C(index) then return cache_SAR, trend, signal end
+        if not ds:C(index) then return cache_SAR, trend, signal, last_zz end
 
 		ZZZ                 = math_max(math_abs(ds:H(index) - ds:L(index)), math_abs(ds:H(index) - ds:C(index-1)), math_abs(ds:L(index) - ds:C(index-1)))
         ATR[index]          = (ATR[index-1]*(period-1) + ZZZ)/period
@@ -1981,7 +2059,7 @@ local function F_SAR(settings, ds)
 		CC_N[index]         = (ds:C(index) - AMA2[index])/2 + AMA2[index]
 
         if index - begin_index == 2 then
-			return cache_SAR, trend, signal
+			return cache_SAR, trend, signal, last_zz
 		end
 
         if trend[index] == 1 then
@@ -1997,8 +2075,8 @@ local function F_SAR(settings, ds)
 				trend[index]        = -1
 				cache_L[index]      = CC[index]
 				L_index[index]      = index
+				signal[index]       = cache_SAR[index]
                 cache_SAR[index]    = rounding(cache_L[index]+ATR[index]*dev, round, scale)
-				signal[index]       = rounding(cache_H[index]-ATR[index]*dev, round, scale)
 			end
 
         elseif trend[index] == -1 then
@@ -2014,13 +2092,141 @@ local function F_SAR(settings, ds)
 				trend[index]        = 1
 				cache_H[index]      = CC[index]
 				H_index[index]      = index
+				signal[index]       = cache_SAR[index]
 				cache_SAR[index]    = rounding(cache_H[index]-ATR[index]*dev, round, scale)
-                signal[index]       = rounding(cache_L[index]+ATR[index]*dev, round, scale)
 			end
 		end
 
-        return cache_SAR, trend, signal, H_index, L_index
+        if trend[index] == trend[index-1] then
+            wave_data.max   = math.max(ds:H(index), wave_data.max or ds:H(index))
+            wave_data.min   = math.min(ds:L(index), wave_data.min or ds:L(index))
+        end
+        if trend[index] ~= trend[index-1] then
+            last_zz       = wave_data[trend[index-1] == 1 and 'max' or 'min']
+            wave_data.max = ds:H(index)
+            wave_data.min = ds:L(index)
+        end
+
+        return cache_SAR, trend, signal, last_zz
 	end
+end
+
+local function F_VWAP(settings, ds)
+
+    if not ds then return false, 'Не задан ТФ расчета VWAP' end
+
+    settings                = settings or {}
+
+    local quant_interval    = settings.quant_interval or 60
+    local data_type         = settings.data_type or 'Typical'
+    local ema_period        = settings.ema_period or 14
+    local s_begin_time      = settings.s_begin_time or ''
+    local s_end_time        = settings.s_end_time or ''
+    local save_bars         = settings.save_bars or ema_period
+    local round             = settings.round or "OFF"
+    local scale             = settings.scale or 0
+
+    local VWAP, vEMA
+
+    local fVMA
+    local fEMA
+
+    local day_shift         = 24*60*60
+    local quant_shift       = quant_interval*60
+    local index_time        = 0
+    local end_calc_time
+    local begin_time        = 0
+    local end_time          = 0
+    local Bars              = setmetatable({}, {__len = function(t) return t._NUM end})
+
+    Bars.interval           = quant_interval
+    Bars._NUM               = 0
+    Bars.C = function(self, index) return self[index].Close end
+    Bars.O = function(self, index) return self[index].Open end
+    Bars.H = function(self, index) return self[index].High end
+    Bars.L = function(self, index) return self[index].Low end
+    Bars.T = function(self, index) return self[index].Time end
+    Bars.Size = function(self) return #self end
+
+    local function get_filter_time(sdt)
+        if quant_interval ~= 1440 then return end
+        begin_time  = s_begin_time == '' and 0 or os_time(GetStringTime(s_begin_time, sdt))
+        end_time    = s_end_time == '' and 0 or os_time(GetStringTime(s_end_time, sdt))
+        if end_time ~= 0 and end_time < begin_time then end_time = end_time + day_shift end
+    end
+
+    local function get_interval_time(sdt)
+
+        sdt.sec = 0
+        if quant_interval > 1 and quant_interval <= 60 then
+            sdt.min = math_floor(sdt.min/quant_interval)*quant_interval
+        end
+
+        if quant_interval == 1440 and begin_time ~= 0 then
+            sdt = os_date('*t', begin_time)
+        end
+        if quant_interval > 60 and (quant_interval ~= 1440 or begin_time == 0) then
+            local bar_time = os_time(sdt)
+            sdt.hour = 0; sdt.min  = 0
+            local day_begin_time = os_time(sdt)
+            bar_time = day_begin_time + math_floor((bar_time - day_begin_time)/quant_shift)*quant_shift
+            sdt = os_date('*t', bar_time)
+        end
+        return sdt
+    end
+
+    local function check_in_time()
+        if quant_interval ~= 1440 or (begin_time == 0 and end_time == 0) then return true end
+        return index_time >= begin_time and (end_time == 0 or index_time < end_time)
+    end
+
+    local index = 0
+
+    local function new_index(bar)
+
+        get_filter_time(Value(bar, 'Time', ds))
+
+        Bars[#Bars + 1]   = {bar = bar, Open = M.Value(bar, 'O', ds), Low = M.Value(bar, 'L', ds), Close = M.Value(bar, 'C', ds), High = M.Value(bar, 'H', ds), Time = get_interval_time(Value(bar, 'Time', ds))}
+        Bars._NUM         = Bars._NUM + 1
+        index             = Bars._NUM
+
+        end_calc_time     = end_time ~= 0 and end_time or (os_time(Bars[#Bars].Time) + quant_shift)
+
+        fVMA = F_VMA({period = quant_interval, method = 'VMA', data_type = data_type, round = round, scale = scale}, ds)
+        VWAP[index]       = M.Value(bar, data_type, ds) or 0
+        VWAP[index - save_bars] = nil
+    end
+
+    return function(ds_index)
+
+        index_time = os_time(ds:T(ds_index))
+
+        if VWAP == nil then
+            if not is_date(ds:T(ds_index)) then return end
+            VWAP            = {}
+            vEMA            = {}
+            new_index(ds_index)
+            if check_in_time() then fVMA(ds_index) end
+            VWAP[index]     = M.Value(index, data_type, ds) or 0
+            fEMA            = M.new({period = ema_period, method = 'EMA', data_type = 'Any', round = round, scale = scale}, VWAP)
+            vEMA[index]     = fEMA(index)[index]
+            return VWAP, vEMA
+        end
+
+        if (index_time >= end_calc_time) then
+            new_index(ds_index)
+        end
+
+        if index_time < end_calc_time and check_in_time() then
+            Bars[Bars._NUM].Low     = math_min(Bars[Bars._NUM].Low, M.Value(ds_index, 'L', ds))
+            Bars[Bars._NUM].Close   = M.Value(ds_index, 'C', ds)
+            Bars[Bars._NUM].High    = math_max(Bars[Bars._NUM].Low, M.Value(ds_index, 'H', ds))
+            VWAP[index] = rounding(fVMA(ds_index)[ds_index] or VWAP[index], round, scale)
+            vEMA[index] = rounding(fEMA(index)[index], round, scale)
+        end
+
+        return VWAP, vEMA
+    end, Bars
 end
 
 local FUNCTOR = {
@@ -2048,10 +2254,11 @@ local FUNCTOR = {
     STOCH   = F_STOCH,
     RSI     = F_RSI,
     BOL     = F_BOL,
-    SAR     = F_SAR
+    SAR     = F_SAR,
+    VWAP    = F_VWAP
 }
 
-local function MA(settings, ds)
+local function MA(settings, ds, ...)
 
     settings = (settings or {})
     local method    = (settings.method or "EMA")
@@ -2060,7 +2267,7 @@ local function MA(settings, ds)
         return nil
     end
 
-    return FUNCTOR[method](settings, ds)
+    return FUNCTOR[method](settings, ds, ...)
 end
 
 M.new         = MA
@@ -2074,6 +2281,7 @@ M.EthlerAlpha = EthlerAlpha
 M.Get2PoleSSF = Get2PoleSSF
 M.Get3PoleSSF = Get3PoleSSF
 
+M.is_date     = is_date
 M.CheckIndex  = CheckIndex
 M.rounding    = rounding
 M.GetIndex    = GetIndex
