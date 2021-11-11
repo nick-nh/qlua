@@ -213,7 +213,7 @@ local function Algo(Fsettings, ds)
             Raw[#Raw]           = data - Average[#Average]
 
             if (index - begin_index + 1) >= m_period then
-                reg[index] = fReg(#Raw)[#Raw]
+                reg[index] = fReg(#Raw, true)[#Raw]
                 if reg[index] >= (reg[index-1] or reg[index]) then
                     out_up  = reg[index]
                 else
