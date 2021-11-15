@@ -21,7 +21,7 @@ _G.Settings.bars_in_line	= 50	-- Максимальная длина линий 
 _G.Settings.showMaxLine 	= 1
 _G.Settings.partMode 		= 0 	-- Режим формирования отдельных данных для каждого интервала. В этом режиме данные будут формироваться каждые partBars
 _G.Settings.partBars 		= 60	-- Число бар интервала для формирования данных
-_G.Settings.partPeriod 		= 60	--[[Интервал привязки данных в минутах. 60 - будут привязаны к началу часа. При этом ТФ построения должен быть меньше.
+_G.Settings.partPeriod 		= 0		--[[Интервал привязки данных в минутах. 60 - будут привязаны к началу часа. При этом ТФ построения должен быть меньше.
 										Для примера строим на ТФ М1, каждые 60 бар, с привязкой к ТФ 60 мин.
 										0 - выключено. Произвольная привязка от последнего бара при запуске.]]
 ---------------------------------------------------------------------------------------
@@ -86,8 +86,9 @@ local function Algo(Fsettings)
     local bars_in_line 	= Fsettings.bars_in_line or 50
 	local part_shift 	= 0
 
-	shift = partMode == 1 and partBars or math_max(bars_in_line+1, shift)
-	weeks = partMode == 1 and 0 or weeks
+	shift 			= partMode == 1 and partBars or math_max(bars_in_line+1, shift)
+	weeks 			= partMode == 1 and 0 or weeks
+	bars_in_line 	= partMode == 1 and math_min(bars_in_line, partBars) or bars_in_line
 
 	local cacheL		= {}
 	local cacheH		= {}
@@ -102,6 +103,7 @@ local function Algo(Fsettings)
 
     local ds_info
 	local ds_shift		= 0
+	local bars			= 0
 
 	local function get_begin_time(sdt)
 
@@ -147,19 +149,20 @@ local function Algo(Fsettings)
 				part_shift 	= ds_shift*partBars
 
 				if partMode == 1 then
-					beginIndex = math_max(Size() - period - 1, 1) -- 40 - 20 - 1 = 19 {10 - 19} 10 бар
-					beginTime = os.time(T(beginIndex))	-- 08:00
-					-- myLog('init beginIndex', beginIndex, os_date('%Y.%m.%d %H:%M', beginTime))
+					beginIndex 	= math_max(Size() - period, 1) -- 40 - 20 = 20 {10 - 19} 10 бар las bar not count
+					beginTime 	= os.time(T(beginIndex))	-- 08:00
+					--myLog('init beginIndex', beginIndex, os_date('%Y.%m.%d %H:%M', beginTime), 'interval', ds_info.interval, 'part_shift', part_shift)
 					if partPeriod ~= 0 then
 						part_shift 	= partPeriod*60
 						local begin_time, begin_shift = get_begin_time(T(beginIndex))
 						beginTime  	= begin_time
 						beginIndex  = beginIndex - begin_shift
 					end
-					beginTime = beginTime - ds_shift -- 07:59
+					beginTime 	= beginTime + part_shift
+					-- beginTime 	= beginTime - ds_shift -- 07:59
 				end
 
-				-- myLog('index '..tostring(index)..' T ', os_date('%Y.%m.%d %H:%M', os.time(T(index))), 'beginIndex', beginIndex, 'beginTime', os_date('%Y.%m.%d %H:%M', beginTime))
+				--myLog('index '..tostring(index), os_date('%Y.%m.%d %H:%M', os.time(T(index))), 'beginIndex', beginIndex, os_date('%Y.%m.%d %H:%M', os.time(T(beginIndex))), 'beginTime', os_date('%Y.%m.%d %H:%M', beginTime))
 				return nil
 			end
 
@@ -178,16 +181,9 @@ local function Algo(Fsettings)
 				weeksBegin[#weeksBegin+1] = index
 			end
 
-			if partMode == 1 then
-				if bar_time > beginTime then -- bar_time 08:00 > 07:59
-					beginIndex 		= index
-					beginTime		= beginTime + part_shift-- 08:59
-					maxPriceLine 	= {}
-					return
-				end
-			end
+			bars = bars + 1
 
-			if (bar_time < beginTime or index < beginIndex) and index ~= Size() then return nil end
+			if (bar_time < beginTime or index < beginIndex or (partMode == 1 and bars < partBars and ds_info.interval >= 60)) and index ~= Size() then return nil end
 
 			if calculated_buffer[index] ~= nil then
 				return maxPriceLine[index]
@@ -220,20 +216,20 @@ local function Algo(Fsettings)
 			lines_begin = math_max(lines_begin, 1)
 
 			if showMaxLine==1 then
-				SetRangeValue(1, lines_begin - delta_shift, index, nil)
+				SetRangeValue(1, lines_begin - delta_shift, index-1, nil)
 			end
 
 			for i=1,#outlines do
-				SetRangeValue(i+1, lines_begin - delta_shift, index, nil)
+				SetRangeValue(i+1, lines_begin - delta_shift, index-1, nil)
 				outlines[i].index = lines_begin
 				outlines[i].val = nil
 			end
 
-			-- myLog('index '..tostring(index)..' T ', os_date('%Y.%m.%d %H:%M', os.time(T(index))), 'lines_begin', lines_begin, 'beginIndex', beginIndex, os_date('%Y.%m.%d %H:%M', beginTime), CandleExist(beginIndex) and os_date('%Y.%m.%d %H:%M', os.time(T(beginIndex))))
+			--myLog('index '..tostring(index), os_date('%Y.%m.%d %H:%M', bar_time), 'bars', bars, 'lines_begin', lines_begin, os_date('%Y.%m.%d %H:%M', os.time(T(lines_begin))), 'beginIndex', beginIndex, 'beginTime', os_date('%Y.%m.%d %H:%M', beginTime), 'beginIndex Time', CandleExist(beginIndex) and os_date('%Y.%m.%d %H:%M', os.time(T(beginIndex))))
 			-- myLog('weeks '..tostring(weeks)..' last '..tostring(weeksBegin[#weeksBegin])..' beginIndex '..tostring(beginIndex))
 
-			local maxPrice = math_max(unpack(cacheH, lines_begin, index))
-			local minPrice = math_min(unpack(cacheL, lines_begin, index))
+			local maxPrice = math_max(unpack(cacheH, lines_begin, index-1))
+			local minPrice = math_min(unpack(cacheL, lines_begin, index-1))
 
 			----------------------------------------
 			local priceProfile = {}
@@ -241,7 +237,7 @@ local function Algo(Fsettings)
 
 			-- myLog('minPrice '..tostring(minPrice)..' maxPrice '..tostring(maxPrice)..' clasterStep '..tostring(clasterStep))
 
-			for i = 0, (index - lines_begin) do
+			for i = 0, (index-1-lines_begin) do
 				if CandleExist(index-i) then
 					local barSteps = math_max(math_ceil((H(index-i) - L(index-i))/clasterStep),1)
 					for j=0,barSteps-1 do
@@ -251,6 +247,7 @@ local function Algo(Fsettings)
 							priceProfile[clasterIndex] = {price = clasterPrice, vol = 0}
 						end
 						priceProfile[clasterIndex].vol = priceProfile[clasterIndex].vol + V(index-i)/barSteps
+						-- myLog('index', index-i, 'clasterIndex '..tostring(clasterIndex)..' vol '..tostring(priceProfile[clasterIndex].vol))
 					end
 				end
 			end
@@ -274,20 +271,20 @@ local function Algo(Fsettings)
 			-- myLog('maxV '..tostring(MAXV)..' tblMax '..tostring(sortedProfile[1].vol))
 
 			if maxVolPrice == 0 then
-				maxVolPrice = O(index)
+				maxVolPrice = O(index-1)
 			end
 
-			-- table.sort(sortedProfile, function(a,b) return (a['vol'] or 0) > (b['vol'] or 0) end)
+			table.sort(sortedProfile, function(a,b) return (a['vol'] or 0) > (b['vol'] or 0) end)
 
 			---------------------
 			for i=1,lines do
 
-				outlines[i] = {index = lines_begin + bars_in_line, val = maxVolPrice}
+				outlines[i] = {index = lines_begin + bars_in_line - 1, val = maxVolPrice}
 
 				if sortedProfile[i]~=nil then
 					sortedProfile[i].vol = math_floor(sortedProfile[i].vol/MAXV*bars_in_line)
 					if sortedProfile[i].vol>0 then
-						outlines[i].index = lines_begin+sortedProfile[i].vol
+						outlines[i].index = lines_begin + sortedProfile[i].vol - 1
 						outlines[i].val = sortedProfile[i].price
 					end
 				end
@@ -298,12 +295,22 @@ local function Algo(Fsettings)
 			end
 
 			if showMaxLine==1 then
-				SetRangeValue(1, lines_begin, index, maxVolPrice)
+				SetRangeValue(1, lines_begin, index-1, maxVolPrice)
 				maxPriceLine[index] = maxVolPrice
 			end
 
 			calculated_buffer[index] = true
 
+			if partMode == 1 then
+				if bar_time >= beginTime and (bars >= partBars or ds_info.interval < 60) then -- bar_time 08:00 > 07:59
+					beginIndex 		= index
+					beginTime		= beginTime + part_shift-- 08:59
+					maxPriceLine 	= {}
+					bars			= 1
+					--myLog('-- index '..tostring(index), os_date('%Y.%m.%d %H:%M', bar_time), 'beginIndex', beginIndex, 'new begin time', os_date('%Y.%m.%d %H:%M', beginTime))
+					-- return
+				end
+			end
 
         end)
         if not status then
@@ -314,7 +321,7 @@ local function Algo(Fsettings)
             end
         end
 
-		return maxPriceLine[index]
+		-- return maxPriceLine[index]
 	end
 end
 
