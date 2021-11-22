@@ -279,9 +279,9 @@ local function Algo(Fsettings)
 			---------------------
 			for i=1,lines do
 
-				outlines[i] = {index = lines_begin + bars_in_line - 1, val = maxVolPrice}
+				outlines[i] = {index = lines_begin + bars_in_line - 1, val = nil}
 
-				if sortedProfile[i]~=nil then
+				if sortedProfile[i]~=nil and sortedProfile[i].price ~= maxVolPrice then
 					sortedProfile[i].vol = math_floor(sortedProfile[i].vol/MAXV*bars_in_line)
 					if sortedProfile[i].vol>0 then
 						outlines[i].index = lines_begin + sortedProfile[i].vol - 1
