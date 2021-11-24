@@ -1,0 +1,60 @@
+return {
+
+    [1] = {
+        sec_code        = "SRZ1",
+        class_code      = "SPBFUT",
+        interval        = 1,
+        algo            = {
+            [1] = {
+                method          = "EMA",
+                period          = 14,
+                data_type       = "Close"
+            },
+            [2] = {
+                method          = "MACD",
+                ma_method       = "EMA",
+                short_period    = 12,
+                long_period     = 26,
+                signal_method   = "SMA",
+                signal_period   = 9,
+                percent         = "ON",
+                data_type       = "Close"
+            }
+        }
+    },
+    [2] = {
+        sec_code        = "SRZ1",
+        class_code      = "SPBFUT",
+        interval        = 3,
+        algo            = {
+            [1] = {
+                method          = "MACD",
+                ma_method       = "EMA",
+                short_period    = 12,
+                long_period     = 26,
+                signal_method   = "SMA",
+                signal_period   = 9,
+                percent         = "ON",
+                data_type       = "Close"
+            }
+        }
+    },
+    [3] = {
+        sec_code        = "RIZ1",
+        class_code      = "SPBFUT",
+        interval        = 3,
+        algo            = {
+            [1] = {
+                method          = "MACD",
+                ma_method       = "EMA",
+                short_period    = 12,
+                long_period     = 26,
+                signal_method   = "SMA",
+                signal_period   = 9,
+                percent         = "ON",
+                data_type       = "Close"
+            }
+        }
+    }
+
+}

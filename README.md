@@ -173,6 +173,14 @@ https://nick-nh.github.io
 
 - [scriptMonitor - Монитор (сканер) рынка для терминала Квик, для заданного списка тикеров](https://github.com/nick-nh/qlua/blob/master/scriptMonitor)
 
+- [secScanner - Скрипт демонстратор: сканер рынка для терминала Квик, для заданного списка классов инструментов](https://github.com/nick-nh/qlua/blob/master/secScanner)
+
+    - Описание - https://nick-nh.github.io/2021-06-20/secScanner-post
+
+- [barsSaver - Скрипт выгружающий данные баров и алгоритмов, для заданного списка тикеров](https://github.com/nick-nh/qlua/blob/master/barsSaver)
+
+    - Описание - https://nick-nh.github.io/2021-11-24-barsSaver-post
+
 - [telegramQuik - Решение для отправки (получения) сообщений из терминала Квик в Телеграм (telegram bot api), отправка почты](https://github.com/nick-nh/qlua/blob/master/telegramQuik)
 
     - https://nick-nh.github.io/2021-03-14/teleMessage
