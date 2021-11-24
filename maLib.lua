@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.11.10',
+    _VERSION     = 'MA lib 2021.11.23',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -1718,7 +1718,7 @@ local function F_MACD(settings, ds)
 
     settings            = (settings or {})
 
-    local method        = (settings.ma_method or "EMA")
+    local ma_method     = (settings.ma_method or "EMA")
     local short_period  = (settings.short_period or 12)
     local long_period   = (settings.long_period or 26)
     local signal_method = (settings.signal_method or "SMA")
@@ -1732,14 +1732,16 @@ local function F_MACD(settings, ds)
 
     local trend         = {}
 
+    percent             = (percent:lower() ~= 'off')
+
     if (signal_method~="SMA") and (signal_method~="EMA") then signal_method = "SMA" end
 
     local t_MACD    = {0}
     local s_MACD    = {0}
 
     local MACD_MA   = M.new({period = signal_period, method = signal_method,   data_type = "Any",      round = round, scale = scale}, t_MACD)
-	local Short_MA  = M.new({period = short_period,  method = method,          data_type = data_type,  round = round, scale = scale}, ds)
-	local Long_MA   = M.new({period = long_period,   method = method,          data_type = data_type,  round = round, scale = scale}, ds)
+	local Short_MA  = M.new({period = short_period,  method = ma_method,       data_type = data_type,  round = round, scale = scale}, ds)
+	local Long_MA   = M.new({period = long_period,   method = ma_method,       data_type = data_type,  round = round, scale = scale}, ds)
 
     return function (index)
         if t_MACD[index-1] == nil then begin_index = index end
@@ -1753,10 +1755,10 @@ local function F_MACD(settings, ds)
         local i  = (index - begin_index) - math_max(short_period, long_period) + 1
 
         if (i > 0) then
-            if percent:lower() == 'off' then
-                t_MACD[index] = rounding(So[index] - Lo[index], round, scale)
-            else
+            if percent then
                 t_MACD[index] = rounding(100*(So[index] - Lo[index])/Lo[index], round, scale)
+            else
+                t_MACD[index] = rounding(So[index] - Lo[index], round, scale)
             end
             s_MACD[index] = MACD_MA(index)[index]
             trend[index]  = s_MACD[index] >= 0 and 1 or -1
@@ -2257,6 +2259,34 @@ local FUNCTOR = {
     SAR     = F_SAR,
     VWAP    = F_VWAP
 }
+local ALGO_LINES = {
+    SMA     = {'SMA'},
+    EMA     = {'EMA'},
+    SD      = {'SD'},
+    VMA     = {'VMA'},
+    SMMA    = {'SMMA'},
+    WMA     = {'WMA'},
+    LWMA    = {'LWMA'},
+    HMA     = {'HMA'},
+    TEMA    = {'TEMA'},
+    FRAMA   = {'FRAMA'},
+    AMA     = {'AMA'},
+    EFI     = {'EFI'},
+    WRI     = {'WRI'},
+    ATR     = {'ATR'},
+    THV     = {'THV'},
+    NRTR    = {'NRTR', 'TREND', 'REVERSE'},
+    NRMA    = {'NRMA', 'NRTR'},
+    REG     = {'REG', 'UP_REG', 'DW_REG'},
+    REMA    = {'REMA'},
+    RENKO   = {'RENKO_UP', 'RENKO_DW', 'TREND', 'BRICK', 'BARS'},
+    MACD    = {'MACD', 'S_MACD', 'TREND'},
+    STOCH   = {'STOCH'},
+    RSI     = {'RSI'},
+    BOL     = {'BOL_UP', 'BOL_DW', 'BOL_MID'},
+    SAR     = {'SAR', 'TREND', 'SIGNAL', 'LAST_ZZ'},
+    VWAP    = {'VWAP', 'VEMA'}
+}
 
 local function MA(settings, ds, ...)
 
@@ -2267,7 +2297,7 @@ local function MA(settings, ds, ...)
         return nil
     end
 
-    return FUNCTOR[method](settings, ds, ...)
+    return FUNCTOR[method](settings, ds, ...), ALGO_LINES[method]
 end
 
 M.new         = MA
