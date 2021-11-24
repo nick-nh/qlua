@@ -1,7 +1,9 @@
-_G.load   = _G.loadfile or _G.load
+_G.unpack       = rawget(table, "unpack") or _G.unpack
+_G.loadfile     = _G.loadfile or _G.load
+_G.loadstring   = _G.loadstring or _G.load
 
 local LICENSE = {
-    _VERSION     = 'secScanner 2021.07.14',
+    _VERSION     = 'secScanner 2021.11.23',
     _DESCRIPTION = 'quik sec scaner',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -23,6 +25,7 @@ local string_len            = string.len
 local tonumber              = tonumber
 local os_time               = os.time
 local os_date               = os.date
+local table_remove          = table.remove
 local table_sremove         = _G['table'].sremove
 
 local NAME_OF_STRATEGY      = 'secScanner'
@@ -96,7 +99,7 @@ local log = require("log")
 local Params = {}
 --====================================================================================
 --Задержка основного цикла
-Params.main_delay                       = 100
+Params.main_delay                       = 200
 
 --Временная зона (0, 1, -1, -2...)
 Params.TIME_ZONE                        = 0
@@ -157,6 +160,7 @@ local SERVER_TIME                   = nil
 local SERVER_DATE                   = nil
 local CONNECT_STATE                 = isConnected()
 local COMMANDS_QUEUE                = {}
+local TIME_ZONE_SHIFT               = 0
 
 local startNewDayTime               = 0
 local startTradeTime                = 0
@@ -181,6 +185,8 @@ INFO_PARAMS['VALTODAY']             = {descr = 'Оборот в деньгах' 
 
 
 local ALGO_FUNCTOR                  = {}
+-- local CLEAN_ALERTS                  = {}
+-- local CLEAN_ALGOS                   = {}
 
 --Проверка существования директории
 ---@param file string
@@ -275,7 +281,7 @@ end
 -- Возвращает текущую дату/время сервера в виде таблицы datetime
 local function GetServerDateTime()
 
-    if Params.USE_LOCAL_TIME_AS_SERVER == 1 then return os_date('*t', os_time()-Params.TIME_ZONE*60*60) end
+    if Params.USE_LOCAL_TIME_AS_SERVER == 1 then return os_date('*t', os_time()-TIME_ZONE_SHIFT) end
 
     local dt = {}
     -- Пытается получить дату/время сервера
@@ -285,13 +291,13 @@ local function GetServerDateTime()
         -- Если не удалось получить, или разрыв связи,
         -- ждет подключения и подгрузки с сервера актуальных данных
         if not is_date(dt) or isConnected() == 0 then
-            return os_date('*t', os_time()-Params.TIME_ZONE*60*60)
+            return os_date('*t', os_time()-TIME_ZONE_SHIFT)
         end
    end
    -- Если во время ожидания скрипт был остановлен пользователем,
    -- возвращает таблицу datetime даты/времени компьютера,
    -- чтобы не вернуть пустую таблицу и не вызвать ошибку в алгоритме
-   if (dt.day or 0) == 0 or (dt.month or 0) == 0 or (dt.year or 0) == 0 then return os_date('*t', os_time()-Params.TIME_ZONE*60*60) end
+   if (dt.day or 0) == 0 or (dt.month or 0) == 0 or (dt.year or 0) == 0 then return os_date('*t', os_time()-TIME_ZONE_SHIFT) end
 
    -- Приводит полученные значения к типу number
    for key,value in pairs(dt) do dt[key] = tonumber(value) end
@@ -305,7 +311,7 @@ end
 local function StrToTime(str_time, sdt)
     if type(str_time) ~= 'string' then return os_date('*t') end
     sdt         = tclone(sdt or GetServerDateTime())
-    if not is_date(sdt) then sdt = os_date('*t', os_time()-Params.TIME_ZONE*60*60) end
+    if not is_date(sdt) then sdt = os_date('*t', os_time()-TIME_ZONE_SHIFT) end
     local h,m,s = FixStrTime(str_time)
     sdt.hour    = tonumber(h)
     sdt.min     = tonumber(m)
@@ -364,10 +370,10 @@ function LoadParamsFromFile()
         if not check_path(PARAMS_FILE_NAME) then return end
         local load_func
         if _G.setfenv then
-            load_func = assert(load(PARAMS_FILE_NAME))
+            load_func = assert(loadfile(PARAMS_FILE_NAME))
             assert(pcall(_G.setfenv(load_func, Params)))
         else
-            load_func = assert(load(PARAMS_FILE_NAME, 't', Params))
+            load_func = assert(loadfile(PARAMS_FILE_NAME, 't', Params))
             assert(pcall(load_func))
         end
     end)
@@ -389,7 +395,7 @@ local function CheckConnectProcessor()
             if checked then return true end
 
             local cur_time      = SERVER_TIME
-            local local_time    = os_time() - Params.TIME_ZONE*60*60
+            local local_time    = os_time() - TIME_ZONE_SHIFT
             local last_rec_time = getInfoParam('LASTRECORDTIME') or 0
             if (last_rec_time or 0)~=0 then
                 local dt              = GetServerDateTime()
@@ -458,7 +464,7 @@ local function GetServerInfo(class_code, sec_code, info_string)
     if type(sec_code) ~= 'string' then  error(("bad argument sec_code (string expected, got %s)"):format(type(sec_code)),2) end
     if type(info_string) ~= 'string' then  error(("bad argument info_string (string expected, got %s)"):format(type(info_string)),2) end
     local info = GetCheckServerInfo(class_code, sec_code, info_string)
-    return info and ((info.param_type == '1' or info.param_type == '2') and tonumber(info.param_value) or info.param_value)
+    return (info and ((info.param_type == '1' or info.param_type == '2') and tonumber(info.param_value) or info.param_value)) or 0
 end
 
 -- Базовые функции скриптов
@@ -469,16 +475,23 @@ end
 ---@param msg string
 ---@param pipe_name string
 local function SendTeleMessage(msg, pipe_name)
-    return _G.luaPipe.SendMessage(msg, pipe_name)
+
+    local tele_pipe = io.open("\\\\.\\PIPE\\"..pipe_name, "w+b")
+    if not tele_pipe then
+        log.warn('SendTeleMessage', 'Не удалось открыть канал данных '..pipe_name)
+        return false
+    end
+    tele_pipe:write(msg)
+    tele_pipe:close()
+    return true
 end
 
 --Отправка сообщения
 ---@param email_text string
 ---@param pipe_name string
----@param sec_state table
-function SendMessage(email_text, pipe_name, sec_state)
+function SendMessage(email_text, pipe_name)
 
-    if (SEND_EMAIL_EXE_PATH or '') == '' or not _G.luaPipe then return end
+    if (SEND_EMAIL_EXE_PATH or '') == '' then return end
     local status,res = pcall(function()
         log.info('SendMessage text: '..email_text)
         if email_text ~= '' then
@@ -487,7 +500,7 @@ function SendMessage(email_text, pipe_name, sec_state)
                 log.warn('Сообщение не отправлено')
                 os.execute('start cmd /c call "'..SEND_EMAIL_EXE_PATH..'"')
                 _G.sleep(500)
-                if not SendTeleMessage(email_text, pipe_name) and sec_state then
+                if not SendTeleMessage(email_text, pipe_name) then
                     Params.SEND_MESSAGES = 0
                     message(NAME_OF_STRATEGY..': '..'Не удалось отправить сообщение. Отправка выключена', 3)
                 end
@@ -519,13 +532,14 @@ local function on_Init()
         os.execute("mkdir " .. Path.."\\logs")
     end
 
-    local day_prefix    = os_date('%d-%m-%Y_%H.%M.%S', os_time()-Params.TIME_ZONE*60*60)
+    local day_prefix    = os_date('%d-%m-%Y_%H.%M.%S', os_time())
     log.use_err_file    = true
     log.err_filename    = Path.."\\logs\\err_"..NAME_OF_STRATEGY..'_'..day_prefix..".log"
 
     LoadParamsFromFile()
-    SERVER_TIME  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
-    SERVER_DATE  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
+    TIME_ZONE_SHIFT = Params.TIME_ZONE*60*60
+    SERVER_TIME     = os_date('*t', os_time()-TIME_ZONE_SHIFT)
+    SERVER_DATE     = os_date('*t', os_time()-TIME_ZONE_SHIFT)
     InitDaytradeTimes()
 
     if Params.LOGGING == 1 then
@@ -559,11 +573,6 @@ local function on_Init()
     if Params.SEND_MESSAGES == 1 then
         if (SEND_EMAIL_EXE_PATH or '') ~= '' then
             os.execute('start cmd /c call "'..SEND_EMAIL_EXE_PATH..'"')
-            if not _G.luaPipe then
-                pcall(function() require('luaPipe'); end)
-                _G.print = log.warn
-                log.debug('luaPipe', type(_G.luaPipe))
-            end
         else
             _G.message('Не найдена программа отправки сообщений')
         end
@@ -624,7 +633,7 @@ function DoCommand()
             mes = mes..(mes == '' and '' or '\n----------------------------------\n')..email_buff[i]
         end
         if mes ~= '' then
-            SendMessage(mes, Params.EMAIL_PIPE, nil, true)
+            SendMessage(mes, Params.EMAIL_PIPE)
         end
         email_buff       = {}
         last_email_check = os_time()
@@ -702,10 +711,11 @@ end
 ---@param Sec table - таблица с описанием инструмента
 ---@param info_string string - строка параметра "Таблицы текущих торгов"
 ---@param check_interval number - интервал проверки в сек.
----@param msg_interval number - интервал отправки сообщений в сек.
 ---@param change_limit number - предел изменения параметра для наступления события
+---@param msg_interval number - интервал отправки сообщений в сек.
+---@param msg_once boolean - отправлять сообщение один раз при первом срабатывании
 ---@return function
-local function CheckProcessor(Sec, info_string, check_interval, msg_interval, change_limit)
+local function CheckProcessor(Sec, info_string, check_interval, change_limit, msg_interval, msg_once, count_zero)
 
     local check, msg = GetCheckServerInfo(Sec.class_code, Sec.sec_code, info_string)
     if not check then
@@ -729,31 +739,37 @@ local function CheckProcessor(Sec, info_string, check_interval, msg_interval, ch
             if cur_time - last_check >= check_interval then
                 last_check = cur_time
                 local cur_value = GetServerInfo(Sec.class_code, Sec.sec_code, info_string)
-                if last_value  ~= cur_value and last_value ~= 0 then
-                    local d_value = round((cur_value - last_value)*100/last_value, 2)
-                    -- log.debug('CheckProcessor', Sec.sec_name, 'last_value', last_value, 'cur_value', cur_value, 'd_value', d_value)
-                    if math_abs(d_value) >= change_limit then
-                        if cur_time - last_msg >= msg_interval then
-                            last_msg = cur_time
-                            ProcessAction(Sec.sec_name..': '..'значительное изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" на: '..tostring(d_value)..'%')
+                if count_zero or cur_value ~= 0 then
+                    if last_value  ~= cur_value and last_value ~= 0 then
+                        local d_value = round((cur_value - last_value)*100/last_value, 2)
+                        -- log.debug('CheckProcessor', Sec.sec_name, 'last_value', last_value, 'cur_value', cur_value, 'd_value', d_value)
+                        if math_abs(d_value) >= change_limit then
+                            if cur_time - last_msg >= msg_interval then
+                                last_msg = cur_time
+                                ProcessAction(Sec.sec_name..': '..'значительное изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" на: '..tostring(d_value)..'%, период: '..tostring(check_interval))
+                                if msg_once then return true end
+                            end
                         end
                     end
+                    last_value  = cur_value
                 end
-                last_value  = cur_value
             end
 
         end)
         if not status then ScriptError('CheckProcessor: '..tostring(res)) end
+        return res
     end
 end
 
 ---@param Sec table - таблица с описанием инструмента
 ---@param info_string string - строка параметра "Таблицы текущих торгов"
 ---@param check_interval number - интервал проверки в сек.
----@param msg_interval number - интервал отправки сообщений в сек.
 ---@param change_limit number - предел изменения параметра для наступления события
+---@param ema_period number - период расчета EMA.
+---@param msg_interval number - интервал отправки сообщений в сек.
+---@param msg_once boolean - отправлять сообщение один раз при первом срабатывании
 ---@return function
-local function CheckEMAProcessor(Sec, info_string, check_interval, msg_interval, change_limit, ema_period)
+local function CheckEMAProcessor(Sec, info_string, check_interval, change_limit, ema_period, msg_interval, msg_once)
 
     local check, msg = GetCheckServerInfo(Sec.class_code, Sec.sec_code, info_string)
     if not check then
@@ -807,7 +823,8 @@ local function CheckEMAProcessor(Sec, info_string, check_interval, msg_interval,
                 if k_value >= change_limit then
                     if cur_time - last_msg >= msg_interval then
                         last_msg = cur_time
-                        ProcessAction(Sec.sec_name..': '..'изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" более чем в: '..tostring(round(k_value, 2))..' ema')
+                        ProcessAction(Sec.sec_name..': '..'изменение параметра "'..(info_descr and info_descr.descr or info_string)..'" более чем в: '..tostring(round(k_value, 2))..' ema, период: '..tostring(check_interval))
+                        if msg_once then return true end
                     end
                 end
                 last_value  = cur_value
@@ -815,6 +832,7 @@ local function CheckEMAProcessor(Sec, info_string, check_interval, msg_interval,
 
         end)
         if not status then ScriptError('CheckEMAProcessor: '..tostring(res)) end
+        return res
     end
 end
 
@@ -825,6 +843,7 @@ local function RunAlgo()
 
     local status,res = pcall(function()
 
+        local clean_algos = {}
         for i = 1, #ALGO_FUNCTOR do
             local algo = ALGO_FUNCTOR[i]
             local cond = true
@@ -834,10 +853,28 @@ local function RunAlgo()
                 end
             end
             if cond then
+                local clean_alerts = {}
                 for a = 1, #algo.alerts do
-                    algo.alerts[a]()
+                    if algo.alerts[a]() then
+                        clean_alerts[a] = true
+                    end
                 end
+                for key in pairs(clean_alerts) do
+                    -- if #algo.alerts == key then
+                    --     algo.alerts[key] = nil
+                    -- else
+                        table_remove(algo.alerts, key)
+                    -- end
+                end
+                if #algo.alerts == 0 then clean_algos[i] = true end
             end
+        end
+        for key in pairs(clean_algos) do
+            -- if #ALGO_FUNCTOR == key then
+            --     ALGO_FUNCTOR[key] = nil
+            -- else
+                table_remove(ALGO_FUNCTOR, key)
+            -- end
         end
 
     end)
@@ -856,9 +893,16 @@ local function FillAlgoFunctor()
         algo.filters    = {}
         algo.filters[#algo.filters+1]   = FilterProcessor(Sec, 'VALTODAY', 7000000, 1, true)
         algo.alerts     = {}
-        -- algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 0, 600, 2)
-        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 5, 600, 2)
-        algo.alerts[#algo.alerts+1]     = CheckEMAProcessor(Sec, 'VALTODAY', 120, 600, 3, 5)
+        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 0, 5, 600, true)
+        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 10, 5, 600, true)
+        algo.alerts[#algo.alerts+1]     = CheckEMAProcessor(Sec, 'VALTODAY', 180, 3, 5, 600, true)
+        ALGO_FUNCTOR[#ALGO_FUNCTOR+1] =  {}
+        algo            = ALGO_FUNCTOR[#ALGO_FUNCTOR]
+        algo.filters    = {}
+        algo.filters[#algo.filters+1]   = FilterProcessor(Sec, 'VALTODAY', 100000000, 1, true)
+        algo.alerts     = {}
+        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 0, 1.5, 600, true)
+        algo.alerts[#algo.alerts+1]     = CheckProcessor(Sec, 'LAST', 10, 1.5, 600, true)
     end
 
     SEC_CODES = nil
@@ -871,8 +915,8 @@ function _G.main()
     -- Цикл по дням
     while isRun do
 
-        SERVER_TIME  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
-        SERVER_DATE  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
+        SERVER_TIME  = os_date('*t', os_time()-TIME_ZONE_SHIFT)
+        SERVER_DATE  = os_date('*t', os_time()-TIME_ZONE_SHIFT)
         log.info(NAME_OF_STRATEGY..' Ожидания нового дня. Время сервера: '..os_date('%Y-%m-%d %H:%M:%S', os_time(SERVER_DATE)))
         log.info('Начало нового дня: '..os_date('%Y-%m-%d %H:%M:%S', startNewDayTime))
 
@@ -880,8 +924,8 @@ function _G.main()
         local serverTime = os_time(SERVER_TIME)
         while isRun and serverTime < startNewDayTime do
             serverTime   = os_time(SERVER_TIME)
-            SERVER_TIME  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
-            SERVER_DATE  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
+            SERVER_TIME  = os_date('*t', os_time()-TIME_ZONE_SHIFT)
+            SERVER_DATE  = os_date('*t', os_time()-TIME_ZONE_SHIFT)
             sleep(1000)
         end
 
@@ -890,8 +934,8 @@ function _G.main()
         --Если брокер не переводит время в выходные
         local srv_time = GetServerDateTime()
         while isRun and (srv_time.day < SERVER_DATE.day or CONNECT_STATE == 0) do
-            SERVER_TIME  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
-            SERVER_DATE  = os_date('*t', os_time()-Params.TIME_ZONE*60*60)
+            SERVER_TIME  = os_date('*t', os_time()-TIME_ZONE_SHIFT)
+            SERVER_DATE  = os_date('*t', os_time()-TIME_ZONE_SHIFT)
             srv_time     = GetServerDateTime()
             sleep(500)
         end
