@@ -179,7 +179,7 @@ https://nick-nh.github.io
 
 - [barsSaver - Скрипт выгружающий данные баров и алгоритмов, для заданного списка тикеров](https://github.com/nick-nh/qlua/blob/master/barsSaver)
 
-    - Описание - https://nick-nh.github.io/2021-11-24-barsSaver-post
+    - Описание - https://nick-nh.github.io/2021-11-24/barsSaver-post
 
 - [telegramQuik - Решение для отправки (получения) сообщений из терминала Квик в Телеграм (telegram bot api), отправка почты](https://github.com/nick-nh/qlua/blob/master/telegramQuik)
 
