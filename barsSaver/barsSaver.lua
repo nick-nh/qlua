@@ -4,7 +4,7 @@ _G.loadstring   = _G.loadstring or _G.load
 
 local LICENSE = {
     _VERSION     = 'barsSaver 2021.11.24',
-    _DESCRIPTION = 'quik sec scaner',
+    _DESCRIPTION = 'quik barsSaver',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
 
