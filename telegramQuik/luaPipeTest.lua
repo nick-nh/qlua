@@ -45,3 +45,59 @@ if type(str) == 'string' then
       print(t[2])
    end
 end
+
+
+--Использование без библиотеки luaPipe
+
+--отправка сообщения:
+local function SendTeleMessage(msg, pipe_name)
+   local tele_pipe = io.open("\\\\.\\PIPE\\"..pipe_name, "w+b") -- открываем именованный канал
+   if not tele_pipe then
+       return false
+   end
+   tele_pipe:write(msg) -- записываем сообщение в канал
+   tele_pipe:close() -- закрываем канал
+end
+
+SendTeleMessage('test io.open', 'telegram_pipe')
+
+--чтение сообщений:
+
+local function GetTeleMessage(pipe_name)
+   -- Аналогично прошлому примеру записываем в канал команду GetTeleMessage, чтобы сервер отправки вернул нам накопленные сообщения
+    local tele_pipe = io.open("\\\\.\\PIPE\\"..pipe_name, "w+b")
+    if not tele_pipe then
+        return false
+    end
+    tele_pipe:write('GetIncomeMessages()') -- записываем команду в канал
+
+    local rd = ''
+    local ct = os.time()
+    -- Т.к. время ожидания ответа может быть не мгновенным, то ожидаем 2 секунды, читая из канала ответ.
+    while os.time() - ct < 2 and rd == '' do
+        rd = tele_pipe:read('*a')
+    end
+    tele_pipe:close() -- закрываем канал
+
+    --Формат возврата - сериализованная таблица сообщений в виде строки
+    if type(rd) == 'string' then
+        local t = assert(loadstring('return '..rd))() -- загружаем в таблицу
+        if type(t) == 'table' then
+           return t
+        end
+    end
+end
+
+local str = GetTeleMessage('telegram_pipe')
+
+print(tostring(str))
+
+if type(str) == 'string' then
+
+   local t = assert(load('return '..str))()
+
+   if type(t) == 'table' then
+      print(t[1])
+      print(t[2])
+   end
+end

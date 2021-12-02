@@ -5,6 +5,7 @@
 Консольная программа MessagesQServer.exe, выполняющая функцию Named Pipe Server и Telegram Bot, отправка почты.
 Файл settings.ini должен быть расположен рядом с MessagesQServer.exe.
 Библиотека luaPipe.dll - библиотека передачи данных (Named Pipe) в консольную программу (сервер).
+Библиотека luaPipe.dll - не обязателна к использованию, т.к. lua позволяет открывать именованные каналы используя io.open.
 Тестовый скрипт luaPipeTest.lua
 
 В свои скрипты необходимо подключить библиотеку luaPipe.dll, обеспечить запуск MessagesQServer.exe.
