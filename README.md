@@ -115,6 +115,8 @@ https://nick-nh.github.io
 
 - [dinapoliStoch.lua - Модификация стохастического осциллятора, описанная в книге Джо ДиНаполи.](https://github.com/nick-nh/qlua/blob/master/dinapoliStoch.lua)
 
+- [EIS.lua - Elder Impulse System.](https://github.com/nick-nh/qlua/blob/master/EIS.lua)
+
 - [extrLevels.lua - Поиск экстремумов движения цены.](https://github.com/nick-nh/qlua/blob/master/extrLevels.lua)
 
     - Если цена несколько раз достигает уровня на заданном периоде бар, при этом этот уровень не пробивался внутри периода.
