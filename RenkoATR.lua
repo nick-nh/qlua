@@ -19,7 +19,7 @@ local dw_line_color = isDark and RGB(230, 0, 0) or RGB(210, 0, 0)
 local line_color    = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 local os_time	    = os.time
 local math_floor    = math.floor
-local math_pow      = math.pow
+local math_pow      = function(x, y) return x^y end
 
 _G.Settings= {
     Name 		        = "*RenkoATR",
