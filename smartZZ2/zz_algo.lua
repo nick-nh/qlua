@@ -1684,6 +1684,10 @@ local function Algo(Fsettings, all_lines)
             local time  = os_time(T(index))
 
             if fAlgo == nil or index == begin_index then
+                if index == 1 and chart_id ~= '' then
+                    DelAllLabels(chart_id)
+                    AddedLabels = {}
+                end
                 begin_index = index
                 local DSInfo  = getDataSourceInfo()
                 scale         = getSecurityInfo(DSInfo.class_code, DSInfo.sec_code).scale
