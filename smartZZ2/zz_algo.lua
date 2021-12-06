@@ -1,3 +1,5 @@
+_G.unpack = rawget(table, "unpack") or _G.unpack
+
 local logFile = nil
 -- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\zz_algo.txt", "w")
 
