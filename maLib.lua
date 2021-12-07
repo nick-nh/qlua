@@ -2231,6 +2231,188 @@ local function F_VWAP(settings, ds)
     end, Bars
 end
 
+---@param offset table
+-- offset.type      = Тип отсутпа: '%' - в процентах, 'Price' - в шагах цены
+-- offset.calc_kind = Вид расчета 'Range' - как процент от прошлой волны, 'Extr' - как отступ в цене от прошлого экстремума; ATR - по пробитю канала ATR
+-- offset.value     = Значение отступа выраженное в цене инструмента или в процентах
+local function F_ZZ(offset, ds)
+
+    if offset.calc_kind == 'Range' and offset.type ~= '%' then
+        local mes = 'Некорректно заданы настройки. Для вида расчета "range", тип отступа должен быть "%"'
+        return false, mes
+    end
+
+    local depth         = offset.depth or 24
+    local atr_type      = offset.calc_kind == 'ATR'
+    local range_type    = offset.calc_kind == 'Range'
+    local steps_offset  = offset.type == 'Steps'
+    local perc_offset   = offset.type == '%'
+
+    local zz_levels   = {}
+    local l_buff      = {}
+    local h_buff      = {}
+
+    local last_high   = {}
+    local last_low    = {}
+
+    local last_max
+    local last_min
+    local trend       = {}
+    local atr
+
+    local ATR
+    if atr_type then
+        ATR = F_ATR({period = depth}, ds)
+    end
+
+    local offset_price
+    local function calc_offset_price(val, sign, range)
+        if range_type and range > 0 then
+            return val + sign*range*offset.value/100
+        end
+        if atr_type and range > 0 then
+            return val + sign*range*offset.value
+        end
+        if perc_offset then
+            return (1 + sign*offset.value/100)*val
+        end
+        if steps_offset then
+            return val + sign*offset.value
+        end
+    end
+
+    local function check_trend_change(sign, price, close)
+        return sign*(price - offset_price) < 0 and sign*(close - offset_price) < 0
+    end
+
+    local count_index = {}
+
+    local bars = 0
+
+    local function UpdateZZ(data, shift)
+        zz_levels[#zz_levels + (shift or 0)] = zz_levels[#zz_levels + (shift or 0)] or {}
+        zz_levels[#zz_levels].val       = data.val
+        zz_levels[#zz_levels].time      = data.time
+        zz_levels[#zz_levels].time_rep  = os_date('%d.%m.%Y %H:%M:%S',  data.time)
+        zz_levels[#zz_levels].index     = data.index
+    end
+
+    local function update_last(last_val, new_val, index, time, shift)
+        last_val.val    = new_val
+        last_val.time   = time
+        last_val.index  = index
+        local range     = atr_type and atr[index] or (last_max.val - last_min.val)
+        offset_price    = calc_offset_price(last_val.val, -trend[index], range)
+        UpdateZZ(last_val, shift or 0)
+    end
+
+    ---@param new_high number
+    ---@param new_low number
+    return function (new_high, new_low, close, time, index)
+
+        local status, res1, res2, res3 = pcall(function()
+
+            if atr_type then
+                atr = ATR(index)
+            end
+
+            if not last_max or not last_min then
+                last_min        = last_min or {val = new_low, time = time, index = index, trend = -1}
+                last_max        = last_max or {val = new_high, time = time, index = index, trend = 1}
+                offset_price    = calc_offset_price(new_high, -1, atr_type and atr[index] or (last_max.val - last_min.val))
+            end
+
+            if count_index[index] == 2 then
+                if trend[index] == 1 and new_high > last_max.val then
+                    update_last(last_max, new_high, index, time)
+                end
+                if trend[index] == -1 and new_low < last_min.val then
+                    update_last(last_min, new_low, index, time)
+                end
+                return zz_levels, trend, (trend[index] == 1 and last_max or last_min)
+            end
+
+            if not count_index[index] then bars = bars + 1 end
+
+            count_index[index]  = 1
+
+            l_buff[index]       = new_low
+            h_buff[index]       = new_high
+            trend[index]        = trend[index - 1] or 1
+            last_low[index]     = last_low[index - 1]
+            last_high[index]    = last_high[index - 1]
+
+            if bars <= depth then return zz_levels, trend, (trend[index] == 1 and last_max or last_min) end
+
+            if trend[index] == 1 then
+                if new_high and new_high > last_max.val then
+                    update_last(last_max, new_high, index, time)
+                    return zz_levels, trend, (trend[index] == 1 and last_max or last_min)
+                end
+            end
+
+            if trend[index] == -1 then
+                if new_low and new_low < last_min.val then
+                    update_last(last_min, new_low, index, time)
+                    return zz_levels, trend, (trend[index] == 1 and last_max or last_min)
+                 end
+            end
+
+                -- if offset.calc_kind ~= 'Range' then
+                local r_high    = math_max(unpack(h_buff, index - depth + 1, index))
+                local r_low     = math_min(unpack(l_buff, index - depth + 1, index))
+
+                if r_high == last_high[index] then
+                    r_high = nil
+                else
+                    last_high[index] = r_high
+                end
+                if r_low == last_low[index] then
+                    r_low = nil
+                else
+                    last_low[index] = r_low
+                end
+
+                if r_high ~= new_high then
+                    new_high = nil
+                end
+                if r_low ~= new_low then
+                    new_low = nil
+                end
+            -- end
+
+            if trend[index] == 1 then
+                if new_low and check_trend_change(trend[index], new_low, close) then
+                    count_index[index]  = 2
+                    trend[index]        = -1
+                    update_last(last_min, new_low, index, time, 1)
+                    return zz_levels, trend, last_min
+                end
+            end
+
+            if trend[index] == -1 then
+                if new_high and check_trend_change(trend[index], new_high, close) then
+                    count_index[index]  = 2
+                    trend[index]        = 1
+                    update_last(last_max, new_high, index, time, 1)
+                end
+            end
+
+            count_index[index-1]    = nil
+            trend[index-2]          = nil
+            last_low[index-2]       = nil
+            last_high[index-2]      = nil
+            h_buff[index - depth]   = nil
+            l_buff[index - depth]   = nil
+
+            return zz_levels, trend, (trend[index] == 1 and last_max or last_min)
+
+        end)
+        if not status then return 'ZZ_Processor : '..tostring(res1) end
+        return res1, res2, res3
+    end
+end
+
 local FUNCTOR = {
     SMA     = F_SMA,
     EMA     = F_EMA,
@@ -2257,7 +2439,8 @@ local FUNCTOR = {
     RSI     = F_RSI,
     BOL     = F_BOL,
     SAR     = F_SAR,
-    VWAP    = F_VWAP
+    VWAP    = F_VWAP,
+    ZZ      = F_ZZ
 }
 local ALGO_LINES = {
     SMA     = {'SMA'},
@@ -2285,7 +2468,8 @@ local ALGO_LINES = {
     RSI     = {'RSI'},
     BOL     = {'BOL_UP', 'BOL_DW', 'BOL_MID'},
     SAR     = {'SAR', 'TREND', 'SIGNAL', 'LAST_ZZ'},
-    VWAP    = {'VWAP', 'VEMA'}
+    VWAP    = {'VWAP', 'VEMA'},
+    ZZ      = {'ZZ', 'TREND', 'LAST_EXTR'}
 }
 
 local function MA(settings, ds, ...)
