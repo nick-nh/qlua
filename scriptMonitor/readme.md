@@ -10,7 +10,7 @@
 
 Есть таблица со списком инструментов, выводимые значения алгоритмов, интрументы для выставления заявок.
 
-<a href="http://funkyimg.com/view/2De4R" target="_blank"><img src="http://funkyimg.com/i/2De4R.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+![](./pict/pict1.PNG)
 
 Что у нас здесь. 
 
@@ -20,14 +20,59 @@
 
 В коде скрипта можно найти строки:
 
-<a href="http://funkyimg.com/view/2M4Yu" target="_blank"><img src="http://funkyimg.com/i/2M4Yu.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    dofile (getScriptPath().."\\monitorStepNRTR.lua") --stepNRTR алгоритм. Инициализация - initstepNRTR, расчет - stepNRTR
+    dofile (getScriptPath().."\\monitorEMA.lua") --EMA алгоритм. Инициализация - initEMA, расчет - EMA, allEMA
+    dofile (getScriptPath().."\\monitorRSI.lua") --EMA алгоритм. Инициализация - initRSI, расчет - RSI
+    dofile (getScriptPath().."\\monitorReg.lua") --Регрессия алгоритм. Инициализация - initReg, расчет - Reg
+    dofile (getScriptPath().."\\monitorVolume.lua") --RT алгоритм контроль повышенного объема. Инициализация - initVolume, расчет - Volume
+    dofile (getScriptPath().."\\monitorVSA.lua") --VSA алгоритм. Инициализация - initVSA, расчет - VSA
+    dofile (getScriptPath().."\\monitorRange.lua") --range
+
 
 Это подключаемые модули расчета.
 
 Колонки выводимые в таблицу определяются такой структурой:
 Оновлено: перенес в файл scriptMonitorPar.
 
-<a href="http://funkyimg.com/view/2M4Yv" target="_blank"><img src="http://funkyimg.com/i/2M4Yv.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    INTERVALS = {
+        ["names"] =             {"H1VSA",      "H1",         "H4",            "D",            "W",            "dEMA64",       "dEMA182",      "D Reg",        "D RSI 29"},
+        ["visible"] =           {false,         true,          true,           true,           true,           true,           true,           true,           true}, --признак видимости, если невидима, то просто идет расчет и вывод сигналов
+        ["width"] =             {0,             12,            12,             12,             12,             12,             12,             12,             12}, --ширина колонки
+        ["values"] =            {INTERVAL_H1,   INTERVAL_H1,   INTERVAL_H4,    INTERVAL_D1,    INTERVAL_W1,    INTERVAL_D1,    INTERVAL_D1,    INTERVAL_D1,    INTERVAL_D1},
+        ["initAlgorithms"] =    {initVSA,       initstepNRTR,  initstepNRTR,   initstepNRTR,   initstepNRTR,   initEMA,        noSignal,       initReg,        initRSI},   --функции инициализации алгоритма
+        ["algorithms"] =        {VSA,           stepNRTR,      stepNRTR,       stepNRTR,       stepNRTR,       allEMA,         noSignal,       Reg,            RSI},       --функции алгоритма, определены в подключаемых файлах
+        ["signalAlgorithms"] =  {signalVSA,     up_downTest,   up_downTest,    up_downTest,    up_downTest,    signalAllEMA,   noSignal,       signalReg,      signalRSI}, --функции алгоритма, определены в подключаемых файлах
+        ["settings"] =          {VSASettings,   NRTRSettings,  NRTRSettings,   NRTRSettings,   NRTRSettings,   allEMASettings, {},             RegSettings,    RSISettings}, --настройки алгоритмов, параметры функции алгоритма
+        ["recalculatePeriod"] = {0,             0,             0,              60,             60,             60,             60,             60,             0}   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
+    }
+
+
+    --[[INTERVALS = {
+        ["names"] =             {"H1VSA",         "M15",          "D",            "W",            "dEMA182",      "dReg",        "Trend",        "dRSI29"},
+        ["visible"] =           {false,           true,           true,           true,           true,           true,          true,           true}, --признак видимости, если невидима, то просто идет расчет и вывод сигналов
+        ["width"] =             {0,               12,             12,             12,             12,             12,            12,             12}, --ширина колонки
+        ["values"] =            {INTERVAL_H1,     INTERVAL_M15,   INTERVAL_D1,    INTERVAL_W1,    INTERVAL_D1,    INTERVAL_D1,   INTERVAL_D1,    INTERVAL_D1},
+        ["initAlgorithms"] =    {initVSA,         initRangeBar,   initstepNRTR,   initstepNRTR,   initEMA,        initReg,       nil,            initRSI},   --функции инициализации алгоритма
+        ["algorithms"] =        {VSA,             rangeBar,       stepNRTR,       stepNRTR,       EMA,            Reg,           nil,            RSI},       --функции алгоритма, определены в подключаемых файлах
+        ["signalAlgorithms"] =  {signalVSA,       rangeTest,      NRTRTest,       NRTRTest,       up_downTest,    signalReg,     nil,            signalRSI},  --функции алгоритма, определены в подключаемых файлах
+        ["settings"] =          {VSASettings,     rangeSettings,  NRTRSettings,   NRTRSettings,   EMA182Settings, RegSettings,   {},             RSISettings},   --настройки алгоритмов, параметры функции алгоритма
+        ["recalculatePeriod"] = {0,               60,             60,             60,             60,             60,            0,              0}   --настройки пересчета алгоритмов в минутах. для интервалов день и более - можно пересчитать данные, чтобы выводит сигналф внутри дня. 0 - не считать
+    }
+
+
+    INTERVALS = {
+        ["names"] =             {"H1VSA",         "H4",           "D",            "dReg",        "Trend",      "dRSI29"     },
+        ["visible"] =           {false,           true,           true,           true,          true,         true         }, --признак видимости, если невидима, то просто идет расчет и вывод сигналов
+        ["width"] =             {0,               12,             12,             12,            12,           12           }, --ширина колонки
+        ["values"] =            {INTERVAL_H1,     INTERVAL_H4,    INTERVAL_D1,    INTERVAL_D1,   INTERVAL_D1,  INTERVAL_D1  },
+        ["initAlgorithms"] =    {initVSA,         initRangeBar,   initRangeBar,   initReg,       nil,          initRSI      },   --функции инициализации алгоритма
+        ["algorithms"] =        {VSA,             rangeBar,       rangeBar,       Reg,           nil,          RSI          },   --функции алгоритма, определены в подключаемых файлах
+        ["signalAlgorithms"] =  {signalVSA,       rangeTest,      rangeTest,      signalReg,     nil,          signalRSI    },   --функции алгоритма, определены в подключаемых файлах
+        ["settings"] =          {VSASettings,     rangeSettings,  rangeSettings,  RegSettings,   {},           RSISettings  },   --настройки алгоритмов, параметры функции алгоритма
+        ["recalculatePeriod"] = {0,               60,             60,             60,            0,            0            }    --настройки пересчета алгоритмов в минутах. Lля интервалов день и более можно пересчитать данные, чтобы выводит сигнал внутри дня. 0 - не считать
+    }
+    ]]--
+
 
 Здесь есть разные варианты настроек. Два примера закомментированы.
 
@@ -38,17 +83,32 @@
 Алгоритмы - это просто имена процедур из подключенных модулей. Три типа процедур - инициализация (очистка памяти для новой бумаги), расчет показателей, вывод сигнала.
 В каждом модуле я сделал такие процедуры. По образу можно писать свои. Также я встроил в основной модуль процедуру вывода сигнала up_downTest. Она выводит значения в колонку таблицы, окрашивает в нужный цвет, выдает сигнал при превышении (снижении) значения на прошлой закрытой свечке. Ее можно использовать когда не требуется что-то специфическое.
 
-settings - это структура настроек, выполненная по образу обычных индикаторов. Вообще алгоритмы расчета очень близки к процедурам типовых индикаторов Квика. В каждом файле модуля есть свои settings. А в таблице INTERVALS файла scriptMonitorPar указаны настройки алгоритма колонки.
+settings - это структура настроек в файле алгоритма, выполненная по образу обычных индикаторов. Вообще алгоритмы расчета очень близки к процедурам типовых индикаторов Квика. В каждом файле модуля есть свои settings. А в таблице INTERVALS файла scriptMonitorPar указаны настройки алгоритма колонки.
 
-<a href="http://funkyimg.com/view/2M4YG" target="_blank"><img src="http://funkyimg.com/i/2M4YG.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    RSISettings = {
+        period    = 29,
+        Size = 1000
+    }
 
 Еще немного про расчет значений на одном интервале. Допустим, мне надо на дневном интервале рассчитать две скользящие. Зачем вызывать два раза расчет? Проще вызвать один раз с указанным списком интервалов. Я сделал для примера такой вариант:
 
-<a href="http://funkyimg.com/view/2Dek5" target="_blank"><img src="http://funkyimg.com/i/2Dek5.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    "dEMA64",       "dEMA182",   
+    true,           true,       
+    12,             12,         
+    INTERVAL_D1,    INTERVAL_D1,
+    initEMA,        noSignal,   
+    allEMA,         noSignal,   
+    signalAllEMA,   noSignal,   
+    allEMASettings, {},         
+    60,             60,         
 
 Здесь указаны две колонки. В первой идет вызов процедур расчета allEMA, процедуры сигнала signalAllEMA и настройки allEMASettings
 
-<a href="http://funkyimg.com/view/2Dek6" target="_blank"><img src="http://funkyimg.com/i/2Dek6.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    allEMASettings = {
+        periods = {64,182},
+        Size = 1000,
+        testZone = 10
+    }
 
 Во второй колонке вместо вызова процедуры расчета идет вызов пустой процедуры noSignal, пустые настройки, т.к. в ней уже считать ничего не надо. Мы все посчитали в первой колонке, выведя значения и сигналы сразу для двух колонок. Т.о. мы сокращаем время выполнения и нагрузку. Как побочный эффект, т.к. у нас есть рассчитанные значения сразу для двух скользящих, то мы можем вывести сигнал о их пересечении. Это я сделал для примера в процедуре signalAllEMA модуля monitorEMA.
 
@@ -56,7 +116,11 @@ settings - это структура настроек, выполненная п
 
 Далее, ниже таблицы интервалов, есть таблица:
 
-<a href="http://funkyimg.com/view/2Dein" target="_blank"><img src="http://funkyimg.com/i/2Dein.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    realtimeAlgorithms = {
+        ["initAlgorithms"] =    {initVolume},   --функции инициализации алгоритма
+        ["functions"] =         {Volume},
+        ["recalculatePeriod"] = {60}            --секунд
+    }
 
 Это определение алгоритмов реального времени. Зачем они? Допустим, я хочу каждые 30 секунд вызвать некий алгоритм, что-то посчитать, вывести сообщение. Дял примера, я сделал модуль monitorVolume, в котором рассчитывается средний объем за указанное количество секунд, вывод сообщения о повышенном объеме. Но можно ведь написать и алгоритм чтения Twitter ленты с фильтром по бумагам.
 
@@ -73,7 +137,13 @@ settings - это структура настроек, выполненная п
 Для некоторых модулей есть свои файлы параметров. Зачем они нужны. В таблице settings модуля алгоритма указаны значения по-умолчанию для всех бумаг и интервалов. Но для каждой бумаги и интервала лучше использовать свои параметры. Скажем, на 15 минутах свои параметры, а на дневках свои. Также и для разных бумаг.
 Поэтому, для примера, в алгоритме rangeMonitor есть файл csv с настройками, для некоторых бумаг и интервалов. Можно добавлять, удалять, менять своими значениями.
 
-<a href="http://funkyimg.com/view/2M51V" target="_blank"><img src="http://funkyimg.com/i/2M51V.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    SecCode;ChartId;Interval;isLong;isShort;bars;ratioFactor;kstd;ATR_factor
+    FEES;testGraphFEES;1440;1;1;27;0.7;1.8;3
+    ALRS;testGraphALRS;1440;1;1;27;0.7;1.8;3
+    MOEX;testGraphMOEX;1440;1;1;27;0.7;1.8;3
+    SBER;testGraphSBER;1440;1;1;27;0.7;1.8;3
+    GMKN;testGraphGMKN;1440;1;1;27;0.7;1.8;3
+
 
 Далее идут колонки для торговли.
 
@@ -84,8 +154,7 @@ settings - это структура настроек, выполненная п
 Если надо ввести конкретное значение цены, то надо дважды кликнуть по цене заявки, появится окно ввода. В нем надо выбрать строку и ввести цифры. Очистка тоже Backspace.
 Тоже самое для размера позиции. Дважды кликнуть по полю и ввести или воспользоваться кнопками +-.
 
-<a href="http://funkyimg.com/view/2Ct3D" target="_blank"><img src="http://funkyimg.com/i/2Ct2A.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
-<a href="http://funkyimg.com/view/2Ct3D" target="_blank"><img src="http://funkyimg.com/i/2Ct2L.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+![](./pict/pict2.PNG)
 
 Горячие клавиши:
 Для быстрого снятия всех заявок по иструменту, встаем на строку, нажимаем Shift+D, стоп-заявок - Shift+S.
@@ -108,15 +177,21 @@ Shift+A - для включения/выключения звукового со
 
 В файле scriptMonitor.csv находится список бумаг для монитора, с указанием дополнительных настроек.
 
-<a href="http://funkyimg.com/view/2DejE" target="_blank"><img src="http://funkyimg.com/i/2DejE.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    Код класса;Имя;Идентификатор;Выводить сообщения;Проигрывать звук;Рабочий объем;ATR период
+    TQBR;Сбербанк;SBER;1;0;1;29
+    TQBR;ВТБ;VTBR;1;0;1;29
+    TQBR;Мосбиржа;MOEX;1;0;1;29
+    TQBR;Система;AFKS;1;0;1;29
+
 
 Чтобы проигрывался звук, надо положить библиотеку w32.dll в корневую папку Квика, либо отключайте в скрипте и в настройках в файле scriptMonitorPar.
 
-<a href="http://funkyimg.com/view/2Dehm" target="_blank"><img src="http://funkyimg.com/i/2Dehm.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    local w32 = require("w32")
 
 Далее, для торговли надо в фале scriptMonitorPar указать ваши данные от брокера - счет, код клиента.
 
-<a href="http://funkyimg.com/view/2DehP" target="_blank"><img src="http://funkyimg.com/i/2DehP.png" alt="Free Image Hosting at FunkyIMG.com" border="0"></a>
+    ACCOUNT     = 'L01-00000F00'        -- Идентификатор счета
+    CLIENT_CODE = 'DFFGJ43'
 
 Если Вы хотите сменить настройки хранения лога и файла параметров то здесь это можно сделать в файле scriptMonitorPar:
 
