@@ -1,3 +1,10 @@
+--[[
+	nick-h@yandex.ru
+	https://github.com/nick-nh/qlua
+
+	Зиг-Заг
+]]
+
 _G.unpack = rawget(table, "unpack") or _G.unpack
 
 local logFile = nil
@@ -16,6 +23,8 @@ local table_sort            = table.sort
 local math_floor            = math.floor
 local math_ceil             = math.ceil
 local math_tointeger        = math.tointeger
+local math_sqrt             = math.sqrt
+local math_pow              = function(x, y) return x^y end
 
 local message               = _G['message']
 local RGB                   = _G['RGB']
@@ -46,183 +55,254 @@ _G.Settings= {
     Range - в % от прошлой волны. В этом режиме параметр offset_type должен быть равен %. Если цена прошла указанный процент от прошлой волны, то это смена тренда.
     ATR   - для смены тренда цена должна пройти ATR*offset_value
     ]]
-    calc_kind       = 'Extr; *Range; ATR', -- Тип расчета ZZ: Extr; Range; ATR
+    ['Вариант расчета']       = 'Extr; *Range; ATR', -- Тип расчета ZZ: Extr; Range; ATR
     --Для установки значения, необходимо поставить * перед выбранным вариантом.
     --[[Вид отсупа от вершины для определения нового тренда
     %     - в процентах
     Steps - в шагах цены
     ]]
-    offset_type     = '*%; Steps',
-    offset_value    = 0.2, -- Размер отступа от вершины для начала нового тренда. Выражен в зависимости от выбранного вида расчета и типа отступа.
-    depth           = 24, --Глубина поиска новой вершины. Если за указанное число баров появился новый экстремум, то он берется в анализ
-	showCalculatedLevels = 0, -- показывать уровни от прошлого движения
-	showextraCalculatedLevels = 0, -- показывать расширения уровней от прошлого движения
-	regimeOfCalculatedLevels = 2, -- 1- последнее движение, 2 - последний максимальный диапазон
-	deepZZForCalculatedLevels = 10, -- глубина поиска последнего максимального диапазона по вершинам. До 20.
-	showZZLevels = 0, -- показывать уровни от вершин
-	numberOfZZLevels = 10, -- сколько показывать уровней от вершин до 20
-	numberOfHistoryZZLevels = 0, -- сколько показывать уровней от вершин для истоических данных
-	showCoG = 1, -- показывать центр движения для вил Эндрюса
-	numberOfShownCOG = 3, --  глубина показа COG
-	showTargetZone = 1, -- показывать целевую зону
-	numberOfMovesForTargetZone = 5, --  глубина поиска движений для предсказания
-	spreadOfTargetZone = 10, -- диапазон целевой зоны (%)
-	showLabel = 1, -- показывать метку паттерна
-	showFiboExt = 1, -- показывать расширение фибо волны
-	LabelShift = 100, -- сдвиг метки от вершины
-	chart_id = ''
+    ['Тип отступа']     = '*%; Steps',
+    ['Размер отступа']    = 0.2, -- Размер отступа от вершины для начала нового тренда. Выражен в зависимости от выбранного вида расчета и типа отступа.
+    ['Окно поиска вершины (бар)']           = 24, --Глубина поиска новой вершины. Если за указанное число баров появился новый экстремум, то он берется в анализ
+	['Рассчитывать уровни диапазона'] = 0, -- показывать уровни от прошлого движения
+	['Показывать расширения уровней'] = 0, -- показывать расширения уровней от прошлого движения
+	['Вариант расчета уровней'] = 2, -- 1- последнее движение, 2 - последний максимальный диапазон
+	['Глубина поиска последнего диапазона по вершинам'] = 10, -- глубина поиска последнего максимального диапазона по вершинам. До 20.
+	['Показывать уровни от вершин'] = 0, -- показывать уровни от вершин
+	['Число уровней от вершин'] = 10, -- сколько показывать уровней от вершин до 20
+	['Число исторических уровней от вершин'] = 0, -- сколько показывать уровней от вершин для истоических данных
+	['Показывать центр волны'] = 1, -- показывать центр движения для вил Эндрюса
+	['Число центров волны'] = 3, --  глубина показа COG
+	['Показывать целевую зону'] = 1, -- показывать целевую зону
+	['Показывать вилы Эндрюса'] = 1, -- показывать вилы Эндрюса
+	['Сдвиг вершин для вил Эндрюса'] = 1, -- сдвиг вершин вилы Эндрюса
+	['Показывать регрессионный канал'] = 0, -- показывать регрессию
+	['Ширина регрессионного канала'] = 1, -- ширина канала регрессии (стандартное отклонение)
+	['Число волн для целевой зоны по среднему'] = 5, --  глубина поиска движений для предсказания
+	['Ширина целевой зоны по среднему %'] = 10, -- диапазон целевой зоны (%)
+	['Показывать метку паттерна'] = 1, -- показывать метку паттерна
+	['Показывать расширение фибоначчи'] = 1, -- показывать расширение фибо волны
+	['Отступ метки от вершины'] = 100, -- сдвиг метки от вершины
+	['Идентификатор графика'] = ''
 }
 
 local lines = {
+    --1
     {
         Name  = 'ZIGZAG',
         Color = line_color,
         Type  = TYPE_LINE,
         Width = 1
     },
+    --2
     {
         Name = "CentreOfGravity",
         Color = RGB(0, 128, 255),
         Type = TYPE_POINT,
         Width = 3
     },
+    --3
     {
         Name = "[-2/8]",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(255,0, 255)
     },
+    --4
     {
         Name = "[-1/8]",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(255,191, 191)
     },
+    --5
     {
         Name = "[0/8] Окончательное сопротивление",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(0,128, 255)
     },
+    --6
     {
         Name = "[1/8] Слабый, место для остановки и разворота",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(218,188, 18)
     },
+    --7
     {
         Name = "[2/8] Вращение, разворот",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(255,0, 128)
     },
+    --8
     {
         Name = "[3/8] Дно торгового диапазона",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(120,220, 235)
     },
+    --9
     {
         Name = "[4/8] Главный уровень поддержки/сопротивления",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(128,128, 128)--green
     },
+    --10
     {
         Name = "[5/8] Верх торгового диапазона",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(120,220, 235)
     },
+    --11
     {
         Name = "[6/8] Вращение, разворот",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(255,0, 128)
     },
+    --12
     {
         Name = "[7/8] Слабый, место для остановки и разворота",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(218,188, 18)
     },
+    --13
     {
         Name = "[8/8] Окончательное сопротивление",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(0,128, 255)
     },
+    --14
     {
         Name = "[+1/8]",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(255,191, 191)
     },
+    --15
     {
         Name = "[+2/8]",
         Type =TYPE_LINE,
         Width = 2,
         Color = RGB(255,0, 255)
     },
+    --16
     {
         Name = "Target",
         Type =TYPE_LINE,
         Width = 3,
         Color = RGB(89,213, 107)
     },
+    --17
     {
         Name = "Target",
         Type =TYPE_LINE,
         Width = 3,
         Color = RGB(89,213, 107)
     },
+    --18
     {
         Name = "TargetFibo1",
         Type =TYPE_DASH,
         Width = 1,
         Color = RGB(0,0, 0)
     },
+    --19
     {
         Name = "TargetFibo2",
         Type =TYPE_DASH,
         Width = 1,
         Color = RGB(0,0, 0)
     },
+    --20
     {
         Name = "TargetFibo3",
         Type =TYPE_DASH,
         Width = 1,
         Color = RGB(0,0, 0)
     },
+    --21
     {
         Name = "TargetFibo4",
         Type =TYPE_DASH,
         Width = 1,
         Color = RGB(0,0, 0)
     },
+    --22
     {
         Name = "targetE",
         Type =TYPE_LINE,
         Width = 3,
         Color = RGB(89,213, 107)
     },
+    --23
     {
         Name = "evolutionE",
         Type =TYPE_LINE,
         Width = 3,
         Color = RGB(0,135,135)
     },
+    --24
     {
         Name = "mutationE",
         Type =TYPE_LINE,
         Width = 3,
         Color = RGB(89,107, 213)
     },
+    --25
     {
         Name = "zPoint",
         Color = RGB(255, 10, 10),
         Type = TYPE_POINT,
         Width = 3
+    },
+    --26
+    {
+        Name = "REG",
+        Type = TYPE_DASH,
+        Width = 1,
+        Color = RGB(64,0, 128)
+    },
+    --27
+    {
+        Name = "REG up",
+        Type = TYPE_DASH,
+        Width = 1,
+        Color = RGB(64,0, 128)
+    },
+    --28
+    {
+        Name = "REG dw",
+        Type = TYPE_DASH,
+        Width = 1,
+        Color = RGB(64,0, 128)
+    },
+    --29
+    {
+        Name = "Andrews up",
+        Type = TYPE_DASH,
+        Width = 1,
+        Color = RGB(0,0, 0)
+    },
+    --30
+    {
+        Name = "Andrews mid",
+        Type = TYPE_DASH,
+        Width = 1,
+        Color = RGB(0,0, 0)
+    },
+    --31
+    {
+        Name = "Andrews dw",
+        Type = TYPE_DASH,
+        Width = 1,
+        Color = RGB(0,0, 0)
     }
 }
 
@@ -1381,6 +1461,160 @@ local function getCandleProp(index)
 	end
 end
 
+-- Regression
+-- Linear:      degree = 1
+-- Parabolic:   degree = 2
+-- Cubic:       degree = 3
+local function F_REG(settings, data_set)
+
+    settings            = (settings or {})
+    local period        = settings.period or 10
+    local degree        = settings.degree or 1
+    local kstd          = settings.kstd or 1
+
+    local sql_buffer
+    local sqh_buffer
+    local fx_buffer
+	local sx
+    local input
+    local calc_buffer
+    local nn = degree + 1
+    local ai = {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
+	local b  = {}
+	local x  = {}
+
+    return function(index, recacl)
+
+
+		if fx_buffer == nil or index == 1 then
+
+            calc_buffer = {}
+            fx_buffer   = {}
+			sql_buffer  = {}
+			sqh_buffer  = {}
+            input       = {}
+			--- sx
+			sx={}
+			-- sx[1] = period + 1
+            local sum
+			for mi = 0, nn*2-2 do
+                sum=0
+                for n = 1, period do
+					sum = sum + math_pow(n,mi)
+				end
+			    sx[mi+1]=sum
+			end
+
+			return nil
+		end
+
+		if not recacl and calc_buffer[index] ~= nil then
+			return fx_buffer, sqh_buffer, sql_buffer
+		end
+
+        if not data_set[index] or index < period then
+			return nil
+		end
+
+        input = {}
+
+        --- syx
+        local sum
+		for mi=1, nn do
+			sum = 0
+			for n = 1, period do
+				if data_set[index+n-period] then
+                    input[#input + 1] = data_set[index+n-period]
+                    if mi == 1 then
+					   sum = sum + input[#input]
+					else
+					   sum = sum + input[#input]*math_pow(n, mi-1)
+					end
+				end
+			end
+			b[mi] = sum
+		end
+
+		--- Matrix
+		for jj=1, nn do
+			for ii=1, nn do
+				ai[ii][jj] = sx[ii+jj-1]
+			end
+		end
+
+		--- Gauss
+		for kk=1, nn-1 do
+			local ll = 0
+			local mm = 0
+			for ii = kk, nn do
+				if math_abs(ai[ii][kk])>mm then
+					mm = math_abs(ai[ii][kk])
+					ll = ii
+				end
+			end
+
+			if ll==0 then
+				return nil
+			end
+			if ll~=kk then
+				for jj=1, nn do
+					ai[ll][jj], ai[kk][jj] = ai[kk][jj], ai[ll][jj]
+				end
+				b[ll], b[kk] = b[kk], b[ll]
+			end
+			for ii = kk+1, nn do
+				local qq = ai[ii][kk]/ai[kk][kk]
+				for jj=1, nn do
+					if jj==kk then
+						ai[ii][jj]=0
+					else
+						ai[ii][jj]=ai[ii][jj]-qq*ai[kk][jj]
+					end
+				end
+				b[ii]=b[ii]-qq*b[kk]
+			end
+		end
+
+		x[nn] = b[nn]/ai[nn][nn]
+
+        local tt
+        for ii=nn-1, 1, -1 do
+            tt = 0
+			for jj=1, nn-ii do
+				tt    = tt + ai[ii][ii+jj]*x[ii+jj]
+				x[ii] = (1/ai[ii][ii])*(b[ii] - tt)
+			end
+		end
+
+		---
+		for n = 1, period do
+			sum=0
+			for kk = 1, degree do
+				sum = sum + x[kk+1]*math_pow(n,kk)
+			end
+			fx_buffer[index+n-period]=x[1] + sum
+		end
+
+        local sse = 0
+        for n = 1, period do
+            sse = sse + math_pow(fx_buffer[index+n-period] - input[n], 2)
+        end
+
+        sse = math_sqrt(sse/(period-1))*kstd
+
+		for n = 1, period do
+			sqh_buffer[index+n-period]=fx_buffer[index+n-period]+sse
+			sql_buffer[index+n-period]=fx_buffer[index+n-period]-sse
+		end
+
+        calc_buffer[index] = true
+
+		return fx_buffer, sqh_buffer, sql_buffer
+
+	end
+
+end
+
 local function F_ATR(settings)
 
     local period    = (settings.period or 9)
@@ -1492,7 +1726,7 @@ local function ZZ_Processor(offset)
 
     ---@param new_high number
     ---@param new_low number
-    return function (new_high, new_low, close, time, index)
+    return function (new_high, new_low, close, time, index, online)
 
         local status, res1, res2, res3 = pcall(function()
 
@@ -1506,7 +1740,7 @@ local function ZZ_Processor(offset)
                 offset_price    = calc_offset_price(new_high, -1, atr_type and atr[index] or (last_max.val - last_min.val))
             end
 
-            if count_index[index] == 2 then
+            if count_index[index] == 2 or online then
                 if trend[index] == 1 and new_high > last_max.val then
                     SetValue(last_max.index or 1, 1, nil)
                     update_last(last_max, new_high, index, time)
@@ -1613,27 +1847,31 @@ end
 local function Algo(Fsettings, all_lines)
 
     Fsettings                       = (Fsettings or {})
-    local calc_kind                 = Fsettings.calc_kind or 'Range'
-    local offset_type               = Fsettings.offset_type or '%'
-    local depth                     = Fsettings.depth or 24
-    local offset_value              = Fsettings.offset_value or 24
+    local calc_kind                 = Fsettings['Вариант расчета'] or 'Range'
+    local offset_type               = Fsettings['Тип отступа'] or '%'
+    local depth                     = Fsettings['Окно поиска вершины (бар)'] or 24
+    local offset_value              = Fsettings['Размер отступа'] or 24
 
-    local show_calc_levels          = Fsettings.showCalculatedLevels or 1
-    local show_extra_calclevels     = Fsettings.showextraCalculatedLevels or 0
-    local calc_levels_regime        = Fsettings.regimeOfCalculatedLevels or 1
-    local deep_zz_calc_levels       = Fsettings.deepZZForCalculatedLevels or 10
-    local show_zz_levels            = Fsettings.showZZLevels or 1
-    local show_cog                  = Fsettings.showCoG or 1
-    local show_cog_to_show          = Fsettings.numberOfShownCOG or 3
-    local zz_levels_to_show         = Fsettings.numberOfZZLevels or 10
-    local h_zz_levels_to_show       = Fsettings.numberOfHistoryZZLevels or 2
-    local show_target_zone          = Fsettings.showTargetZone or 1
-    local moves_for_target          = Fsettings.numberOfMovesForTargetZone or 5
-    local target_zone_spread        = Fsettings.spreadOfTargetZone or 10
-    local show_label                = Fsettings.showLabel or 1
-    local show_fibo_ext             = Fsettings.showFiboExt or 1
-    local label_shift               = Fsettings.LabelShift or 250
-    local white_label_color         = Fsettings.whiteLabelColor or 0
+    local show_calc_levels          = Fsettings['Рассчитывать уровни диапазона'] or 1
+    local show_extra_calclevels     = Fsettings['Показывать расширения уровней'] or 0
+    local calc_levels_regime        = Fsettings['Вариант расчета уровней'] or 1
+    local deep_zz_calc_levels       = Fsettings['Глубина поиска последнего диапазона по вершинам'] or 10
+    local show_zz_levels            = Fsettings['Показывать уровни от вершин'] or 1
+    local show_cog                  = Fsettings['Показывать центр волны'] or 1
+    local show_cog_to_show          = Fsettings['Число центров волны'] or 3
+    local zz_levels_to_show         = Fsettings['Число уровней от вершин'] or 10
+    local h_zz_levels_to_show       = Fsettings['Число исторических уровней от вершин'] or 2
+    local show_target_zone          = Fsettings['Показывать целевую зону'] or 1
+    local show_andrews              = Fsettings['Показывать вилы Эндрюса'] or 1
+    local andrews_shift             = Fsettings['Сдвиг вершин для вил Эндрюса'] or 1
+    local show_reg                  = Fsettings['Показывать регрессионный канал'] or 1
+    local reg_std                   = Fsettings['Ширина регрессионного канала'] or 2
+    local moves_for_target          = Fsettings['Число волн для целевой зоны по среднему'] or 5
+    local target_zone_spread        = Fsettings['Ширина целевой зоны по среднему %'] or 10
+    local show_label                = Fsettings['Показывать метку паттерна'] or 1
+    local show_fibo_ext             = Fsettings['Показывать расширение фибоначчи'] or 1
+    local label_shift               = Fsettings['Отступ метки от вершины'] or 250
+    local white_label_color         = Fsettings['whiteLabelColor'] or 0
 
 	for val in string.gmatch(offset_type or '*%', "([^;]+)") do
         if (val:find('*')) then
@@ -1649,7 +1887,7 @@ local function Algo(Fsettings, all_lines)
     end
 
     chart_id    = Fsettings.chart_id or ''
-    all_lines   = all_lines or 105
+    all_lines   = all_lines or 111
 
     error_log = {}
 
@@ -1679,6 +1917,12 @@ local function Algo(Fsettings, all_lines)
         fibo_ext[value] = 0
     end
 
+    local fReg
+    local Raw
+    local reg_d  = 0
+
+    local andr_d = 0
+
     return function (index)
 
         local status, res = pcall(function()
@@ -1700,6 +1944,11 @@ local function Algo(Fsettings, all_lines)
                     for nn = 1, #cog_points do
                         SetValue(cog_points[nn], 2, nil)
                     end
+                end
+
+                if show_reg == 1 then
+                    Raw             = {}
+                    fReg            = F_REG({period = zz_levels_to_show, method = 'REG', data_type = 'Any', kstd = reg_std}, Raw)
                 end
 
                 nzz                 = 0
@@ -1765,7 +2014,25 @@ local function Algo(Fsettings, all_lines)
                     end
                 end
 
-                --26-105 линии
+                if show_reg == 1 and lines_data[26]["val"] then
+                    for nn = 26, 28 do
+                        SetValue(index-1, nn, nil)
+                        lines_data[nn]["val"] = lines_data[nn]["val"] + reg_d
+                    end
+                    -- myLog('Set', index-1, 'nil', index, lines_data[26]["val"])
+                end
+
+                if show_andrews == 1 and lines_data[29]["val"] then
+                    for nn = 29, 31 do
+                        if index-1 ~= lines_data[nn]["index"] then
+                            SetValue(index-1, nn, nil)
+                        end
+                        lines_data[nn]["val"] = lines_data[nn]["val"] + andr_d
+                    end
+                    -- myLog('Set', index-1, 'nil', index, lines_data[30]["val"])
+                end
+
+                --32-111 линии
                 if show_zz_levels == 1 then
                     for nn = 1, max_zz_to_show*2*2 do
                         SetValue(index-1, all_lines-nn+1, nil)
@@ -1777,7 +2044,12 @@ local function Algo(Fsettings, all_lines)
             close   = C(index)
             high    = H(index)
 
-			zz_data, trend  = fAlgo(high, L(index), close, time, index)
+            local last = index == Size()
+
+            if last and not calculated_buffer[index] and calculated_buffer[index-1] then
+                fAlgo(H(index-1), L(index-1), C(index-1), time, index, false)
+            end
+			zz_data, trend  = fAlgo(high, L(index), close, time, index, last)
             --myLog('CalcTradeSignals bar', index, os_date('%d.%m.%Y %H:%M:%S', time), 'close', close, 'trend', trend[index], 'zz_data', zz_data[#zz_data])
 
             local last_extr     = #zz_data > 0 and zz_data[#zz_data]
@@ -1789,31 +2061,80 @@ local function Algo(Fsettings, all_lines)
                     nzz = nzz + 1
                     sorted_zz_levels[#sorted_zz_levels+1] = zz_data[nzz]
                     -- myLog('CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', time), 'close', close, 'nzz', nzz, 'zz_data', sorted_zz_levels[#sorted_zz_levels])
+                    if show_reg == 1 and nzz > 1 then
+                        Raw[#Raw+1] = zz_data[nzz-1].val
+                    end
                 end
+
+                if show_reg == 1 and #Raw>=zz_levels_to_show then
+                    local reg, reg_up, red_dw = fReg(#Raw, true)
+                    local tot = #Raw
+                    if reg and reg[tot] then
+
+                        SetValue(zz_data[tot-1]["index"], 26, nil)
+                        SetValue(lines_data[26]["index"], 26, nil)
+
+                        SetValue(zz_data[tot-1]["index"], 27, nil)
+                        SetValue(lines_data[27]["index"], 27, nil)
+
+                        SetValue(zz_data[tot-1]["index"], 28, nil)
+                        SetValue(lines_data[28]["index"], 28, nil)
+                        -- SetValue(index-1, 26, nil)
+                        -- myLog('Set', lines_data[26]["index"], zz_data[tot-1]["index"], index, 'nil')
+
+                        local first = tot>zz_levels_to_show and tot-zz_levels_to_show+1 or 1
+
+                        lines_data[26]["index"] = zz_data[first]["index"]
+                        lines_data[27]["index"] = zz_data[first]["index"]
+                        lines_data[28]["index"] = zz_data[first]["index"]
+
+                        SetValue(zz_data[first]["index"], 26, reg[first])
+                        SetValue(zz_data[tot]["index"], 26, reg[tot])
+
+                        SetValue(zz_data[first]["index"], 27, reg_up[first])
+                        SetValue(zz_data[tot]["index"], 27, reg_up[tot])
+
+                        SetValue(zz_data[first]["index"], 28, red_dw[first])
+                        SetValue(zz_data[tot]["index"], 28, red_dw[tot])
+
+                        reg_d       = (reg[tot] - reg[first])/(zz_data[tot]["index"]-zz_data[first]["index"]+1)
+                        local cur_d = reg_d*(index-zz_data[tot]["index"]+1)
+
+                        lines_data[26]["val"]   = reg[tot] + cur_d
+                        lines_data[27]["val"]   = reg_up[tot] + cur_d
+                        lines_data[28]["val"]   = red_dw[tot] + cur_d
+
+                        -- myLog('nzz', nzz, 'tot', tot, 'first', first, 'reg_d', reg_d)
+                        -- myLog('Set', 'first', lines_data[26]["index"], '=', reg[first], 'zz', zz_data[tot]["index"], reg[tot], 'index', index, lines_data[26]["val"])
+                    end
+
+                end
+
                 if nzz > 1 then
                     table_sort(sorted_zz_levels, function(a,b) return a["val"]<b["val"] end)
                 end
                 need_recalc = true
             end
 
-            -- if index == Size() then
+            -- if last then
                 -- myLog('CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', time), 'close', close, 'last_extr', last_extr, 'trend', trend[index], 'zz_data', zz_data[#zz_data])
             -- end
 
             -- вывод данных
-            if index == Size() and need_recalc and nzz > 4 then
+            if last and need_recalc and nzz > 4 then
 
                 -- myLog('CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', time), lines_data)
                 last_trend      = trend[index]
                 last_extr_val   = last_extr.val
 
                 -- ставим возвращаемые значения в nil
-                for nn = 2, all_lines do
-                    lines_data[nn]["val"] = nil
-                end
+                -- for nn = 2, all_lines do
+                --     lines_data[nn]["val"] = nil
+                -- end
 
                 --обнуляем линии на предыдущих свечках
                 --2 линия
+                lines_data[2]["val"] = nil
                 for nn = 1, #cog_points do
                     SetValue(cog_points[nn], 2, nil)
                 end
@@ -1821,6 +2142,7 @@ local function Algo(Fsettings, all_lines)
                 --3-15 линии
                 if show_calc_levels == 1 then
                     for nn = 3, 15 do
+                        lines_data[nn]["val"] = nil
                         SetRangeValue(nn, lines_data[nn]["index"], index, nil)
                     end
                 end
@@ -1828,18 +2150,21 @@ local function Algo(Fsettings, all_lines)
                 --16, 17 линии
                 if show_target_zone == 1 then
                     for nn = 16, 17 do
+                        lines_data[nn]["val"] = nil
                         SetRangeValue(nn, lines_data[nn]["index"], index, nil)
                     end
                 end
                 --18, 21 линии
                 if show_fibo_ext == 1 then
                     for nn = 18, 21 do
+                        lines_data[nn]["val"] = nil
                         SetRangeValue(nn, lines_data[nn]["index"], index, nil)
                     end
                 end
                 --22, 24 линии
                 if show_target_zone == 1 then
                     for nn = 22, 24 do
+                        lines_data[nn]["val"] = nil
                         SetRangeValue(nn, lines_data[nn]["index"], index, nil)
                     end
                 end
@@ -1851,9 +2176,17 @@ local function Algo(Fsettings, all_lines)
                     end
                 end
 
-                --26-105 линии
+                if show_target_zone == 1 then
+                    for nn = 22, 24 do
+                        lines_data[nn]["val"] = nil
+                        SetRangeValue(nn, lines_data[nn]["index"], index, nil)
+                    end
+                end
+
+                --32-111 линии
                 if show_zz_levels == 1 then
                     for nn = 1, max_zz_to_show*2*2 do
+                        lines_data[all_lines-nn+1]["val"] = nil
                         SetRangeValue(all_lines-nn+1, lines_data[all_lines-nn+1]["index"], index, nil)
                     end
                 end
@@ -2052,15 +2385,15 @@ local function Algo(Fsettings, all_lines)
                     local addedZZ = {}
                     for nz = 1, zz_levels_to_show do
                         if zz_data[nzz-nz+1] then
-                            nz = nz + 1
+                            nn = nn + 1
                             if close > zz_data[nzz-nz+1]["val"] then
                                 add = -40
                             else add = 0
                             end
                             addedZZ[zz_data[nzz-nz+1]["index"]] = 1
-                            SetValue(zz_data[nzz-nz+1]["index"], all_lines-nz+1+add, zz_data[nzz-nz+1]["val"])
-                            lines_data[all_lines-nz+1+add]["val"]   = zz_data[nzz-nz+1]["val"]
-                            lines_data[all_lines-nz+1+add]["index"] = zz_data[nzz-nz+1]["index"]
+                            SetValue(zz_data[nzz-nz+1]["index"], all_lines-nn+1+add, zz_data[nzz-nz+1]["val"])
+                            lines_data[all_lines-nn+1+add]["val"]   = zz_data[nzz-nz+1]["val"]
+                            lines_data[all_lines-nn+1+add]["index"] = zz_data[nzz-nz+1]["index"]
                         end
                     end
 
@@ -2279,6 +2612,46 @@ local function Algo(Fsettings, all_lines)
 
                 end
 
+                if show_andrews == 1 and (nzz > 3+andrews_shift) then
+
+                    for nn = 29, 31 do
+                        SetValue(lines_data[nn]["index"], nn, nil)
+                    end
+                    -- myLog('Set', lines_data[30]["index"], 'nil')
+
+                    local p1 = zz_data[nzz-2-andrews_shift]["val"]
+                    local p2 = zz_data[nzz-1-andrews_shift]["val"]
+                    local p3 = zz_data[nzz-andrews_shift]["val"]
+                    local i1 = zz_data[nzz-2-andrews_shift]["index"]
+                    local i2 = zz_data[nzz-1-andrews_shift]["index"]
+                    local i3 = zz_data[nzz-andrews_shift]["index"]
+
+                    local pc = (p2 + p3)/2
+                    local ic = math.floor((i2 + i3)/2)
+                    andr_d   = (pc - p1)/(ic-i1)
+
+                    local c1    = p1 + andr_d*(index-i1+1)
+                    SetValue(i1, 29, p1)
+                    SetValue(index, 29, c1)
+                    lines_data[29]["index"] = i1
+                    lines_data[29]["val"]   = c1
+
+                    local c2    = p2 + andr_d*(index-i2+1)
+                    SetValue(i2, 30, p2)
+                    SetValue(index, 30, c2)
+                    lines_data[30]["index"] = i2
+                    lines_data[30]["val"]   = c2
+
+                    local c3    = p3 + andr_d*(index-i3+1)
+                    SetValue(i3, 31, p3)
+                    SetValue(index, 31, c3)
+                    lines_data[31]["index"] = i3
+                    lines_data[31]["val"]   = c3
+
+                    -- myLog('Set', 'first', lines_data[30]["index"], '=', p1, 'index', index, '=', lines_data[30]["val"])
+
+                end
+
             end
 
             calculated_buffer[index] = true
@@ -2302,6 +2675,8 @@ local function Algo(Fsettings, all_lines)
             return nil
         end
 
+        -- myLog('ret', index, '30', lines_data[30]["val"])
+
         return	lines_data[1]["val"], lines_data[2]["val"], lines_data[3]["val"], lines_data[4]["val"], lines_data[5]["val"], lines_data[6]["val"], lines_data[7]["val"], lines_data[8]["val"], lines_data[9]["val"], lines_data[10]["val"],
         lines_data[11]["val"], lines_data[12]["val"], lines_data[13]["val"], lines_data[14]["val"], lines_data[15]["val"], lines_data[16]["val"], lines_data[17]["val"], lines_data[18]["val"], lines_data[19]["val"], lines_data[20]["val"],
         lines_data[21]["val"], lines_data[22]["val"], lines_data[23]["val"], lines_data[24]["val"], lines_data[25]["val"], lines_data[26]["val"], lines_data[27]["val"], lines_data[28]["val"], lines_data[29]["val"], lines_data[30]["val"],
@@ -2312,16 +2687,17 @@ local function Algo(Fsettings, all_lines)
         lines_data[71]["val"], lines_data[72]["val"], lines_data[73]["val"], lines_data[74]["val"], lines_data[75]["val"], lines_data[76]["val"], lines_data[77]["val"], lines_data[78]["val"], lines_data[79]["val"], lines_data[70]["val"],
         lines_data[81]["val"], lines_data[82]["val"], lines_data[83]["val"], lines_data[84]["val"], lines_data[85]["val"], lines_data[86]["val"], lines_data[87]["val"], lines_data[88]["val"], lines_data[89]["val"], lines_data[80]["val"],
         lines_data[91]["val"], lines_data[92]["val"], lines_data[93]["val"], lines_data[94]["val"], lines_data[95]["val"], lines_data[96]["val"], lines_data[97]["val"], lines_data[98]["val"], lines_data[99]["val"], lines_data[100]["val"],
-        lines_data[101]["val"], lines_data[102]["val"], lines_data[103]["val"], lines_data[104]["val"], lines_data[105]["val"]
+        lines_data[101]["val"], lines_data[102]["val"], lines_data[103]["val"], lines_data[104]["val"], lines_data[105]["val"], lines_data[106]["val"], lines_data[107]["val"], lines_data[108]["val"], lines_data[109]["val"],
+        lines_data[110]["val"], lines_data[111]["val"]
     end
 end
 
 function _G.Init()
     add_lines()
-    for i = 26, 65 do
+    for i = 32, 71 do
 		_G.Settings.line[i] = {Color = RGB(0, 128, 255), Type = TYPE_DASH, Width = 1}
 	end
-	for i = 66, 105 do
+	for i = 72, 111 do
 		_G.Settings.line[i] = {Color = RGB(255, 64, 0), Type = TYPE_DASH, Width = 1}
 	end
     local all_lines = #_G.Settings.line
