@@ -124,7 +124,13 @@ function FiboEMA()
 			cache_ATR[index]=0
 			return nil, nil, nil, nil, nil, nil, nil, nil, nil
 		end
-				
+
+		cache_EMA[index] = cache_EMA[index-1]
+		cache_ATR[index] = cache_ATR[index-1]
+		if not CandleExist(index) then
+			return
+		end
+
 		cache_EMA[index]=k*C(index)+(1-k)*cache_EMA[index-1]
 		cache_ATR[index] = kk*dValue(index, "ATR")+(1-kk)*cache_ATR[index-1]
 		
