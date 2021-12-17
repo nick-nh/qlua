@@ -31,7 +31,10 @@ local RGB                   = _G['RGB']
 local TYPE_LINE             = _G['TYPE_LINE']
 local TYPE_POINT            = _G['TYPE_POINT']
 local TYPE_DASH             = _G['TYPE_DASH']
-local line_color            = RGB(0, 0, 0)
+local TYPE_TRIANGLE_UP      = _G['TYPE_TRIANGLE_UP']
+local TYPE_TRIANGLE_DOWN    = _G['TYPE_TRIANGLE_DOWN']
+local isDark                = _G.isDarkTheme()
+local line_color            = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 local C                     = _G['C']
 local H                     = _G['H']
 local L                     = _G['L']
@@ -55,16 +58,17 @@ _G.Settings= {
     Range - в % от прошлой волны. В этом режиме параметр offset_type должен быть равен %. Если цена прошла указанный процент от прошлой волны, то это смена тренда.
     ATR   - для смены тренда цена должна пройти ATR*offset_value
     ]]
-    ['Вариант расчета']                                 = 'Extr; Range; *ATR', -- Тип расчета ZZ: Extr; Range; ATR
+    ['Вариант расчета']                                 = 'Extr; *Range; ATR', -- Тип расчета ZZ: Extr; Range; ATR
     --Для установки значения, необходимо поставить * перед выбранным вариантом.
     --[[Тип отсупа от вершины для определения нового тренда
     %     - в процентах
     Steps - в шагах цены
     ]]
     ['Тип отступа']                                     = '*%; Steps',
-    ['Размер отступа']                                  = 6, -- Размер отступа от вершины для начала нового тренда. Выражен в зависимости от выбранного вида расчета и типа отступа.
+    ['Размер отступа']                                  = 30, -- Размер отступа от вершины для начала нового тренда. Выражен в зависимости от выбранного вида расчета и типа отступа.
     ['Окно поиска вершины (бар)']                       = 24, --Глубина поиска новой вершины. Если за указанное число баров появился новый экстремум, то он берется в анализ
 	['Рассчитывать уровни диапазона']                   = 0, -- показывать уровни от прошлого движения
+	['Показывать метки смены направления']              = 1, -- Показывать метки смены направления
 	['Показывать расширения уровней']                   = 0, -- показывать расширения уровней от прошлого движения
 	['Вариант расчета уровней']                         = 2, -- 1- последнее движение, 2 - последний максимальный диапазон
 	['Глубина поиска последнего диапазона по вершинам'] = 10, -- глубина поиска последнего максимального диапазона по вершинам. До 20.
@@ -303,6 +307,20 @@ local lines = {
         Type = TYPE_DASH,
         Width = 1,
         Color = RGB(0,0, 0)
+    },
+    --32
+    {
+        Name = "change dir up",
+        Type = TYPE_TRIANGLE_UP,
+        Width = 2,
+        Color = RGB(89,213, 107)
+    },
+    --33
+    {
+        Name = "change dir dw",
+        Type = TYPE_TRIANGLE_DOWN,
+        Width = 2,
+        Color = RGB(255, 128, 0)
     }
 }
 
@@ -318,7 +336,6 @@ add_lines()
 
 local PlotLines     = function(index) return index end
 local error_log     = {}
-local label         = {}
 local AddedLabels   = {}
 local chart_id      = ''
 
@@ -1844,6 +1861,7 @@ local function ZZ_Processor(offset)
     end
 end
 
+
 local function Algo(Fsettings, all_lines)
 
     Fsettings                       = (Fsettings or {})
@@ -1856,6 +1874,7 @@ local function Algo(Fsettings, all_lines)
     local show_extra_calclevels     = Fsettings['Показывать расширения уровней'] or 0
     local calc_levels_regime        = Fsettings['Вариант расчета уровней'] or 1
     local deep_zz_calc_levels       = Fsettings['Глубина поиска последнего диапазона по вершинам'] or 10
+    local show_change_trend         = Fsettings['Показывать метки смены направления'] or 1
     local show_zz_levels            = Fsettings['Показывать уровни от вершин'] or 1
     local show_cog                  = Fsettings['Показывать центр волны'] or 1
     local show_cog_to_show          = Fsettings['Число центров волны'] or 3
@@ -1887,7 +1906,7 @@ local function Algo(Fsettings, all_lines)
         end
     end
 
-    all_lines   = all_lines or 111
+    all_lines   = all_lines or 113
 
     error_log = {}
 
@@ -1922,6 +1941,32 @@ local function Algo(Fsettings, all_lines)
     local reg_d  = 0
 
     local andr_d = 0
+
+    local function get_label()
+        local label = {}
+        if white_label_color == 1  then
+            label.R = 200
+            label.G = 200
+            label.B = 200
+        else
+            label.R = 0
+            label.G = 0
+            label.B = 0
+        end
+        label.TRANSPARENCY = 0
+        label.TRANSPARENT_BACKGROUND = 1
+        label.FONT_FACE_NAME = 'Verdana'
+        label.FONT_HEIGHT = 10
+        label.HINT = ''
+        return label
+    end
+
+    local now_vol = 0
+    local l2_text1 = ''
+    local l3_text1 = ''
+    local label1 = get_label()
+    local label2 = get_label()
+    local label3 = get_label()
 
     return function (index)
 
@@ -1975,6 +2020,9 @@ local function Algo(Fsettings, all_lines)
 
                 lines_data[25]["val"]   = nil
                 SetValue(lines_data[25]["index"], 25, nil)
+
+                lines_data[32]["val"]   = nil
+                lines_data[33]["val"]   = nil
 
                 --3-15 линии
                 if show_calc_levels == 1 then
@@ -2032,7 +2080,7 @@ local function Algo(Fsettings, all_lines)
                     -- myLog('Set', index-1, 'nil', index, lines_data[30]["val"])
                 end
 
-                --32-111 линии
+                --34-114 линии
                 if show_zz_levels == 1 then
                     for nn = 1, max_zz_to_show*2*2 do
                         SetValue(index-1, all_lines-nn+1, nil)
@@ -2064,6 +2112,10 @@ local function Algo(Fsettings, all_lines)
                     if show_reg == 1 and nzz > 1 then
                         Raw[#Raw+1] = zz_data[nzz-1].val
                     end
+                end
+
+                if show_change_trend == 1 then
+                    lines_data[trend[index] == 1 and 32 or 33]["val"]   = _G.O(index)
                 end
 
                 if show_reg == 1 and #Raw>=zz_levels_to_show then
@@ -2114,6 +2166,7 @@ local function Algo(Fsettings, all_lines)
                     table_sort(sorted_zz_levels, function(a,b) return a["val"]<b["val"] end)
                 end
                 need_recalc = true
+                now_vol     = 0
             end
 
             -- if last then
@@ -2124,7 +2177,7 @@ local function Algo(Fsettings, all_lines)
             if last and need_recalc and nzz > 4 then
 
                 -- myLog('CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', time), lines_data)
-                last_trend      = trend[index]
+                last_trend      = trend[index] or (last_extr.val > zz_data[#zz_data-1].val and 1 or -1)
                 last_extr_val   = last_extr.val
 
                 -- ставим возвращаемые значения в nil
@@ -2183,7 +2236,7 @@ local function Algo(Fsettings, all_lines)
                     end
                 end
 
-                --32-111 линии
+                --34-113 линии
                 if show_zz_levels == 1 then
                     for nn = 1, max_zz_to_show*2*2 do
                         lines_data[all_lines-nn+1]["val"] = nil
@@ -2274,9 +2327,7 @@ local function Algo(Fsettings, all_lines)
                 local XA = 0
                 local AB = 0
                 local BC = 0
-                -- local XC = 0
                 local CD = 0
-                -- local AD = 0
 
                 local vXA = 0
                 local vAB = 0
@@ -2285,11 +2336,12 @@ local function Algo(Fsettings, all_lines)
 
                 local ABtoXA = 0
                 local XCtoXA = 0
-                local CDtoAB = 0
                 local ADtoXA = 0
-                local CDtoXA = 0
 
-                local currentDeviation = 0
+                local CDtoAB = 0
+                local BCtoAB = 0
+
+                local cur_deviation = 0
 
                 if zz_data[nzz-4] then
 
@@ -2306,15 +2358,15 @@ local function Algo(Fsettings, all_lines)
                     XA = math_abs(pX - pA)
                     AB = math_abs(pA - pB)
                     BC = math_abs(pB - pC)
-                    local XC = math_abs(zz_data[nzz-4]["val"] - pC)
+                    local XC = math_abs(pX - pC)
                     CD = math_abs(pC - pD)
                     local AD = math_abs(pA - pD)
                     ABtoXA = rounding(100*AB/XA, 2)
                     XCtoXA = rounding(100*XC/XA, 2)
-                    CDtoAB = rounding(100*CD/AB, 2)
                     ADtoXA = rounding(100*AD/XA, 2)
-                    CDtoXA = rounding(100*CD/XA, 2)
-                    currentDeviation = rounding(100*math_abs(close - pD)/CD, 2)
+                    BCtoAB = rounding(100*BC/AB, 2)
+                    CDtoAB = rounding(100*CD/AB, 2)
+                    cur_deviation = rounding(100*math_abs(close - pD)/CD, 2)
 
                     XA = rounding(XA, scale)
                     AB = rounding(AB, scale)
@@ -2499,7 +2551,7 @@ local function Algo(Fsettings, all_lines)
 
                 if show_label == 1 and chart_id ~= '' then
 
-                    label.DATE, label.TIME = getCandleProp(index-label_shift)
+                    local l_date, l_time = getCandleProp(index-label_shift)
                     local firsY
                     local secondY
                     local thirdY
@@ -2514,21 +2566,7 @@ local function Algo(Fsettings, all_lines)
                         thirdY = secondY - (range_max - range_min)/17
                     end
 
-                    label.YVALUE = firsY
-                    if white_label_color == 1  then
-                        label.R = 200
-                        label.G = 200
-                        label.B = 200
-                    else
-                        label.R = 0
-                        label.G = 0
-                        label.B = 0
-                    end
-                    label.TRANSPARENCY = 0
-                    label.TRANSPARENT_BACKGROUND = 1
-                    label.FONT_FACE_NAME = 'Verdana'
-                    label.FONT_HEIGHT = 10
-                    label.HINT = ''
+                    label1.YVALUE = firsY
 
                     local upIntervals = 0
                     local upcount = 0
@@ -2548,13 +2586,15 @@ local function Algo(Fsettings, all_lines)
                     end
 
                     --первая метка
-                    local text = "AB/XA "..tostring(ABtoXA)..", XC/XA "..tostring(XCtoXA)..", CD/AB "..tostring(CDtoAB)..", AD/XA "..tostring(ADtoXA)..", CD/XA "..tostring(CDtoXA)
-                    label.TEXT = text
+                    label1.DATE = l_date
+                    label1.TIME = l_time
+                    local text = "B/XA "..tostring(ABtoXA)..", C/XA "..tostring(XCtoXA)..", D/XA "..tostring(ADtoXA)..", BC/AB "..tostring(BCtoAB)..", CD/AB "..tostring(CDtoAB)
+                    label1.TEXT = text
 
                     if AddedLabels[1] then
-                        SetLabelParams(chart_id, AddedLabels[1], label)
+                        SetLabelParams(chart_id, AddedLabels[1], label1)
                     else
-                        local LabelID = AddLabel(chart_id, label)
+                        local LabelID = AddLabel(chart_id, label1)
 
                         if LabelID  and LabelID ~= -1 then
                             AddedLabels[1] = LabelID --#AddedLabels+1
@@ -2562,20 +2602,22 @@ local function Algo(Fsettings, all_lines)
                     end
 
                     --вторая метка
-                    label.YVALUE = secondY
-                    text = "now "..tostring(currentDeviation).."%, ".."XA "..tostring(XA)..", AB "..tostring(AB)..", BC "..tostring(BC)..", CD "..tostring(CD)
+                    label2.DATE = l_date
+                    label2.TIME = l_time
+                    label2.YVALUE = secondY
+                    l2_text1 = "now "..tostring(cur_deviation).."%, ".."XA "..tostring(XA)..", AB "..tostring(AB)..", BC "..tostring(BC)..", CD "..tostring(CD)
                     if upcount ~= 0 and pC < close then
-                        text = text..", upInt "..tostring(math.ceil(upIntervals/upcount)).."/"..tostring(iD - iC).."/"..tostring(index - iD)
+                        l2_text1 = l2_text1..", upInt "..tostring(math.ceil(upIntervals/upcount)).."/"..tostring(iD - iC)
                     end
                     if downcount ~= 0 and pC > close  then
-                        text = text..", downInt "..tostring(math.ceil(downIntervals/downcount)).."/"..tostring(iD - iC).."/"..tostring(index - iD)
+                        l2_text1 = l2_text1..", downInt "..tostring(math.ceil(downIntervals/downcount)).."/"..tostring(iD - iC)
                     end
-                    label.TEXT = text
+                    label2.TEXT = l2_text1.."/"..tostring(index - last_extr.index)
 
                     if AddedLabels[2] then
-                        SetLabelParams(chart_id, AddedLabels[2], label)
+                        SetLabelParams(chart_id, AddedLabels[2], label2)
                     else
-                        local label_id = AddLabel(chart_id, label)
+                        local label_id = AddLabel(chart_id, label2)
 
                         if label_id and label_id ~= -1 then
                             AddedLabels[2] = label_id --#AddedLabels+1
@@ -2583,14 +2625,16 @@ local function Algo(Fsettings, all_lines)
                     end
 
                     --третья метка
-                    label.YVALUE = thirdY
-                    text = "Volume XA: "..money_value(vXA).."; AB: "..money_value(vAB).."; BC: "..money_value(vBC).."; CD: "..money_value(vCD)
-                    label.TEXT = text
+                    label3.DATE = l_date
+                    label3.TIME = l_time
+                    label3.YVALUE = thirdY
+                    l3_text1 = "Volume XA: "..money_value(vXA).."; AB: "..money_value(vAB).."; BC: "..money_value(vBC).."; CD: "..money_value(vCD)
+                    label3.TEXT = l3_text1..'; now: '..money_value(now_vol)
 
                     if AddedLabels[3] then
-                        SetLabelParams(chart_id, AddedLabels[3], label)
+                        SetLabelParams(chart_id, AddedLabels[3], label3)
                     else
-                        local label_id = AddLabel(chart_id, label)
+                        local label_id = AddLabel(chart_id, label3)
                         if label_id and label_id ~= -1 then
                             AddedLabels[3] = label_id --#AddedLabels+1
                         end
@@ -2654,6 +2698,30 @@ local function Algo(Fsettings, all_lines)
 
             end
 
+            if show_label == 1 and last and not calculated_buffer[index] then
+                if last_extr.index ~= index then
+                    now_vol = now_vol + V(index-1)
+                end
+                local l_date, l_time = getCandleProp(index-label_shift)
+                if label1 and AddedLabels[1] then
+                    label1.DATE = l_date
+                    label1.TIME = l_time
+                    SetLabelParams(chart_id, AddedLabels[1], label1)
+                end
+                if label2 and AddedLabels[2] then
+                    label2.DATE = l_date
+                    label2.TIME = l_time
+                    label2.TEXT = l2_text1.."/"..tostring(index - last_extr.index)
+                    SetLabelParams(chart_id, AddedLabels[2], label2)
+                end
+                if label3 and AddedLabels[3] then
+                    label3.DATE = l_date
+                    label3.TIME = l_time
+                    label3.TEXT = l3_text1..', now: '..money_value(now_vol)
+                    SetLabelParams(chart_id, AddedLabels[3], label3)
+                end
+            end
+
             calculated_buffer[index] = true
 
             if nzz > 4 then
@@ -2688,16 +2756,16 @@ local function Algo(Fsettings, all_lines)
         lines_data[81]["val"], lines_data[82]["val"], lines_data[83]["val"], lines_data[84]["val"], lines_data[85]["val"], lines_data[86]["val"], lines_data[87]["val"], lines_data[88]["val"], lines_data[89]["val"], lines_data[80]["val"],
         lines_data[91]["val"], lines_data[92]["val"], lines_data[93]["val"], lines_data[94]["val"], lines_data[95]["val"], lines_data[96]["val"], lines_data[97]["val"], lines_data[98]["val"], lines_data[99]["val"], lines_data[100]["val"],
         lines_data[101]["val"], lines_data[102]["val"], lines_data[103]["val"], lines_data[104]["val"], lines_data[105]["val"], lines_data[106]["val"], lines_data[107]["val"], lines_data[108]["val"], lines_data[109]["val"],
-        lines_data[110]["val"], lines_data[111]["val"]
+        lines_data[110]["val"], lines_data[111]["val"], lines_data[112]["val"], lines_data[113]["val"]
     end
 end
 
 function _G.Init()
     add_lines()
-    for i = 32, 71 do
+    for i = 34, 73 do
 		_G.Settings.line[i] = {Color = RGB(0, 128, 255), Type = TYPE_DASH, Width = 1}
 	end
-	for i = 72, 111 do
+	for i = 74, 113 do
 		_G.Settings.line[i] = {Color = RGB(255, 64, 0), Type = TYPE_DASH, Width = 1}
 	end
     local all_lines = #_G.Settings.line
