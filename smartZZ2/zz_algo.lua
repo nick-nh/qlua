@@ -77,6 +77,7 @@ _G.Settings= {
 	['Число исторических уровней от вершин']            = 0, -- сколько показывать уровней от вершин для исторических данных
 	['Показывать центр волны']                          = 1, -- показывать центр движения для вил Эндрюса
 	['Число центров волны']                             = 3, --  глубина показа COG
+	['Показывать зону смены направления']               = 0, -- показывать зону смены направления
 	['Показывать целевую зону']                         = 1, -- показывать целевую зону
 	['Показывать вилы Эндрюса']                         = 1, -- показывать вилы Эндрюса
 	['Сдвиг вершин для вил Эндрюса']                    = 1, -- сдвиг вершин вилы Эндрюса
@@ -320,7 +321,21 @@ local lines = {
         Name = "change dir dw",
         Type = TYPE_TRIANGLE_DOWN,
         Width = 2,
-        Color = RGB(255, 128, 0)
+        Color = RGB(255, 58, 0)
+    },
+    --34
+    {
+        Name = "reverse buy",
+        Type = _G.TYPET_BAR,
+        Width = 1,
+        Color = RGB(59,183, 57)
+    },
+    --35
+    {
+        Name = "reverse sell",
+        Type = _G.TYPET_BAR,
+        Width = 1,
+        Color = RGB(255, 58, 0)
     }
 }
 
@@ -1745,7 +1760,7 @@ local function ZZ_Processor(offset)
     ---@param new_low number
     return function (new_high, new_low, close, time, index, online)
 
-        local status, res1, res2, res3 = pcall(function()
+        local status, res1, res2, res3, res4 = pcall(function()
 
             if atr_type then
                 atr = ATR(index)
@@ -1853,11 +1868,11 @@ local function ZZ_Processor(offset)
             h_buff[index - depth]   = nil
             l_buff[index - depth]   = nil
 
-            return zz_levels, trend, (trend[index] == 1 and last_max or last_min)
+            return zz_levels, trend, (trend[index] == 1 and last_max or last_min), offset_price
 
         end)
         if not status then myLog('ZZ_Processor : '..tostring(res1)) end
-        return res1, res2, res3
+        return res1, res2, res3, res4
     end
 end
 
@@ -1880,6 +1895,7 @@ local function Algo(Fsettings, all_lines)
     local show_cog_to_show          = Fsettings['Число центров волны'] or 3
     local zz_levels_to_show         = Fsettings['Число уровней от вершин'] or 10
     local h_zz_levels_to_show       = Fsettings['Число исторических уровней от вершин'] or 2
+    local show_reverse_zone         = Fsettings['Показывать зону смены направления'] or 0
     local show_target_zone          = Fsettings['Показывать целевую зону'] or 1
     local show_andrews              = Fsettings['Показывать вилы Эндрюса'] or 1
     local andrews_shift             = Fsettings['Сдвиг вершин для вил Эндрюса'] or 1
@@ -1906,7 +1922,7 @@ local function Algo(Fsettings, all_lines)
         end
     end
 
-    all_lines   = all_lines or 113
+    all_lines   = all_lines or 115
 
     error_log = {}
 
@@ -1915,7 +1931,7 @@ local function Algo(Fsettings, all_lines)
 	local cog_points       --индексы точек для отрисовки линий CoG
 
     local scale             = 0
-    local close, high
+    local close, high, offset_price
 
     local max_zz_to_show    = 20
     local cl_width          = 15
@@ -1929,6 +1945,7 @@ local function Algo(Fsettings, all_lines)
 	local calculated_buffer = {}
 
     local zz_data, trend    = {}, {}
+    local _
 
     local fibo_levels   = {100.0, 161.8, 261.8, 423.6}
     local fibo_ext      = {}
@@ -2023,6 +2040,8 @@ local function Algo(Fsettings, all_lines)
 
                 lines_data[32]["val"]   = nil
                 lines_data[33]["val"]   = nil
+                lines_data[34]["val"]   = nil
+                lines_data[35]["val"]   = nil
 
                 --3-15 линии
                 if show_calc_levels == 1 then
@@ -2080,7 +2099,7 @@ local function Algo(Fsettings, all_lines)
                     -- myLog('Set', index-1, 'nil', index, lines_data[30]["val"])
                 end
 
-                --34-114 линии
+                --36-115 линии
                 if show_zz_levels == 1 then
                     for nn = 1, max_zz_to_show*2*2 do
                         SetValue(index-1, all_lines-nn+1, nil)
@@ -2095,9 +2114,16 @@ local function Algo(Fsettings, all_lines)
             local last = index == Size()
 
             if last and not calculated_buffer[index] and calculated_buffer[index-1] then
-                fAlgo(H(index-1), L(index-1), C(index-1), time, index, false)
+                _, trend, _, offset_price = fAlgo(H(index-1), L(index-1), C(index-1), time, index, false)
+                if show_reverse_zone == 1 then
+                    SetValue(index-1, trend[index-1] == 1 and 34 or 35, offset_price)
+                end
             end
-			zz_data, trend  = fAlgo(high, L(index), close, time, index, last)
+		    zz_data, trend, _, offset_price  = fAlgo(high, L(index), close, time, index, last)
+            if show_reverse_zone == 1 then
+                SetValue(index, trend[index] == 1 and 34 or 35, offset_price)
+                lines_data[trend[index] == 1 and 34 or 35]["val"] = offset_price
+            end
             --myLog('CalcTradeSignals bar', index, os_date('%d.%m.%Y %H:%M:%S', time), 'close', close, 'trend', trend[index], 'zz_data', zz_data[#zz_data])
 
             local last_extr     = #zz_data > 0 and zz_data[#zz_data]
@@ -2236,7 +2262,7 @@ local function Algo(Fsettings, all_lines)
                     end
                 end
 
-                --34-113 линии
+                --36-116 линии
                 if show_zz_levels == 1 then
                     for nn = 1, max_zz_to_show*2*2 do
                         lines_data[all_lines-nn+1]["val"] = nil
@@ -2743,7 +2769,7 @@ local function Algo(Fsettings, all_lines)
             return nil
         end
 
-        -- myLog('ret', index, '30', lines_data[30]["val"])
+        -- myLog('ret', index, '34', lines_data[34]["val"], offset_price)
 
         return	lines_data[1]["val"], lines_data[2]["val"], lines_data[3]["val"], lines_data[4]["val"], lines_data[5]["val"], lines_data[6]["val"], lines_data[7]["val"], lines_data[8]["val"], lines_data[9]["val"], lines_data[10]["val"],
         lines_data[11]["val"], lines_data[12]["val"], lines_data[13]["val"], lines_data[14]["val"], lines_data[15]["val"], lines_data[16]["val"], lines_data[17]["val"], lines_data[18]["val"], lines_data[19]["val"], lines_data[20]["val"],
@@ -2756,16 +2782,16 @@ local function Algo(Fsettings, all_lines)
         lines_data[81]["val"], lines_data[82]["val"], lines_data[83]["val"], lines_data[84]["val"], lines_data[85]["val"], lines_data[86]["val"], lines_data[87]["val"], lines_data[88]["val"], lines_data[89]["val"], lines_data[80]["val"],
         lines_data[91]["val"], lines_data[92]["val"], lines_data[93]["val"], lines_data[94]["val"], lines_data[95]["val"], lines_data[96]["val"], lines_data[97]["val"], lines_data[98]["val"], lines_data[99]["val"], lines_data[100]["val"],
         lines_data[101]["val"], lines_data[102]["val"], lines_data[103]["val"], lines_data[104]["val"], lines_data[105]["val"], lines_data[106]["val"], lines_data[107]["val"], lines_data[108]["val"], lines_data[109]["val"],
-        lines_data[110]["val"], lines_data[111]["val"], lines_data[112]["val"], lines_data[113]["val"]
+        lines_data[110]["val"], lines_data[111]["val"], lines_data[112]["val"], lines_data[113]["val"], lines_data[114]["val"], lines_data[115]["val"]
     end
 end
 
 function _G.Init()
     add_lines()
-    for i = 34, 73 do
+    for i = 36, 75 do
 		_G.Settings.line[i] = {Color = RGB(0, 128, 255), Type = TYPE_DASH, Width = 1}
 	end
-	for i = 74, 113 do
+	for i = 76, 115 do
 		_G.Settings.line[i] = {Color = RGB(255, 64, 0), Type = TYPE_DASH, Width = 1}
 	end
     local all_lines = #_G.Settings.line
