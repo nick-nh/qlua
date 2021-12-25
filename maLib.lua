@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.11.23',
+    _VERSION     = 'MA lib 2021.12.25',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -2442,7 +2442,7 @@ local FUNCTOR = {
     VWAP    = F_VWAP,
     ZZ      = F_ZZ
 }
-local ALGO_LINES = {
+M.ALGO_LINES = {
     SMA     = {'SMA'},
     EMA     = {'EMA'},
     SD      = {'SD'},
@@ -2472,16 +2472,21 @@ local ALGO_LINES = {
     ZZ      = {'ZZ', 'TREND', 'LAST_EXTR'}
 }
 
+M.AV_METHODS = ''
+for key in pairs(FUNCTOR) do
+    M.AV_METHODS = M.AV_METHODS..(M.AV_METHODS == '' and '' or '|')..key
+end
+
 local function MA(settings, ds, ...)
 
     settings = (settings or {})
     local method    = (settings.method or "EMA")
 
     if not FUNCTOR[method] then
-        return nil
+        return nil, 'Не удалось инициализировать MA. Допустимые типы: '..M.AV_METHODS..', передано: '..tostring(settings.method)
     end
 
-    return FUNCTOR[method](settings, ds, ...), ALGO_LINES[method]
+    return FUNCTOR[method](settings, ds, ...)
 end
 
 M.new         = MA

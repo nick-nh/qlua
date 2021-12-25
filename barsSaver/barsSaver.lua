@@ -3,7 +3,7 @@ _G.loadfile     = _G.loadfile or _G.load
 _G.loadstring   = _G.loadstring or _G.load
 
 local LICENSE = {
-    _VERSION     = 'barsSaver 2021.11.24',
+    _VERSION     = 'barsSaver 2021.12.25',
     _DESCRIPTION = 'quik barsSaver',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -635,7 +635,11 @@ local function DataProcessor(Sec, ds)
         for k, value in ipairs(Sec.algo) do
             if (value.method or '') ~= '' then
                 algo_m = algo_m..(algo_m == '' and '' or '_')..value.method..tostring(k)
-                local func, lines = maLib.new(value, ds)
+                local func, r  = maLib.new(value, ds)
+                if not func then
+                    return false, r
+                end
+                local lines = maLib.ALGO_LINES[value.method]
                 algo_f[#algo_f+1] = func
                 if lines then
                     for i = 1, #lines, 1 do
