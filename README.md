@@ -52,6 +52,10 @@ https://nick-nh.github.io
 
   - https://c.mql5.com/forextsd/forum/3/130fish.pdf
 
+- [AutocorrelationPeriodogram.lua - Autocorrelation Periodogram by John F. Ehlers.](https://github.com/nick-nh/qlua/blob/master/AutocorrelationPeriodogram.lua)
+
+  - https://traders.com/Documentation/FEEDbk_docs/2016/09/TradersTips.html
+
 - [InstantaneousTrend.lua - Instantaneous trend by John F. Ehlers.](https://github.com/nick-nh/qlua/blob/master/InstantaneousTrend.lua)
 
   - https://c.mql5.com/forextsd/forum/59/023inst.pdf

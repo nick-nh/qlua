@@ -243,7 +243,7 @@ local function Hurst(Fsettings)
 
             for i = 1, accuracy do
 
-                myLog('Calc bar', index, 'acc', i, 'p', p, 'len', len_data[i])
+                -- myLog('Calc bar', index, 'acc', i, 'p', p, 'len', len_data[i])
                 local RSi   = RS(index, p, len_data[i])
                 if not RSi then return end
 
