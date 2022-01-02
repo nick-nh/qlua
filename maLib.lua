@@ -1761,7 +1761,7 @@ local function F_MACD(settings, ds)
                 t_MACD[index] = rounding(So[index] - Lo[index], round, scale)
             end
             s_MACD[index] = MACD_MA(index)[index]
-            trend[index]  = s_MACD[index] >= 0 and 1 or -1
+            trend[index]  = t_MACD[index] >= 0 and 1 or -1
         end
         t_MACD[index - save_bars] = nil
         s_MACD[index - save_bars] = nil
