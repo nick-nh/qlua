@@ -162,7 +162,7 @@ local function AutoCorr(Fsettings)
                     end
                 end
 
-                corr[lag] = ((num*sxx - sx*sx)*(num*syy - sy*sy) > 0) and (num*sxy - sx*sx)/math_sqrt((num*sxx - sx*sx)*(num*syy - sy*sy)) or 0
+                corr[lag] = ((num*sxx - sx*sx)*(num*syy - sy*sy) > 0) and (num*sxy - sx*sy)/math_sqrt((num*sxx - sx*sx)*(num*syy - sy*sy)) or 0
             end
 
             local cos_part  = {}
