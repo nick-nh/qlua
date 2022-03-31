@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2021.12.25',
+    _VERSION     = 'MA lib 2022.03.30',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -143,45 +143,49 @@ local function Sigma(input, avg, start, finish, not_shifted)
     return math_sqrt(sq/(not_shifted and period or (period-1)))
 end
 
--- Коэффициент корреляции Пирсона
+-- Коэффициент корреляции Пирсона|автокорреляции
 -- Ковариация
--- Среднеквадратическое отклонение
--- Стандартное отклонение Баланса
-local function Correlation(input, compare, start, finish)
+---@param input table
+---@param cmp table|number
+---@param start number
+---@param finish number
+---@return number
+---@return number
+local function Correlation(input, cmp, start, finish)
 
-    if #compare == 0 then return end
+    local tc    = type(cmp)
+    local shift = 0
+    local compare
+    if tc == 'table' and #cmp == 0 then return end
+    if tc == 'number' then
+        compare = input
+        shift   = cmp
+    else
+        compare = cmp
+    end
 
-    local period      = finish - start + 1
-    local m_input     = 0
-    local m_compare   = 0
+    local num   = 0
+    local sx    = 0
+    local sy    = 0
+    local sxx   = 0
+    local syy   = 0
+    local sxy   = 0
 
-    for i = start, finish do
-        if compare[i] and input[i] then
-            m_input   = m_input + input[i]
-            m_compare = m_compare + compare[i]
+    for i = start+shift, finish do
+        if compare[i-shift] and input[i] then
+            sx      = sx + input[i]
+            sy      = sy + compare[i-shift]
+            sxx     = sxx + input[i]*input[i]
+            syy     = syy + compare[i-shift]*compare[i-shift]
+            sxy     = sxy + input[i]*compare[i-shift]
+            num     = num + 1
         end
     end
 
-    m_input   = m_input/period
-    m_compare = m_compare/period
+    local lrc = ((num*sxx - sx*sx)*(num*syy - sy*sy) > 0) and (num*sxy - sx*sy)/math_sqrt((num*sxx - sx*sx)*(num*syy - sy*sy)) or 0
+    local cov = sxy/num - (sx/num)*(sy/num)
 
-    --ковариация
-    local cov           = 0
-    local sq_input      = 0
-    local sq_compare    = 0
-
-    for i = start, finish do
-        if compare[i] and input[i] then
-            sq_input    = sq_input + math_pow(input[i]-m_input,2)
-            sq_compare  = sq_compare + math_pow(compare[i]-m_compare,2)
-            cov         = cov + (input[i]-m_input)*(compare[i]-m_compare)
-        end
-    end
-
-    cov = cov/period
-    local LRC = cov/(math_sqrt(sq_input/period)*math_sqrt(sq_compare/period))
-
-    return LRC, cov
+    return lrc, cov
 
 end
 
@@ -576,15 +580,19 @@ local function F_SD(settings, ds)
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
     local not_shifted   = settings.not_shifted
-
-    local fMA           = M.new({period = period, data_type = data_type, method = ma_method, round = round, scale = scale}, ds)
+    local calc_avg      = settings.calc_avg
+    if calc_avg == nil then calc_avg = true end
+    local fMA
+    if calc_avg then
+       fMA = M.new({period = period, data_type = data_type, method = ma_method, round = round, scale = scale}, ds)
+    end
     local SD            = {}
     local input         = {}
-    return function(index)
+    return function(index, avg)
 
         SD[index]       = SD[index-1] or 0
         input[index]    = input[index-1] or 0
-        local avg       = fMA(index)
+        avg             = avg or fMA(index)
         if not CheckIndex(index, ds) then
             return SD, avg
         end
@@ -668,25 +676,15 @@ local function F_EMA(settings, ds)
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
-    local bars      = 0
-    local SUM_TMP = {}
-    local EMA_TMP = {}
-    local l_index
+    local EMA_TMP   = {}
+    local val
     return function(index)
         EMA_TMP[index] = EMA_TMP[index-1] or 0
         if not CheckIndex(index, ds) then
             return EMA_TMP
         end
-        if l_index ~= index then
-            l_index = index
-            bars = bars + 1
-        end
-        if bars < period then
-            SUM_TMP[index] = (Value(index, data_type, ds) + (SUM_TMP[index-1] or 0))
-            EMA_TMP[index] = rounding(SUM_TMP[index]/bars, round, scale)
-        else
-            EMA_TMP[index] = rounding((EMA_TMP[index-1]*(period-1) + 2*Value(index, data_type, ds))/(period+1), round, scale)
-        end
+        val = Value(index, data_type, ds)
+        EMA_TMP[index]  = EMA_TMP[index-1] and rounding((EMA_TMP[index-1]*(period-1) + 2*val)/(period+1), round, scale) or rounding(val, round, scale)
         EMA_TMP[index-save_bars] = nil
         return EMA_TMP
     end
@@ -1732,7 +1730,7 @@ local function F_MACD(settings, ds)
 
     local trend         = {}
 
-    percent             = (percent:lower() ~= 'off')
+    percent             = (percent:lower() ~= 'on')
 
     if (signal_method~="SMA") and (signal_method~="EMA") then signal_method = "SMA" end
 
@@ -1761,7 +1759,7 @@ local function F_MACD(settings, ds)
                 t_MACD[index] = rounding(So[index] - Lo[index], round, scale)
             end
             s_MACD[index] = MACD_MA(index)[index]
-            trend[index]  = t_MACD[index] >= 0 and 1 or -1
+            trend[index]  = s_MACD[index] >= 0 and 1 or -1
         end
         t_MACD[index - save_bars] = nil
         s_MACD[index - save_bars] = nil
@@ -1972,6 +1970,44 @@ local function F_RSI(settings, ds)
     end
 end
 
+---@param settings table
+---@param ds table
+local function F_CCI(settings, ds)
+
+    settings            = (settings or {})
+
+    local ma_method     = (settings.ma_method or "EMA")
+    local period        = (settings.period or 20)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+    local begin_index   = 1
+
+    if (ma_method~="SMA") and (ma_method~="EMA") then ma_method = "EMA" end
+
+    local cci           = {}
+    local MA            = M.new({method = ma_method, data_type = data_type, period = period, round = round, scale = scale}, ds)
+
+    return function (index)
+        if cci[index-1] == nil then begin_index = index end
+
+        cci[index]      = cci[index-1] or 0
+        local ma_val    = (MA(index) or {})[index] or 0
+        local i         = (index - begin_index) - period + 1
+
+        if (i >= 0) and ma_val then
+            local md = 0
+            for ind = index-period+1, index do
+                md = md + math_abs(ma_val - M.Value(ind, data_type, ds))
+            end
+            cci[index]  = rounding((M.Value(index, data_type, ds) - ma_val)/(md*0.015/period), round, scale)
+        end
+
+        cci[index - save_bars] = nil
+        return cci
+    end
+end
 
 local function F_SAR(settings, ds)
 
@@ -2308,7 +2344,7 @@ local function F_ZZ(offset, ds)
 
     ---@param new_high number
     ---@param new_low number
-    return function (new_high, new_low, close, time, index)
+    return function (new_high, new_low, close, time, index, online)
 
         local status, res1, res2, res3 = pcall(function()
 
@@ -2322,7 +2358,7 @@ local function F_ZZ(offset, ds)
                 offset_price    = calc_offset_price(new_high, -1, atr_type and atr[index] or (last_max.val - last_min.val))
             end
 
-            if count_index[index] == 2 then
+            if count_index[index] == 2 or online then
                 if trend[index] == 1 and new_high > last_max.val then
                     update_last(last_max, new_high, index, time)
                 end
@@ -2437,6 +2473,7 @@ local FUNCTOR = {
     MACD    = F_MACD,
     STOCH   = F_STOCH,
     RSI     = F_RSI,
+    CCI     = F_CCI,
     BOL     = F_BOL,
     SAR     = F_SAR,
     VWAP    = F_VWAP,
@@ -2466,6 +2503,7 @@ M.ALGO_LINES = {
     MACD    = {'MACD', 'S_MACD', 'TREND'},
     STOCH   = {'STOCH'},
     RSI     = {'RSI'},
+    CCI     = {'CCI'},
     BOL     = {'BOL_UP', 'BOL_DW', 'BOL_MID'},
     SAR     = {'SAR', 'TREND', 'SIGNAL', 'LAST_ZZ'},
     VWAP    = {'VWAP', 'VEMA'},
