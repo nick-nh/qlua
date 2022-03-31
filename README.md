@@ -151,6 +151,10 @@ https://nick-nh.github.io
 
 - [tema.lua - TEMA - Triple Exponential Moving Average – Тройная Экспоненциальная Скользящая Средняя.](https://github.com/nick-nh/qlua/blob/master/tema.lua)
 
+- [TMACD.lua - TEMA-EMA MACD как разница TEMA и EMA.](https://github.com/nick-nh/qlua/blob/master/TMACD.lua)
+
+- [TEMABOL.lua - Bollinger bands от середнины TEMA и EMA.](https://github.com/nick-nh/qlua/blob/master/TEMABOL.lua)
+
 - [thv_coral.lua - THV Coral- реализация Coral Trend Indicator.](https://github.com/nick-nh/qlua/blob/master/thv_coral.lua)
 
 - [vsa.lua - Подсветка объемов по методике VSA.](https://github.com/nick-nh/qlua/blob/master/vsa.lua)
