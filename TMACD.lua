@@ -86,7 +86,7 @@ local function Algo(Fsettings, ds)
     local round     = (Fsettings.round or "OFF")
     local scale     = (Fsettings.scale or 0)
 
-    -- local m_period  = math.max(t_period, e_period, b_period)
+    local m_period  = math.max(t_period, e_period)
     error_log = {}
 
     local fMA, fTMA, fDSD
@@ -108,7 +108,7 @@ local function Algo(Fsettings, ds)
                 fTMA            = maLib.new({method = 'TEMA', period = t_period, data_type = data_type, round = round, scale = scale}, ds)
                 fMA             = maLib.new({method = 'EMA', period = e_period, data_type = data_type, round = round, scale = scale}, ds)
                 delta[index]    = 0
-                fDSD            = maLib.new({method = "SD", not_shifted = true, data_type = 'Any', period = b_period, round = round, scale = scale}, delta)
+                fDSD            = maLib.new({method = "SD", not_shifted = true, data_type = 'Any', period = m_period, round = round, scale = scale}, delta)
                 fDSD(index, data)
                 dma[index]      = 0
                 return
