@@ -91,10 +91,8 @@ local function Algo(Fsettings, ds)
 
     local fMA, fTMA, fDSD
     local out1, out2, out3, out4
-    local data, delta
-    local sd, d_sd, trend
-
-    local dma
+    local data, dma, delta
+    local d_sd
 
     return function (index)
 
@@ -106,27 +104,29 @@ local function Algo(Fsettings, ds)
             if fMA == nil or index == 1 then
                 data            = {}
                 delta           = {}
+                dma             = {}
                 fTMA            = maLib.new({method = 'TEMA', period = t_period, data_type = data_type, round = round, scale = scale}, ds)
                 fMA             = maLib.new({method = 'EMA', period = e_period, data_type = data_type, round = round, scale = scale}, ds)
                 delta[index]    = 0
                 fDSD            = maLib.new({method = "SD", not_shifted = true, data_type = 'Any', period = b_period, round = round, scale = scale}, delta)
                 fDSD(index, data)
-                trend = 0
+                dma[index]      = 0
                 return
             end
 
             delta[index]    = delta[index-1]
+            dma[index]      = dma[index-1]
 
 			if not maLib.CheckIndex(index, ds) then
 				return
 			end
 
-            dma = (fTMA(index)[index] or 0) - (fMA(index)[index] or 0)
-            delta[index] = math.abs(dma)
+            dma[index]   = (fTMA(index)[index] or 0) - (fMA(index)[index] or 0)
+            delta[index] = math.abs(dma[index])
             d_sd  = fDSD(index)[index]
 
-            out1 = delta[index] > delta[index-1] and dma or nil
-            out2 = delta[index] <= delta[index-1] and dma or nil
+            out1 = dma[index] > dma[index-1] and dma[index] or nil
+            out2 = dma[index] <= dma[index-1] and dma[index] or nil
             out3 = k_extr*d_sd
             out4 = -k_extr*d_sd
         end)
