@@ -1,5 +1,7 @@
 --logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
 
+math.pow = math.pow or function(x, y) return x^y end
+
 Settings =
 	{
 		Name = "*iReg",
