@@ -1,23 +1,54 @@
---logfile=io.open("C:\\SBERBANK\\QUIK_SMS\\LuaIndicators\\qlua_log.txt", "w")
+--[[
+	nick-h@yandex.ru
+	https://github.com/nick-nh/qlua
 
-math.pow = math.pow or function(x, y) return x^y end
+	Регрессия: линейная, параболическая, кубическая
+]]
 
-Settings =
+local logFile = nil
+-- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\iReg.txt", "w")
+
+local math_pow = function(x, y) return x^y end
+
+local message               = _G['message']
+local SetValue              = _G['SetValue']
+local Size              	= _G['Size']
+local CandleExist           = _G['CandleExist']
+local RGB                   = _G['RGB']
+local TYPE_LINE             = _G['TYPE_LINE']
+local TYPE_DASHLINE         = _G['TYPE_DASHLINE']
+local TYPE_DASH         	= _G['TYPE_DASH']
+local C                     = _G['C']
+local isDark                = _G.isDarkTheme()
+local line_color            = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
+local os_time	            = os.time
+
+_G.Settings =
 	{
 		Name = "*iReg",
-		bars = 182,
-		kstd1=1.0,
-		kstd2=2.0,
-		kstd3=3.0,
-		kstd4=4.0,
-		degree = 1, -- 1 linear, 2 parabolic, 3 third-power
-		barsshift=0,
-		showHistory=0,
+		['Период'] 							= 200,
+		['Отклонение1']						= 1.0,
+		['Отклонение2']						= 2.0,
+		['Отклонение3']						= 3.0,
+		['Отклонение4']						= 4.0,
+		['Вид регрессии'] 					= 1, -- 1 linear, 2 parabolic, 3 third-power
+		-- Сдвиг бар
+		-- Если задан сдвиг, то построение канала начинается от бара, смещенного на сдвиг.
+		-- Далее идет продолжение канала по расчитанным данным (предсказание). Пересчет не производится.
+		-- Это позволит оценить качество построенного канала на истории, относительно новых данных.
+		['Сдвиг бар']						= 0,
+		-- Показывать историю
+		-- Показывается канал на исторических данных. Расчет для каждого бара истории.
+		['Показывать историю']				= 0,
+		--Пересчитывать при отклонении
+		-- при расчете без сдвига, после построения канала, если цена зашла за границу отклонения,
+		-- то происходит полный пересчет канала. Иначе идет продолжение исходного канала.
+		['Пересчитывать при отклонении >']	= 3,
 		line=
 			{
 				{
 					Name = "iReg",
-					Color = RGB(0, 0, 255),
+					Color = line_color,
 					Type = TYPE_LINE,
 					Width = 1
 				},
@@ -91,66 +122,125 @@ Settings =
 	}
 
 ----------------------------------------------------------
-----------------------------------------------------------
-----------------------------------------------------------
-function Reg()
 
-    local fx_buffer={}
-	local sx={}
+local lines = #_G.Settings.line
+
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
+
+local function myLog(...)
+	if logFile==nil then return end
+    logFile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
+    logFile:flush();
+end
+
+local PlotLines     = function(index) return index end
+local error_log     = {}
+----------------------------------------------------------
+----------------------------------------------------------
+local function Reg(Fsettings)
+
+	Fsettings			= (Fsettings or {})
+	local bars 			= Fsettings['Период'] or 182
+	local kstd1 		= Fsettings['Отклонение1'] or 1
+	local kstd2 		= Fsettings['Отклонение2'] or 2
+	local kstd3 		= Fsettings['Отклонение3'] or 3
+	local kstd4 		= Fsettings['Отклонение4'] or 4
+	local barsshift 	= Fsettings['Сдвиг бар'] or 0
+	local degree 		= Fsettings['Вид регрессии'] or 1
+	local calc_over		= Fsettings['Пересчитывать при отклонении >'] or 3
+	local showHistory 	= (Fsettings['Показывать историю'] or 0) == 1
+
+	local fx_buffer	= {}
+	local sx		= {}
+	local sq		= 0
 	local calculated_buffer={}
 
-	local out1 = nil
-	local out2 = nil
-	local out3 = nil
-	local out4 = nil
-	local out5 = nil
-	local out6 = nil
-	local out7 = nil
-	local out8 = nil
-	local out9 = nil
+	error_log = {}
+
+	local p 	= bars
+	local ai	= {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
+	local nn 	= degree+1
+	local solve	= {}
+
+	local out1 	= nil
+	local out2 	= nil
+	local out3 	= nil
+	local out4 	= nil
+	local out5 	= nil
+	local out6 	= nil
+	local out7 	= nil
+	local out8 	= nil
+	local out9 	= nil
 	local out10 = nil
 	local out11 = nil
 	local out12 = nil
 
-	return function(ind, Fsettings)
+	local last_cal_bar
+	local start_index
 
-		Fsettings	= (Fsettings or {})
-		local index = ind
-		local bars = Fsettings.bars or 182
-		local kstd1 = Fsettings.kstd1 or 1
-		local kstd2 = Fsettings.kstd2 or 2
-		local kstd3 = Fsettings.kstd3 or 3
-		local kstd4 = Fsettings.kstd4 or 4
-		local barsshift = Fsettings.barsshift or 0
-		local degree = Fsettings.degree or 1
-		local showHistory = (Fsettings.showHistory or 0) == 1
-		local index = ind
+	return function(index)
 
+		local status, res = pcall(function()
 
-		local p = 0
-		local n = 0
-		local f = 0
-		local qq = 0
-		local mm = 0
-		local tt = 0
-		local ii = 0
-		local jj = 0
-		local kk = 0
-		local ll = 0
-		local nn = 0
-		local sq = 0
-		local i0 = 0
+			if index == 1 then
 
-		local mi = 0
-		local ai={{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
-		local b={}
-		local x={}
+				calculated_buffer 	= {}
+				fx_buffer 			= {}
+				fx_buffer[1]		= 0
 
-		p = bars
-		nn = degree+1
+				--- sx
+				sx={}
+				sx[1] = p+1
 
-		if index == 1 then
+				for mi=1, nn*2-2 do
+					local sum=0
+					for n=0, p do
+						sum = sum + math_pow(n,mi)
+					end
+					sx[mi+1]=sum
+				end
 
+				last_cal_bar 	= index
+				start_index 	= Size() - barsshift
+	            -- myLog('--------------------------------------------------------------------------------')
+	            -- myLog('--------------------------------------------------------------------------------')
+	            -- myLog('--------------------------------------------------------------------------------')
+	            -- myLog('--------------- new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'start_index', start_index)
+
+				return nil
+			end
+
+			SetValue(index-bars-barsshift, 1, nil)
+			SetValue(index-bars-barsshift, 2, nil)
+			SetValue(index-bars-barsshift, 3, nil)
+			SetValue(index-bars-barsshift, 4, nil)
+			SetValue(index-bars-barsshift, 5, nil)
+			SetValue(index-bars-barsshift, 6, nil)
+			SetValue(index-bars-barsshift, 7, nil)
+			SetValue(index-bars-barsshift, 8, nil)
+			SetValue(index-bars-barsshift, 9, nil)
+
+			if not CandleExist(index) or index <= bars then
+				return nil
+			end
+
+			if index < start_index and not showHistory then return nil end
+
+			if calculated_buffer[index] ~= nil then
+				return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12
+			end
+
+			--Calc
 			out1 = nil
 			out2 = nil
 			out3 = nil
@@ -161,240 +251,202 @@ function Reg()
 			out8 = nil
 			out9 = nil
 			out10 = nil
+			out11 = nil
+			out12 = nil
 
-			fx_buffer = {}
-			calculated_buffer = {}
+			local delta = math.abs(C(index) - (fx_buffer[#fx_buffer] or 0))
 
-			fx_buffer[index]= 0
+			if (barsshift == 0 and (delta >= calc_over*sq)) or index <= start_index then
 
-			--- sx
-			sx={}
-			sx[1] = p+1
+				last_cal_bar = index
+	            -- myLog('new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'last_cal_bar', last_cal_bar, 'calc_over', calc_over, 'delta', delta, 'calc_over*sq', calc_over*sq)
 
-			for mi=1, nn*2-2 do
-				sum=0
-				for n=i0, i0+p do
-					sum = sum + math.pow(n,mi)
+				fx_buffer = {}
+
+				--- syx
+				local b={}
+				for mi=1, nn do
+					local sum = 0
+					for n=0, p do
+						if CandleExist(index+n-bars) then
+							if mi==1 then
+								sum = sum + C(index+n-bars)
+							else
+								sum = sum + C(index+n-bars)*math_pow(n,mi-1)
+							end
+						end
+					end
+					b[mi]=sum
 				end
-			sx[mi+1]=sum
-			end
 
-			return nil
-		end
-
-		SetValue(index-bars-barsshift, 1, nil)
-        SetValue(index-bars-barsshift, 2, nil)
-        SetValue(index-bars-barsshift, 3, nil)
-        SetValue(index-bars-barsshift, 4, nil)
-        SetValue(index-bars-barsshift, 5, nil)
-        SetValue(index-bars-barsshift, 6, nil)
-        SetValue(index-bars-barsshift, 7, nil)
-        SetValue(index-bars-barsshift, 8, nil)
-        SetValue(index-bars-barsshift, 9, nil)
-
-		if not CandleExist(index) or index <= bars then
-			return nil
-		end
-
-        if index < (Size() - barsshift) and not showHistory then return nil end
-		if index > (Size() - barsshift) then return nil end
-
-		if calculated_buffer[index] ~= nil then
-			return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12
-		end
-
-		--- syx
-		for mi=1, nn do
-			sum = 0
-			for n=i0, i0+p do
-				if CandleExist(index+n-bars) then
-					if mi==1 then
-					   sum = sum + C(index+n-bars)
-					else
-					   sum = sum + C(index+n-bars)*math.pow(n,mi-1)
+				--- Matrix
+				for jj=1, nn do
+					for ii=1, nn do
+						ai[ii][jj]=sx[ii+jj-1]
 					end
 				end
-			end
-			b[mi]=sum
-		end
 
-		--- Matrix
-		for jj=1, nn do
-			for ii=1, nn do
-				kk=ii+jj-1
-				ai[ii][jj]=sx[kk]
-			end
-		end
+				--- Gauss
+				local mm, ll, tt
+				for kk=1, nn-1 do
+					ll=0
+					mm=0
+					for ii=kk, nn do
+						if math.abs(ai[ii][kk])>mm then
+							mm=math.abs(ai[ii][kk])
+							ll=ii
+						end
+					end
 
-		--- Gauss
-		for kk=1, nn-1 do
-			ll=0
-			mm=0
-			for ii=kk, nn do
-				if math.abs(ai[ii][kk])>mm then
-					mm=math.abs(ai[ii][kk])
-					ll=ii
-				end
-			end
+					if ll==0 then
+						return nil
+					end
+					if ll~=kk then
+						for jj=1, nn do
+							tt=ai[kk][jj]
+							ai[kk][jj]=ai[ll][jj]
+							ai[ll][jj]=tt
+						end
+						tt=b[kk]
+						b[kk]=b[ll]
+						b[ll]=tt
+					end
 
-			if ll==0 then
-				return nil
-			end
-			if ll~=kk then
-
-				for jj=1, nn do
-					tt=ai[kk][jj]
-					ai[kk][jj]=ai[ll][jj]
-					ai[ll][jj]=tt
-				end
-				tt=b[kk]
-				b[kk]=b[ll]
-				b[ll]=tt
-			end
-			for ii=kk+1, nn do
-				qq=ai[ii][kk]/ai[kk][kk]
-				for jj=1, nn do
-					if jj==kk then
-						ai[ii][jj]=0
-					else
-						ai[ii][jj]=ai[ii][jj]-qq*ai[kk][jj]
+					local qq
+					for ii=kk+1, nn do
+						qq=ai[ii][kk]/ai[kk][kk]
+						for jj=1, nn do
+							if jj==kk then
+								ai[ii][jj]=0
+							else
+								ai[ii][jj]=ai[ii][jj]-qq*ai[kk][jj]
+							end
+						end
+						b[ii]=b[ii]-qq*b[kk]
 					end
 				end
-				b[ii]=b[ii]-qq*b[kk]
-			end
-		end
 
-		 x[nn]=b[nn]/ai[nn][nn]
+				solve = {}
+				solve[nn]=b[nn]/ai[nn][nn]
 
-		for ii=nn-1, 1, -1 do
-			tt=0
-			for jj=1, nn-ii do
-				tt=tt+ai[ii][ii+jj]*x[ii+jj]
-				x[ii]=(1/ai[ii][ii])*(b[ii]-tt)
-			end
-		end
-
-		---
-		for n=i0, i0+p do
-			sum=0
-			for kk=1, degree do
-				sum = sum + x[kk+1]*math.pow(n,kk)
-			end
-			fx_buffer[n]=x[1]+sum
-			if index == (Size() - barsshift) then
-				SetValue(index+n-bars, 1, fx_buffer[n])
-			end
-		end
-
-		--- Std
-		sq=0.0
-		for n=i0, i0+p do
-			if CandleExist(index+n-bars) then
-				sq = sq + math.pow(C(index+n-bars)-fx_buffer[n],2)
-			end
-		end
-
-		sq = math.sqrt(sq/(p-1))
-
-		if index == (Size() - barsshift) then
-			for n=i0, i0+p do
-				if kstd1 > 0 then
-					SetValue(index+n-bars, 2, fx_buffer[n]+sq*kstd1)
-					SetValue(index+n-bars, 3, fx_buffer[n]-sq*kstd1)
+				for ii=nn-1, 1, -1 do
+					tt=0
+					for jj=1, nn-ii do
+						tt=tt+ai[ii][ii+jj]*solve[ii+jj]
+						solve[ii]=(1/ai[ii][ii])*(b[ii]-tt)
+					end
 				end
-				if kstd2 > 0 then
-					SetValue(index+n-bars, 4, fx_buffer[n]+sq*kstd2)
-					SetValue(index+n-bars, 5, fx_buffer[n]-sq*kstd2)
+
+				---
+				for n=0, p do
+					local sum = 0
+					for kk=1, degree do
+						sum = sum + solve[kk+1]*math_pow(n,kk)
+					end
+					fx_buffer[n]=solve[1]+sum
+					if index == (Size() - barsshift) then
+						SetValue(index+n-bars, 1, fx_buffer[n])
+					end
 				end
-				if kstd3 > 0 then
-					SetValue(index+n-bars, 6, fx_buffer[n]+sq*kstd3)
-					SetValue(index+n-bars, 7, fx_buffer[n]-sq*kstd3)
+
+				--- Std
+				sq = 0.0
+				for n=0, p do
+					if CandleExist(index+n-bars) then
+						sq = sq + math_pow(C(index+n-bars)-fx_buffer[n],2)
+					end
 				end
-				if kstd4 > 0 then
-					SetValue(index+n-bars, 8, fx_buffer[n]+sq*kstd4)
-					SetValue(index+n-bars, 9, fx_buffer[n]-sq*kstd4)
+
+				sq = math.sqrt(sq/(p-1))
+
+				if index == (Size() - barsshift) then
+					for n=0, p do
+						if kstd1 > 0 then
+							SetValue(index+n-bars, 2, fx_buffer[n]+sq*kstd1)
+							SetValue(index+n-bars, 3, fx_buffer[n]-sq*kstd1)
+						end
+						if kstd2 > 0 then
+							SetValue(index+n-bars, 4, fx_buffer[n]+sq*kstd2)
+							SetValue(index+n-bars, 5, fx_buffer[n]-sq*kstd2)
+						end
+						if kstd3 > 0 then
+							SetValue(index+n-bars, 6, fx_buffer[n]+sq*kstd3)
+							SetValue(index+n-bars, 7, fx_buffer[n]-sq*kstd3)
+						end
+						if kstd4 > 0 then
+							SetValue(index+n-bars, 8, fx_buffer[n]+sq*kstd4)
+							SetValue(index+n-bars, 9, fx_buffer[n]-sq*kstd4)
+						end
+					end
 				end
+			else
+				local sum = 0
+				local b = p + index - last_cal_bar
+				for kk = 1, degree do
+					sum = sum + solve[kk+1]*math_pow(b,kk)
+				end
+				fx_buffer[b] = solve[1]+sum
+				SetValue(index, 1, fx_buffer[b])
+	            -- myLog('CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'b', b, 'fx_buffer', #fx_buffer, fx_buffer[b])
 			end
-		end
 
-
-		SetValue(index-bars, 1, nil)
-        SetValue(index-bars, 2, nil)
-        SetValue(index-bars, 3, nil)
-        SetValue(index-bars, 4, nil)
-        SetValue(index-bars, 5, nil)
-        SetValue(index-bars, 6, nil)
-        SetValue(index-bars, 7, nil)
-        SetValue(index-bars, 8, nil)
-        SetValue(index-bars, 9, nil)
-
-		calculated_buffer[index] = true
-		out1 = fx_buffer[bars]
-		if kstd1 > 0 then
-			out2 = fx_buffer[bars]+sq*kstd1
-			out3 = fx_buffer[bars]-sq*kstd1
-		end
-		if kstd2 > 0 then
-			out4 = fx_buffer[bars]+sq*kstd2
-			out5 = fx_buffer[bars]-sq*kstd2
-		end
-		if kstd3 > 0 then
-			out6 = fx_buffer[bars]+sq*kstd3
-			out7 = fx_buffer[bars]-sq*kstd3
-		end
-		if kstd4 > 0 then
-			out8 = fx_buffer[bars]+sq*kstd4
-			out9 = fx_buffer[bars]-sq*kstd4
-		end
-		if showHistory then
-			out10 = fx_buffer[bars]
+			calculated_buffer[index] = true
+			out1 = fx_buffer[#fx_buffer]
 			if kstd1 > 0 then
-				out11 = fx_buffer[bars]+sq*kstd1
-				out12 = fx_buffer[bars]-sq*kstd1
+				out2 = out1+sq*kstd1
+				out3 = out1-sq*kstd1
+			end
+			if kstd2 > 0 then
+				out4 = out1+sq*kstd2
+				out5 = out1-sq*kstd2
+			end
+			if kstd3 > 0 then
+				out6 = out1+sq*kstd3
+				out7 = out1-sq*kstd3
+			end
+			if kstd4 > 0 then
+				out8 = out1+sq*kstd4
+				out9 = out1-sq*kstd4
+			end
+			if showHistory and index < start_index then
+				out10 = out1
+				if kstd1 > 0 then
+					out11 = out1+sq*kstd1
+					out12 = out1-sq*kstd1
+				end
 			end
 
-		end
-
+        end)
+        if not status then
+            if not error_log[tostring(res)] then
+                error_log[tostring(res)] = true
+                myLog(tostring(res))
+                message(tostring(res))
+            end
+            return nil
+        end
 		return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12
-
 	end
 
 end
 ----------------------------    ----------------------------    ----------------------------
 ----------------------------    ----------------------------    ----------------------------
 ----------------------------    ----------------------------    ----------------------------
-function FindExistCandle(I)
 
-	local out = I
-
-	while not CandleExist(out) and out > 0 do
-		out = out -1
-	end
-
-	return out
-
+function _G.Init()
+	PlotLines = Reg(_G.Settings)
+	return lines
 end
 
- function Init()
-	myfunc = Reg()
-	return #Settings.line
- end
+function _G.OnChangeSettings()
+    _G.Init()
+end
 
-function OnCalculate(index)
+function _G.OnCalculate(index)
 
-	--WriteLog ("OnCalc() ".."CandleExist("..index.."): "..tostring(CandleExist(index)))
-
-	if Settings.degree > 3 then
+	if _G.Settings['Вид регрессии'] > 3 then
 		return nil
 	end
 
-	return myfunc(index, Settings)
- end
-
-function WriteLog(text)
-
-   logfile:write(tostring(os.date("%c",os.time())).." "..text.."\n")
-   logfile:flush()
-   LASTLOGSTRING = text
-
+	return PlotLines(index)
 end
