@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2022.03.30',
+    _VERSION     = 'MA lib 2022.04.06',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -471,7 +471,7 @@ end
 --[[Sum od values
 sum(Pi)
 ]]
-local function F_SUM(settings, ds)
+local function F_SUM(settings)
 
     local period    = (settings.period or 9)
     local save_bars = (settings.save_bars or period)
@@ -482,7 +482,7 @@ local function F_SUM(settings, ds)
     local l_index
     return function(index, val)
         S_TMP[index]    = S_TMP[index-1] or 0
-        if not CheckIndex(index, ds) then
+        if not val then
             return S_TMP
         end
         S_ACC[#S_ACC + (l_index == index and 0 or 1)] = (S_ACC[#S_ACC - (l_index == index and 1 or 0)] or 0) + (val or 0)
@@ -512,7 +512,7 @@ local function F_SMA(settings, ds)
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
-    local fSum      = F_SUM(settings, ds)
+    local fSum      = F_SUM(settings)
     local SMA_TMP   = {}
     local bars      = 0
     local l_index
@@ -763,8 +763,8 @@ local function F_VMA(settings, ds)
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
-    local fSum      = F_SUM(settings, ds)
-    local fSumV     = F_SUM(settings, ds)
+    local fSum      = F_SUM(settings)
+    local fSumV     = F_SUM(settings)
     local VMA       = {}
     local VMA_ACC   = {}
     local VMA_VACC  = {}
@@ -806,7 +806,7 @@ local function F_SMMA(settings, ds)
     local save_bars = (settings.save_bars or period)
 
     local SMMA_TMP  = {}
-    local fSum      = F_SUM(settings, ds)
+    local fSum      = F_SUM(settings)
     local bars      = 0
     local l_index
     return function(index)
@@ -869,7 +869,8 @@ end
 ]]
 local function F_AMA(settings, ds)
 
-    local period        = (settings.period or 9)
+    local period        = (settings.period or 10)
+    local shift         = (settings.shift or period)
     local fast_period   = (settings.fast_period or 2)
     local slow_period   = (settings.slow_period or 30)
     local data_type     = (settings.data_type or "Close")
@@ -877,50 +878,44 @@ local function F_AMA(settings, ds)
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
 
-    local p_index
-    local l_index
-    local Delta
+    local value
     local fSUM
     local AMA
+    local begin_index
     local fast_k = 2/(fast_period + 1)
     local slow_k = 2/(slow_period + 1)
 
     return function(index)
-        if Delta == nil or index == 1 then
-            Delta           = {}
-            Delta[index]    = 0
-            fSUM            = F_SUM({period = period, data_type = 'Any', round = round, scale = scale}, Delta)
-            fSUM(index, Delta[index])
+        if value == nil or index == begin_index then
+            begin_index     = index
+            value           = {}
+            value[index]    = Value(index, data_type, ds) or 0
+            fSUM            = F_SUM({period = period, data_type = 'Any', round = round, scale = scale})
+            fSUM(index, 0)
             AMA             = {}
             AMA[index]      = rounding(Value(index, data_type, ds), round, scale) or 0
-            p_index         = index
-            l_index         = index
             return AMA
         end
 
         AMA[index]      = AMA[index-1]
-        Delta[index]    = Delta[index-1]
+        value[index]    = value[index-1]
 
         if not CheckIndex(index, ds) then
             return AMA
         end
-
-        if index ~= l_index then p_index = l_index end
-
-        Delta[index]    = math_abs(Value(index, data_type, ds) - Value(p_index, data_type, ds))
-        local sum       = fSUM(index, Delta[index])[index]
-        local er        = sum == 0 and 1 or Delta[index]/sum
+        value[index]    = Value(index, data_type, ds)
+        local sum       = fSUM(index, math_abs(value[index] - value[index-1]))[index]
+        if index - begin_index < period then return AMA end
+        local er        = sum == 0 and 1 or (math_abs(value[index] -value[index-shift]))/sum
         local ssc       = math_pow(er*(fast_k - slow_k) + slow_k, 2)
 
         if AMA[index-1] == nil then
             AMA[index] = rounding(Value(index, data_type, ds), round, scale)
         else
-            AMA[index] = rounding((Value(index, data_type, ds)*ssc - AMA[index-1])*(ssc) , round, scale)
             AMA[index] = rounding(AMA[index-1] + (Value(index, data_type, ds) - AMA[index-1])*ssc , round, scale)
         end
         AMA[index-save_bars] = nil
-
-        l_index = index
+        value[index-shift-1] = nil
 
         return AMA
      end
