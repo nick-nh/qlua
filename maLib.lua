@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2022.04.06',
+    _VERSION     = 'MA lib 2022.05.10',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -752,6 +752,57 @@ local function F_HMA(settings, ds)
     end
 end
 
+--[[
+Jurik Moving Average
+]]
+local function F_JMA(settings, ds)
+
+    local period        = (settings.period or 7)
+    local phase         = (settings.phase or 3)
+    local power         = (settings.power or 1)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+
+    local phase_ratio   = phase < -100 and 0.5 or (phase > 100 and 2.5 or phase/100 + 1.5)
+    local beta          = 0.45 * (period - 1) / (0.45 * (period - 1) + 2)
+    local alpha         = math_pow(beta, power)
+
+    local JMA           = {}
+    local J0            = {}
+    local J1            = {}
+    local J2            = {}
+
+    return function(index)
+        JMA[index]  = JMA[index-1] or 0
+        J0[index]   = J0[index-1] or 0
+        J1[index]   = J1[index-1] or 0
+        J2[index]   = J2[index-1] or 0
+
+        if not CheckIndex(index, ds) then
+            return JMA
+        end
+
+        local val = Value(index, data_type, ds)
+        J0[index] = (1 - alpha)*val + alpha*(J0[index-1] or 0)
+        J1[index] = (val - J0[index]) * (1 - beta) + beta*(J1[index-1] or 0)
+        J2[index] = (J0[index] + phase_ratio*J1[index] - (JMA[index-1] or 0)) * math_pow(1 - alpha, 2) + math_pow(alpha, 2)*(J2[index-1] or 0)
+
+        if JMA[index-1] == nil then
+            JMA[index] = rounding(Value(index, data_type, ds), round, scale)
+        else
+            JMA[index] = rounding(J2[index] + (JMA[index-1] or 0), round, scale)
+        end
+
+        JMA[index-save_bars]    = nil
+        J0[index-save_bars]     = nil
+        J1[index-save_bars]     = nil
+        J2[index-save_bars]     = nil
+        return JMA
+    end
+end
+
 --[[Volume Adjusted Moving Average (VMA)
 VMA = sum(Pi*Vi) / sum(Vi)
 ]]
@@ -766,29 +817,16 @@ local function F_VMA(settings, ds)
     local fSum      = F_SUM(settings)
     local fSumV     = F_SUM(settings)
     local VMA       = {}
-    local VMA_ACC   = {}
-    local VMA_VACC  = {}
-    local bars      = 0
-    local l_index
+    local sumV
+
     return function (index)
         VMA[index]  = VMA[index-1] or 0
         if not CheckIndex(index, ds) then
             return VMA
         end
-        local vol       = Value(index, "Volume", ds) or 0
-        VMA_ACC[index]  = fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]
-        VMA_VACC[index] = fSumV(index, vol)[index]
-        if l_index ~= index then
-            l_index = index
-            bars = bars + 1
-        end
-        if bars > period then
-            local sum   = VMA_ACC[index] - (VMA_ACC[index-period] or 0)
-            local sum_v = VMA_VACC[index] - (VMA_VACC[index-period] or 0)
-            VMA[index] = sum_v == 0 and VMA[index] or rounding(sum/sum_v, round, scale)
-        else
-            VMA[index] = VMA_VACC[index] == 0 and VMA[index] or rounding(VMA_ACC[index]/VMA_VACC[index], round, scale)
-        end
+        local vol   = Value(index, "Volume", ds) or 0
+        sumV        = fSumV(index, vol)[index]
+        VMA[index] = sumV == 0 and VMA[index] or rounding(fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]/sumV, round, scale)
         VMA[index-save_bars] = nil
         return VMA
     end
@@ -2453,6 +2491,7 @@ local FUNCTOR = {
     WMA     = F_WMA,
     LWMA    = F_LWMA,
     HMA     = F_HMA,
+    JMA     = F_JMA,
     TEMA    = F_TEMA,
     FRAMA   = F_FRAMA,
     AMA     = F_AMA,
@@ -2483,6 +2522,7 @@ M.ALGO_LINES = {
     WMA     = {'WMA'},
     LWMA    = {'LWMA'},
     HMA     = {'HMA'},
+    JMA     = {'JMA'},
     TEMA    = {'TEMA'},
     FRAMA   = {'FRAMA'},
     AMA     = {'AMA'},
