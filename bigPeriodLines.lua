@@ -2,7 +2,7 @@ _G.unpack = rawget(table, "unpack") or _G.unpack
 
 --Для включения логирования надо раскомментировать строку
 local logFile = nil
---logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\bigPeriodLines.txt", "w")
+-- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\bigPeriodLines.txt", "w")
 
 --[[
 	nick-h@yandex.ru
@@ -34,7 +34,7 @@ _G.Settings= {
 		Name 		= "*BigPeriodLines",
 		indTag   	= 'testChart',
 		indOffset 	= 0,
-		showLines   = '1;2;3',
+		showLines   = '1;2;3;4;5;6',
 		smoothLines = 0
 }
 
@@ -66,7 +66,7 @@ local linesSettings = {
 		}
 }
 
-local PlotLines 	= function() end
+local PlotLines 	= function(index) return index end
 local error_log     = {}
 
 local floor 		= math.floor
@@ -117,9 +117,21 @@ local function toYYYYMMDDHHMMSS(datetime)
 	 end
 end --toYYYYMMDDHHMMSS
 
-local function myLog(text)
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
+
+local function myLog(...)
 	if logFile==nil then return end
-    logFile:write(tostring(os.date("%c",os_time())).." "..text.."\n");
+    logFile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
     logFile:flush();
 end
 
@@ -213,10 +225,11 @@ end
 local function GetBigLine(big_index, line_index, settings)
     local status,res = pcall(function()
 		local line,_, l = getCandlesByIndex(settings.indTag, line_index, big_index - settings.indOffset, 1)
-		if l and type(line) == 'table' and line[#line] then
-			return line[#line].close
+		-- myLog('GetBigLine big_index: '..tostring(big_index)..', line: '..tostring(line_index+1)..' val '..tostring((type(line) == 'table' and line[#line]) and line[#line].close or '--')..' doesExist '..tostring((type(line) == 'table' and line[#line]) and line[#line].doesExist or '--'))
+		if type(line) == 'table' and line[#line] then
+			return line[#line].doesExist == 1 and line[#line].close or nil
 		else
-			myLog('GetBigLine ошибка получения значения индикатора big_index: '..tostring(big_index)..', line: '..tostring(line_index))
+			myLog('GetBigLine ошибка получения значения индикатора big_index: '..tostring(big_index)..', line: '..tostring(line_index+1)..' type(line) '..type(line)..' l '..tostring(l))
 		end
 		return 0
 	end)
@@ -252,6 +265,8 @@ local function CalcFunc(settings)
 		myLog(k..' line '..tostring(v))
 	end
 
+	local lines = #settings.line
+
 	return function(index)
 
 		local status,res = pcall(function()
@@ -264,7 +279,7 @@ local function CalcFunc(settings)
 				myLog('-------------------------------------------------------')
 				big_lines 					= {}
 				big_lines[index] 			= {}
-				for i=1,#settings.line do
+				for i=1, lines do
 					big_lines[index][i] 	= C(index)
 				end
 				last_index 					= 1
@@ -280,19 +295,19 @@ local function CalcFunc(settings)
 
 			for i=1,#settings.line do
 				local new_val_line 		= GetBigLine(new_big_index, settings.big_line[i], settings)
-				if index == Size() and new_val_line == 0 then
-					myLog('Не получен бар старшего интервала')
-					return nil
-				end
-				big_lines[index][i] = new_val_line == 0 and big_lines[index-1][i] or new_val_line
+				-- if index == Size() and new_val_line == 0 then
+				-- 	myLog('Не получен бар старшего интервала линии '..tostring(i))
+				-- 	return nil
+				-- end
+				big_lines[index][i] = new_val_line-- and big_lines[index-1][i] or new_val_line
 				if index >= Size() - 50 then myLog('index: '..tostring(index)..' - '..toYYYYMMDDHHMMSS(T(index))..', line: '..tostring(i)..', big_lines: '..tostring(big_lines[index][i])..', last_prev_index: '..tostring(last_prev_index)..', last_index: '..tostring(last_index)) end
 				if index == Size() or (settings.smoothLines == 1 and new_big_index~=big_index) then
-					local val_line = new_val_line
+					local val_line = new_val_line or big_lines[index-1][i]
 					if new_big_index~=big_index then
 						if index >= Size() - 50 then myLog('new_big_index: '..tostring(new_big_index)..', last_index: '..tostring(last_index)..', last_prev_index: '..tostring(last_prev_index)..', index: '..tostring(index))	end
 						val_line 			= GetBigLine(big_index, settings.big_line[i], settings) or big_lines[index-1][i]
 						local delta_range
-						if settings.smoothLines == 1 and last_prev_index~=0 then
+						if val_line and settings.smoothLines == 1 and last_prev_index~=0 then
 							local prev_val_line = GetBigLine(big_index-1, settings.big_line[i], settings) or big_lines[index-1][i]
 							bars 				= last_index - last_prev_index
 							delta_range 		= (val_line - prev_val_line)
@@ -310,16 +325,20 @@ local function CalcFunc(settings)
 					bars 				= index - last_index
 					if settings.smoothLines == 1 and last_index~=0 then
 						val_line 		= GetBigLine((new_big_index~=big_index and big_index or big_index-1), settings.big_line[i], settings) or big_lines[index-1][i]
-						delta_range 		= (new_val_line - val_line)
-						bars 				= index - (new_big_index~=big_index and last_index or last_prev_index)
+						if val_line then
+							delta_range 	= (new_val_line - val_line)
+							bars 			= index - (new_big_index~=big_index and last_index or last_prev_index)
+						end
 					end
 					if index >= Size() - 50 then myLog('new_val_line: '..tostring(new_val_line)..', delta: '..tostring(delta_range)..', bars: '..tostring(bars)) end
-					local sum = 0
-					for ind = 0, bars, 1 do
-						sum = sum + (ind == 0 and 0 or (delta_range-sum)/(bars-ind+1))
-						big_lines[index - bars+ind][i] = val_line+sum
-						SetValue(index - bars+ind, i, val_line+sum)
-						if index >= Size() - 50 then myLog('Set index : '..tostring(index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(index - bars+ind))..' val = '..tostring(val_line+sum)) end
+					if val_line then
+						local sum = 0
+						for ind = 0, bars, 1 do
+							sum = sum + (ind == 0 and 0 or (delta_range-sum)/(bars-ind+1))
+							big_lines[index - bars+ind][i] = val_line+sum
+							SetValue(index - bars+ind, i, val_line+sum)
+							if index >= Size() - 50 then myLog('Set index : '..tostring(index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(index - bars+ind))..' val = '..tostring(val_line+sum)) end
+						end
 					end
 				end
 			end
@@ -339,7 +358,7 @@ local function CalcFunc(settings)
             end
 		end
 
-		return unpack(big_lines[index] or {})
+		return unpack(big_lines[index] or {}, 1, lines)
 
 	end
 end
@@ -348,7 +367,7 @@ function _G.Init()
 
 	_G.Settings.line 		= {}
 	_G.Settings.big_line 	= {}
-	local i 			= 1
+	local i 				= 1
 	for line in string.gmatch(_G.Settings.showLines, "([^;]+)") do
 		_G.Settings.line[i] 	= {}
 		_G.Settings.line[i] 	= linesSettings[i] or {Color = line_color, Type = TYPE_LINE, Width = 2}
