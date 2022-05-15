@@ -2,7 +2,7 @@
 	nick-h@yandex.ru
 	https://github.com/nick-nh/qlua
 
-	Регрессия: линейная, параболическая, кубическая
+	Регрессия: линейная, параболическая, кубическая, 4-ой степени
 ]]
 
 local logFile = nil
@@ -18,6 +18,8 @@ local RGB                   = _G['RGB']
 local TYPE_LINE             = _G['TYPE_LINE']
 local TYPE_DASHLINE         = _G['TYPE_DASHLINE']
 local TYPE_DASH         	= _G['TYPE_DASH']
+local TYPE_TRIANGLE_UP      = _G['TYPE_TRIANGLE_UP']
+local TYPE_TRIANGLE_DOWN    = _G['TYPE_TRIANGLE_DOWN']
 local C                     = _G['C']
 local isDark                = _G.isDarkTheme()
 local line_color            = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
@@ -27,23 +29,29 @@ _G.Settings =
 	{
 		Name = "*iReg",
 		['Период'] 							= 200,
-		['Отклонение1']						= 1.0,
-		['Отклонение2']						= 2.0,
-		['Отклонение3']						= 3.0,
-		['Отклонение4']						= 4.0,
+		-- Рассчитывать бар
+		-- Если не задан сдвиг, то будет рассчитана на указанное число бар и показана история.
+		['Рассчитывать бар']				= 1000,
+		['Отклонение1']						= 2.0,
+		['Отклонение2']						= 3.0,
+		['Отклонение3']						= 4.0,
+		['Отклонение4']						= 5.0,
+		-- Дельта тренда %
+		-- Для сменты тренда необходимо, чтобы значения на концах рассчета отличались более чем указанный процент.
+		['Дельта тренда %']					= 0.1,
 		['Вид регрессии'] 					= 1, -- 1 linear, 2 parabolic, 3 third-power
 		-- Сдвиг бар
 		-- Если задан сдвиг, то построение канала начинается от бара, смещенного на сдвиг.
 		-- Далее идет продолжение канала по расчитанным данным (предсказание). Пересчет не производится.
 		-- Это позволит оценить качество построенного канала на истории, относительно новых данных.
 		['Сдвиг бар']						= 0,
-		-- Показывать историю
+		-- Показывать всю историю
 		-- Показывается канал на исторических данных. Расчет для каждого бара истории.
-		['Показывать историю']				= 0,
-		--Пересчитывать при отклонении
+		['Показывать всю историю']			= 0,
+		-- Пересчитывать при отклонении
 		-- при расчете без сдвига, после построения канала, если цена зашла за границу отклонения,
 		-- то происходит полный пересчет канала. Иначе идет продолжение исходного канала.
-		['Пересчитывать при отклонении >']	= 3,
+		['Пересчитывать при отклонении >']	= 0,
 		line=
 			{
 				{
@@ -117,6 +125,24 @@ _G.Settings =
 					Color = RGB(192, 0, 0),
 					Type = TYPE_DASH,
 					Width = 1
+				},
+				{
+					Name = "RegPredictPoint",
+					Color = line_color,
+					Type = _G.TYPE_POINT,
+					Width = 3
+				},
+				{
+					Name = "change dir up",
+					Type = TYPE_TRIANGLE_UP,
+					Width = 3,
+					Color = RGB(89,213, 107)
+				},
+				{
+					Name = "change dir dw",
+					Type = TYPE_TRIANGLE_DOWN,
+					Width = 3,
+					Color = RGB(255, 58, 0)
 				}
 			}
 	}
@@ -151,6 +177,8 @@ local function Reg(Fsettings)
 
 	Fsettings			= (Fsettings or {})
 	local bars 			= Fsettings['Период'] or 182
+	local calc_bars		= Fsettings['Рассчитывать бар'] or 1000
+	local trend_delta	= Fsettings['Дельта тренда %'] or 0.1
 	local kstd1 		= Fsettings['Отклонение1'] or 1
 	local kstd2 		= Fsettings['Отклонение2'] or 2
 	local kstd3 		= Fsettings['Отклонение3'] or 3
@@ -158,7 +186,7 @@ local function Reg(Fsettings)
 	local barsshift 	= Fsettings['Сдвиг бар'] or 0
 	local degree 		= Fsettings['Вид регрессии'] or 1
 	local calc_over		= Fsettings['Пересчитывать при отклонении >'] or 3
-	local showHistory 	= (Fsettings['Показывать историю'] or 0) == 1
+	local showHistory 	= (Fsettings['Показывать всю историю'] or 0) == 1
 
 	local fx_buffer	= {}
 	local sx		= {}
@@ -168,7 +196,7 @@ local function Reg(Fsettings)
 	error_log = {}
 
 	local p 	= bars
-	local ai	= {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
+	local ai	= {{1,2,3,4,5}, {1,2,3,4,5}, {1,2,3,4,5}, {1,2,3,4,5}, {1,2,3,4,5}}
 	local nn 	= degree+1
 	local solve	= {}
 
@@ -184,7 +212,11 @@ local function Reg(Fsettings)
 	local out10 = nil
 	local out11 = nil
 	local out12 = nil
+	local out13 = nil
+	local out14 = nil
+	local out15 = nil
 
+	local trend
 	local last_cal_bar
 	local start_index
 
@@ -192,7 +224,24 @@ local function Reg(Fsettings)
 
 		local status, res = pcall(function()
 
+
 			if index == 1 then
+
+				out1 = nil
+				out2 = nil
+				out3 = nil
+				out4 = nil
+				out5 = nil
+				out6 = nil
+				out7 = nil
+				out8 = nil
+				out9 = nil
+				out10 = nil
+				out11 = nil
+				out12 = nil
+				out12 = nil
+				out14 = nil
+				out15 = nil
 
 				calculated_buffer 	= {}
 				fx_buffer 			= {}
@@ -211,7 +260,9 @@ local function Reg(Fsettings)
 				end
 
 				last_cal_bar 	= index
-				start_index 	= Size() - barsshift
+				start_index 	= barsshift == 0 and (Size() - calc_bars) or (Size() - barsshift - bars)
+				trend			= {}
+
 	            -- myLog('--------------------------------------------------------------------------------')
 	            -- myLog('--------------------------------------------------------------------------------')
 	            -- myLog('--------------------------------------------------------------------------------')
@@ -220,24 +271,10 @@ local function Reg(Fsettings)
 				return nil
 			end
 
-			SetValue(index-bars-barsshift, 1, nil)
-			SetValue(index-bars-barsshift, 2, nil)
-			SetValue(index-bars-barsshift, 3, nil)
-			SetValue(index-bars-barsshift, 4, nil)
-			SetValue(index-bars-barsshift, 5, nil)
-			SetValue(index-bars-barsshift, 6, nil)
-			SetValue(index-bars-barsshift, 7, nil)
-			SetValue(index-bars-barsshift, 8, nil)
-			SetValue(index-bars-barsshift, 9, nil)
-
-			if not CandleExist(index) or index <= bars then
-				return nil
-			end
-
-			if index < start_index and not showHistory then return nil end
+			trend[index] = trend[index - 1]
 
 			if calculated_buffer[index] ~= nil then
-				return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12
+				return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15
 			end
 
 			--Calc
@@ -253,13 +290,50 @@ local function Reg(Fsettings)
 			out10 = nil
 			out11 = nil
 			out12 = nil
+			out12 = nil
+			out14 = nil
+			out15 = nil
+
+			SetValue(index-bars-barsshift, 1, nil)
+			SetValue(index-bars-barsshift, 2, nil)
+			SetValue(index-bars-barsshift, 3, nil)
+			SetValue(index-bars-barsshift, 4, nil)
+			SetValue(index-bars-barsshift, 5, nil)
+			SetValue(index-bars-barsshift, 6, nil)
+			SetValue(index-bars-barsshift, 7, nil)
+			SetValue(index-bars-barsshift, 8, nil)
+			SetValue(index-bars-barsshift, 9, nil)
+			if not showHistory and index < start_index then
+				SetValue(index-bars-barsshift, 10, nil)
+				SetValue(index-bars-barsshift, 11, nil)
+				SetValue(index-bars-barsshift, 12, nil)
+			end
+
+			if not CandleExist(index) or index <= bars then
+				return nil
+			end
+
+			if index < start_index and not showHistory then return nil end
+
+			if index >= start_index then
+				SetValue(index-bars-barsshift-1, 1, nil)
+				SetValue(index-bars-barsshift-1, 2, nil)
+				SetValue(index-bars-barsshift-1, 3, nil)
+				SetValue(index-bars-barsshift-1, 4, nil)
+				SetValue(index-bars-barsshift-1, 5, nil)
+				SetValue(index-bars-barsshift-1, 6, nil)
+				SetValue(index-bars-barsshift-1, 7, nil)
+				SetValue(index-bars-barsshift-1, 8, nil)
+				SetValue(index-bars-barsshift-1, 9, nil)
+			end
+
 
 			local delta = math.abs(C(index) - (fx_buffer[#fx_buffer] or 0))
 
 			if (barsshift == 0 and (delta >= calc_over*sq)) or index <= start_index then
 
 				last_cal_bar = index
-	            -- myLog('new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'last_cal_bar', last_cal_bar, 'calc_over', calc_over, 'delta', delta, 'calc_over*sq', calc_over*sq)
+	            -- myLog('new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'SetValue from', index-bars, 'last_cal_bar', last_cal_bar, 'calc_over', calc_over, 'delta', delta, 'calc_over*sq', calc_over*sq)
 
 				fx_buffer = {}
 
@@ -344,7 +418,7 @@ local function Reg(Fsettings)
 						sum = sum + solve[kk+1]*math_pow(n,kk)
 					end
 					fx_buffer[n]=solve[1]+sum
-					if index == (Size() - barsshift) then
+					if index >= start_index then
 						SetValue(index+n-bars, 1, fx_buffer[n])
 					end
 				end
@@ -359,7 +433,7 @@ local function Reg(Fsettings)
 
 				sq = math.sqrt(sq/(p-1))
 
-				if index == (Size() - barsshift) then
+				if index >= start_index then
 					for n=0, p do
 						if kstd1 > 0 then
 							SetValue(index+n-bars, 2, fx_buffer[n]+sq*kstd1)
@@ -379,6 +453,10 @@ local function Reg(Fsettings)
 						end
 					end
 				end
+				if barsshift > 0 and index == start_index then
+					-- SetValue(index, 13, fx_buffer[#fx_buffer])
+					out13 = fx_buffer[#fx_buffer]
+				end
 			else
 				local sum = 0
 				local b = p + index - last_cal_bar
@@ -387,7 +465,6 @@ local function Reg(Fsettings)
 				end
 				fx_buffer[b] = solve[1]+sum
 				SetValue(index, 1, fx_buffer[b])
-	            -- myLog('CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'b', b, 'fx_buffer', #fx_buffer, fx_buffer[b])
 			end
 
 			calculated_buffer[index] = true
@@ -408,13 +485,19 @@ local function Reg(Fsettings)
 				out8 = out1+sq*kstd4
 				out9 = out1-sq*kstd4
 			end
-			if showHistory and index < start_index then
+			if (showHistory and index < start_index) or index >= start_index then
 				out10 = out1
 				if kstd1 > 0 then
 					out11 = out1+sq*kstd1
 					out12 = out1-sq*kstd1
 				end
 			end
+			trend[index] 	= math.abs(fx_buffer[#fx_buffer] - fx_buffer[1])*100/fx_buffer[1] >= trend_delta and ((fx_buffer[#fx_buffer] - fx_buffer[#fx_buffer-1]) > 0 and 1 or -1) or trend[index-1]
+			if trend[index-1] ~= trend[index-2] then
+				out14 = trend[index-1] == 1 and _G.O(index) or nil
+				out15 = trend[index-1] == -1 and _G.O(index) or nil
+			end
+
 
         end)
         if not status then
@@ -425,7 +508,9 @@ local function Reg(Fsettings)
             end
             return nil
         end
-		return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12
+
+		-- myLog('out bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15)
+		return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15
 	end
 
 end
@@ -444,7 +529,7 @@ end
 
 function _G.OnCalculate(index)
 
-	if _G.Settings['Вид регрессии'] > 3 then
+	if _G.Settings['Вид регрессии'] > 4 then
 		return nil
 	end
 
