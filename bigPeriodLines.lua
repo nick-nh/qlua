@@ -309,21 +309,23 @@ local function CalcFunc(settings)
 						local delta_range
 						if val_line and settings.smoothLines == 1 and last_prev_index~=0 then
 							local prev_val_line = GetBigLine(big_index-1, settings.big_line[i], settings) or big_lines[index-1][i]
-							bars 				= last_index - last_prev_index
-							delta_range 		= (val_line - prev_val_line)
-							if index >= Size() - 50 then myLog('val_line: '..tostring(val_line)..', delta: '..tostring(delta_range)..', bars: '..tostring(bars)) end
-							local sum = 0
-							for ind = 0, bars, 1 do
-								sum = sum + (ind == 0 and 0 or (delta_range-sum)/(bars-ind+1))
-								big_lines[last_index - bars+ind][i] = prev_val_line+sum
-								SetValue(last_index - bars+ind, i, prev_val_line+sum)
-								if index >= Size() - 50 then myLog('Set index : '..tostring(last_index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(last_index - bars+ind))..' val = '..tostring(prev_val_line+sum)) end
+							if prev_val_line then
+								bars 				= last_index - last_prev_index
+								delta_range 		= (val_line - prev_val_line)
+								if index >= Size() - 50 then myLog('val_line: '..tostring(val_line)..', delta: '..tostring(delta_range)..', bars: '..tostring(bars)) end
+								local sum = 0
+								for ind = 0, bars, 1 do
+									sum = sum + (ind == 0 and 0 or (delta_range-sum)/(bars-ind+1))
+									big_lines[last_index - bars+ind][i] = prev_val_line+sum
+									SetValue(last_index - bars+ind, i, prev_val_line+sum)
+									if index >= Size() - 50 then myLog('Set index : '..tostring(last_index - bars+ind)..' - '..toYYYYMMDDHHMMSS(T(last_index - bars+ind))..' val = '..tostring(prev_val_line+sum)) end
+								end
 							end
 						end
 					end
 					local delta_range 	= 0
 					bars 				= index - last_index
-					if settings.smoothLines == 1 and last_index~=0 then
+					if settings.smoothLines == 1 and last_index~=0 and new_val_line then
 						val_line 		= GetBigLine((new_big_index~=big_index and big_index or big_index-1), settings.big_line[i], settings) or big_lines[index-1][i]
 						if val_line then
 							delta_range 	= (new_val_line - val_line)
