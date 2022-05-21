@@ -7,8 +7,8 @@
 
 local logFile = nil
 -- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\iReg.txt", "w")
-
-local math_pow = function(x, y) return x^y end
+_G.unpack 		= rawget(table, "unpack") or _G.unpack
+local math_pow 	= function(x, y) return x^y end
 
 local message               = _G['message']
 local SetValue              = _G['SetValue']
@@ -18,6 +18,7 @@ local RGB                   = _G['RGB']
 local TYPE_LINE             = _G['TYPE_LINE']
 local TYPE_DASHLINE         = _G['TYPE_DASHLINE']
 local TYPE_DASH         	= _G['TYPE_DASH']
+local TYPE_POINT         	= _G['TYPE_POINT']
 local TYPE_TRIANGLE_UP      = _G['TYPE_TRIANGLE_UP']
 local TYPE_TRIANGLE_DOWN    = _G['TYPE_TRIANGLE_DOWN']
 local C                     = _G['C']
@@ -48,109 +49,116 @@ _G.Settings =
 		-- Показывать всю историю
 		-- Показывается канал на исторических данных. Расчет для каждого бара истории.
 		['Показывать всю историю']			= 0,
+		['Выделять цветом историю']			= 1,
+		['Отклонения истории']				= '2;3;4',
 		-- Пересчитывать при отклонении
 		-- при расчете без сдвига, после построения канала, если цена зашла за границу отклонения,
 		-- то происходит полный пересчет канала. Иначе идет продолжение исходного канала.
 		['Пересчитывать при отклонении >']	= 0,
-		line=
-			{
-				{
-					Name = "iReg",
-					Color = line_color,
-					Type = TYPE_LINE,
-					Width = 1
-				},
-				{
-					Name = "+iReg1",
-					Color = RGB(0, 128, 0),
-					Type = TYPE_LINE,
-					Width = 1
-				},
-				{
-					Name = "-iReg1",
-					Color = RGB(192, 0, 0),
-					Type = TYPE_DASHLINE,
-					Width = 1
-				},
-				{
-					Name = "+iReg2",
-					Color = RGB(0, 128, 0),
-					Type = TYPE_LINE,
-					Width = 1
-				},
-				{
-					Name = "-iReg2",
-					Color = RGB(192, 0, 0),
-					Type = TYPE_DASHLINE,
-					Width = 1
-				},
-				{
-					Name = "+iReg3",
-					Color = RGB(0, 128, 0),
-					Type = TYPE_LINE,
-					Width = 1
-				},
-				{
-					Name = "-iReg3",
-					Color = RGB(192, 0, 0),
-					Type = TYPE_DASHLINE,
-					Width = 1
-				},
-				{
-					Name = "+iReg4",
-					Color = RGB(0, 128, 0),
-					Type = TYPE_LINE,
-					Width = 1
-				},
-				{
-					Name = "-iReg4",
-					Color = RGB(192, 0, 0),
-					Type = TYPE_DASHLINE,
-					Width = 1
-				},
-				{
-					Name = "iRegHist",
-					Color = RGB(0, 0, 255),
-					Type = TYPE_DASH,
-					Width = 1
-				},
-				{
-					Name = "+iRegHist",
-					Color = RGB(0, 128, 0),
-					Type = TYPE_DASH,
-					Width = 1
-				},
-				{
-					Name = "-iRegHist",
-					Color = RGB(192, 0, 0),
-					Type = TYPE_DASH,
-					Width = 1
-				},
-				{
-					Name = "RegPredictPoint",
-					Color = line_color,
-					Type = _G.TYPE_POINT,
-					Width = 3
-				},
-				{
-					Name = "change dir up",
-					Type = TYPE_TRIANGLE_UP,
-					Width = 3,
-					Color = RGB(89,213, 107)
-				},
-				{
-					Name = "change dir dw",
-					Type = TYPE_TRIANGLE_DOWN,
-					Width = 3,
-					Color = RGB(255, 58, 0)
-				}
-			}
 	}
 
+local lines_set =
+{
+	{
+		Name = "iReg",
+		Color = line_color,
+		Type = TYPE_LINE,
+		Width = 1
+	},
+	{
+		Name = "+iReg1",
+		Color = RGB(0, 128, 0),
+		Type = TYPE_LINE,
+		Width = 1
+	},
+	{
+		Name = "-iReg1",
+		Color = RGB(192, 0, 0),
+		Type = TYPE_DASHLINE,
+		Width = 1
+	},
+	{
+		Name = "+iReg2",
+		Color = RGB(0, 128, 0),
+		Type = TYPE_LINE,
+		Width = 1
+	},
+	{
+		Name = "-iReg2",
+		Color = RGB(192, 0, 0),
+		Type = TYPE_DASHLINE,
+		Width = 1
+	},
+	{
+		Name = "+iReg3",
+		Color = RGB(0, 128, 0),
+		Type = TYPE_LINE,
+		Width = 1
+	},
+	{
+		Name = "-iReg3",
+		Color = RGB(192, 0, 0),
+		Type = TYPE_DASHLINE,
+		Width = 1
+	},
+	{
+		Name = "+iReg4",
+		Color = RGB(0, 128, 0),
+		Type = TYPE_LINE,
+		Width = 1
+	},
+	{
+		Name = "-iReg4",
+		Color = RGB(192, 0, 0),
+		Type = TYPE_DASHLINE,
+		Width = 1
+	},
+	--10
+	{
+		Name = "RegPredictPoint",
+		Color = line_color,
+		Type = _G.TYPE_POINT,
+		Width = 3
+	},
+	--11
+	{
+		Name = "change dir up",
+		Type = TYPE_TRIANGLE_UP,
+		Width = 3,
+		Color = RGB(89,213, 107)
+	},
+	--12
+	{
+		Name = "change dir dw",
+		Type = TYPE_TRIANGLE_DOWN,
+		Width = 3,
+		Color = RGB(255, 58, 0)
+	},
+	--13
+	{
+		Name = "iRegHist",
+		Color = RGB(0, 0, 255),
+		Type = TYPE_DASH,
+		Width = 1
+	},
+	--14
+	{
+		Name = "hist up",
+		Type = TYPE_POINT,
+		Width = 2,
+		Color = RGB(89,213, 107)
+	},
+	--15
+	{
+		Name = "hist dw",
+		Type = TYPE_POINT,
+		Width = 2,
+		Color = RGB(255, 58, 0)
+	}
+}
 ----------------------------------------------------------
 
-local lines = #_G.Settings.line
-
+local lines = #lines_set
 local function log_tostring(...)
     local n = select('#', ...)
     if n == 1 then
@@ -185,8 +193,10 @@ local function Reg(Fsettings)
 	local kstd4 		= Fsettings['Отклонение4'] or 4
 	local barsshift 	= Fsettings['Сдвиг бар'] or 0
 	local degree 		= Fsettings['Вид регрессии'] or 1
+	local color 		= (Fsettings['Выделять цветом историю'] or 0) == 1
 	local calc_over		= Fsettings['Пересчитывать при отклонении >'] or 3
 	local showHistory 	= (Fsettings['Показывать всю историю'] or 0) == 1
+	local hist_std 		= Fsettings.hist_std or {}
 
 	local fx_buffer	= {}
 	local sx		= {}
@@ -200,21 +210,7 @@ local function Reg(Fsettings)
 	local nn 	= degree+1
 	local solve	= {}
 
-	local out1 	= nil
-	local out2 	= nil
-	local out3 	= nil
-	local out4 	= nil
-	local out5 	= nil
-	local out6 	= nil
-	local out7 	= nil
-	local out8 	= nil
-	local out9 	= nil
-	local out10 = nil
-	local out11 = nil
-	local out12 = nil
-	local out13 = nil
-	local out14 = nil
-	local out15 = nil
+	local out 	= {}
 
 	local trend
 	local last_cal_bar
@@ -224,24 +220,9 @@ local function Reg(Fsettings)
 
 		local status, res = pcall(function()
 
-
 			if index == 1 then
 
-				out1 = nil
-				out2 = nil
-				out3 = nil
-				out4 = nil
-				out5 = nil
-				out6 = nil
-				out7 = nil
-				out8 = nil
-				out9 = nil
-				out10 = nil
-				out11 = nil
-				out12 = nil
-				out12 = nil
-				out14 = nil
-				out15 = nil
+				out = {}
 
 				calculated_buffer 	= {}
 				fx_buffer 			= {}
@@ -262,37 +243,27 @@ local function Reg(Fsettings)
 				last_cal_bar 	= index
 				start_index 	= barsshift == 0 and (Size() - calc_bars) or (Size() - barsshift - bars)
 				trend			= {}
+				trend[index]	= 0
+	            -- myLog('--------------------------------------------------------------------------------')
+	            -- myLog('--------------------------------------------------------------------------------')
+	            -- myLog('--------------------------------------------------------------------------------')
+	            -- myLog('--------------- new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'start_index', start_index, 'lines', lines)
+				return
+			end
 
-	            -- myLog('--------------------------------------------------------------------------------')
-	            -- myLog('--------------------------------------------------------------------------------')
-	            -- myLog('--------------------------------------------------------------------------------')
-	            -- myLog('--------------- new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'start_index', start_index)
 
-				return nil
+			if calculated_buffer[index] ~= nil then
+				if trend[index-1] ~= trend[index-2] then
+					out[11] = trend[index-1] == 1 and _G.O(index) or nil
+					out[12] = trend[index-1] == -1 and _G.O(index) or nil
+				end
+				return
 			end
 
 			trend[index] = trend[index - 1]
 
-			if calculated_buffer[index] ~= nil then
-				return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15
-			end
-
 			--Calc
-			out1 = nil
-			out2 = nil
-			out3 = nil
-			out4 = nil
-			out5 = nil
-			out6 = nil
-			out7 = nil
-			out8 = nil
-			out9 = nil
-			out10 = nil
-			out11 = nil
-			out12 = nil
-			out12 = nil
-			out14 = nil
-			out15 = nil
+			out = {}
 
 			SetValue(index-bars-barsshift, 1, nil)
 			SetValue(index-bars-barsshift, 2, nil)
@@ -304,13 +275,15 @@ local function Reg(Fsettings)
 			SetValue(index-bars-barsshift, 8, nil)
 			SetValue(index-bars-barsshift, 9, nil)
 			if not showHistory and index < start_index then
-				SetValue(index-bars-barsshift, 10, nil)
-				SetValue(index-bars-barsshift, 11, nil)
-				SetValue(index-bars-barsshift, 12, nil)
+				for i = 16, lines do
+					if hist_std[i] then
+						SetValue(index-bars-barsshift, i, nil)
+					end
+				end
 			end
 
 			if not CandleExist(index) or index <= bars then
-				return nil
+				return
 			end
 
 			if index < start_index and not showHistory then return nil end
@@ -455,7 +428,7 @@ local function Reg(Fsettings)
 				end
 				if barsshift > 0 and index == start_index then
 					-- SetValue(index, 13, fx_buffer[#fx_buffer])
-					out13 = fx_buffer[#fx_buffer]
+					out[10] = fx_buffer[#fx_buffer]
 				end
 			else
 				local sum = 0
@@ -467,37 +440,51 @@ local function Reg(Fsettings)
 				SetValue(index, 1, fx_buffer[b])
 			end
 
-			calculated_buffer[index] = true
-			out1 = fx_buffer[#fx_buffer]
-			if kstd1 > 0 then
-				out2 = out1+sq*kstd1
-				out3 = out1-sq*kstd1
-			end
-			if kstd2 > 0 then
-				out4 = out1+sq*kstd2
-				out5 = out1-sq*kstd2
-			end
-			if kstd3 > 0 then
-				out6 = out1+sq*kstd3
-				out7 = out1-sq*kstd3
-			end
-			if kstd4 > 0 then
-				out8 = out1+sq*kstd4
-				out9 = out1-sq*kstd4
-			end
-			if (showHistory and index < start_index) or index >= start_index then
-				out10 = out1
-				if kstd1 > 0 then
-					out11 = out1+sq*kstd1
-					out12 = out1-sq*kstd1
-				end
-			end
+			out[1] = fx_buffer[#fx_buffer]
+
 			trend[index] 	= math.abs(fx_buffer[#fx_buffer] - fx_buffer[1])*100/fx_buffer[1] >= trend_delta and ((fx_buffer[#fx_buffer] - fx_buffer[#fx_buffer-1]) > 0 and 1 or -1) or trend[index-1]
 			if trend[index-1] ~= trend[index-2] then
-				out14 = trend[index-1] == 1 and _G.O(index) or nil
-				out15 = trend[index-1] == -1 and _G.O(index) or nil
+				out[11] = trend[index-1] == 1 and _G.O(index) or nil
+				out[12] = trend[index-1] == -1 and _G.O(index) or nil
 			end
 
+			if kstd1 > 0 then
+				out[2] = out[1]+sq*kstd1
+				out[3] = out[1]-sq*kstd1
+			end
+			if kstd2 > 0 then
+				out[4] = out[1]+sq*kstd2
+				out[5] = out[1]-sq*kstd2
+			end
+			if kstd3 > 0 then
+				out[6] = out[1]+sq*kstd3
+				out[7] = out[1]-sq*kstd3
+			end
+			if kstd4 > 0 then
+				out[8] = out[1]+sq*kstd4
+				out[9] = out[1]-sq*kstd4
+			end
+			if (showHistory and index < start_index) or index >= start_index then
+				if color then
+					out[14] = trend[index] == 1 and out[1] or nil
+					out[15] = trend[index] == -1 and out[1] or nil
+				else
+					out[13] = out[1]
+				end
+				for i = 16, lines, 2 do
+					if hist_std[i] then
+						out[i] 	 = out[1]+sq*hist_std[i]
+					end
+					if hist_std[i+1] then
+						out[i+1] = out[1]-sq*hist_std[i+1]
+					end
+					-- myLog('set lines', lines, index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'i', i, 'out[i]', out[i], 'hist_std[i]', hist_std[i], 'out[i+1]', out[i+1], 'hist_std[i+1]', hist_std[i+1])
+				end
+			end
+
+	        -- myLog('new CalcTradeSignals bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), 'trend', trend[index], 'out[11]', out[11], 'out[12]', out[12])
+
+			calculated_buffer[index] = true
 
         end)
         if not status then
@@ -509,8 +496,8 @@ local function Reg(Fsettings)
             return nil
         end
 
-		-- myLog('out bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15)
-		return out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15
+		-- myLog('out bar', index, os.date('%d.%m.%Y %H:%M:%S', os_time(_G.T(index))), unpack(out, 1, lines))
+		return unpack(out, 1, lines)
 	end
 
 end
@@ -519,6 +506,30 @@ end
 ----------------------------    ----------------------------    ----------------------------
 
 function _G.Init()
+	_G.Settings.line 		= {}
+	for i, line in ipairs(lines_set) do
+		_G.Settings.line[i] = line
+	end
+	_G.Settings.hist_std 	= {}
+	lines 					= #lines_set
+	for std in string.gmatch(_G.Settings['Отклонения истории'], "([^;]+)") do
+		lines = lines + 1
+		_G.Settings.hist_std[lines] 	= tonumber(std)
+		_G.Settings.line[lines] 		= _G.Settings.line[lines] or {
+			Name = "+iRegHist "..tostring(std),
+			Color = RGB(0, 128, 0),
+			Type = TYPE_DASH,
+			Width = 1
+		}
+		lines = lines + 1
+		_G.Settings.hist_std[lines] 	= tonumber(std)
+		_G.Settings.line[lines] 		= _G.Settings.line[lines] or {
+			Name = "-iRegHist "..tostring(std),
+			Color = RGB(192, 0, 0),
+			Type = TYPE_DASH,
+			Width = 1
+		}
+    end
 	PlotLines = Reg(_G.Settings)
 	return lines
 end
@@ -532,6 +543,5 @@ function _G.OnCalculate(index)
 	if _G.Settings['Вид регрессии'] > 4 then
 		return nil
 	end
-
 	return PlotLines(index)
 end
