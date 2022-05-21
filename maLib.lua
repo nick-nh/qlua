@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2022.05.10',
+    _VERSION     = 'MA lib 2022.05.21',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -465,7 +465,7 @@ local function F_ATR(settings, ds)
         ATR[index-save_bars] = nil
         l_index = index
         return ATR
-    end
+    end, ATR
 end
 
 --[[Sum od values
@@ -593,7 +593,7 @@ local function F_SD(settings, ds)
         SD[index]       = SD[index-1] or 0
         input[index]    = input[index-1] or 0
         avg             = avg or fMA(index)
-        if not CheckIndex(index, ds) then
+        if not CheckIndex(index, ds) or not avg[index] then
             return SD, avg
         end
         input[index]    = Value(index, data_type, ds) or 0
@@ -1073,9 +1073,9 @@ local function F_EFI(settings, ds)
 
         if fEFI == nil then
             fi          = {}
+            fi[index]   = 0
             fEFI        = M.new({period = period, method = ma_method,   data_type = "Any", round = round, scale = scale}, fi)
             EFI         = {}
-            fi[index]   = 0
             EFI[index]  = 0
             p_data      = Value(index, data_type, ds)
             l_index     = index
@@ -1668,7 +1668,7 @@ local function F_RENKO(settings, ds)
         if recalc_brick then
             if brick_type == 'Std' then
                 Data[index] = Value(index, 'M', ds)
-                atr         = Sigma(Data, fMA(index)[index] or close, index - period + 1, index) or Brick[index-1]
+                atr         = (Sigma(Data, fMA(index)[index] or close, index - period + 1, index) or Brick[index-1])*math.sqrt(period)
             end
             if l_index ~= index then
                 brick_bars = brick_bars + 1
@@ -2048,6 +2048,7 @@ local function F_SAR(settings, ds)
 
     local period        = (settings.period or 21)
     local dev           = (settings.dev or 3)
+    local waves_buffer  = (settings.waves_buffer or 10)
     local save_bars     = (settings.save_bars or period)
     local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
@@ -2056,47 +2057,89 @@ local function F_SAR(settings, ds)
 	local cache_L   = nil
 	local H_index   = nil
 	local L_index   = nil
-	local cache_SAR = nil
-	local trend     = nil
+	local cache_SAR = {}
+	local trend     = {}
 	local AMA2      = nil
 	local CC        = nil
 	local CC_N      = nil
-	local ATR       = nil
-	local signal    = nil
+	local ATR       = {}
+	local signal    = {}
     local last_zz   = nil
-    local wave_data
+    local WAV_SDMA
+    local sar_waves = {}
+    local wave_data = {}
     local ZZZ
     local begin_index
+    local last_change
 
-	return function(index)
+    local open, high, low, close, p_close
 
-		if cache_H == nil then
+    local function calc_waves(index)
+
+        if trend[index] == trend[index-1] then
+            wave_data.max           = math_max(high, wave_data.max or high)
+            wave_data.min           = math_min(low, wave_data.min or low)
+            wave_data.last_wave     = (wave_data.max - wave_data.min)
+            sar_waves[#sar_waves]   = wave_data.last_wave
+        end
+
+        if trend[index-1] ~= trend[index-2] and last_change ~= index then
+            last_change = index
+            if #sar_waves > 0 then
+                local w_sd, w_ma    = WAV_SDMA(#sar_waves)
+                local sd            = w_sd[#sar_waves]
+                local ma            = w_ma[#sar_waves]
+                wave_data.sd        = sd
+                wave_data.ma        = ma
+                last_zz             = wave_data[trend[index-1] == 1 and 'max' or 'min']
+                wave_data.last_zz   = last_zz
+            end
+            wave_data.max = high
+            wave_data.min = low
+            wave_data.max           = math_max(M.Value(index-1, 'High', ds), wave_data.max or high)
+            wave_data.min           = math_min(M.Value(index-1, 'Low', ds), wave_data.min or low)
+            wave_data.last_wave     = (wave_data.max - wave_data.min)
+            sar_waves[#sar_waves+1] = wave_data.last_wave
+        end
+    end
+
+	return function(index, atr)
+
+        open        = M.Value(index, 'Open', ds)
+        high        = M.Value(index, 'High', ds)
+        low         = M.Value(index, 'Low', ds)
+        close       = M.Value(index, 'Close', ds)
+        p_close     = M.Value(index-1, 'Close', ds)
+
+        if cache_H == nil then
             begin_index  = index
             cache_H     = {}
 			cache_L     = {}
 			H_index     = {}
 			L_index     = {}
-			cache_SAR   = {}
-			trend       = {}
+			-- cache_SAR   = {}
+			-- trend       = {}
 			AMA2        = {}
 			CC          = {}
 			CC_N        = {}
-			ATR         = {}
-			signal      = {}
-            wave_data   = {}
 
-			CC[index]           = ds:C(index)
-			CC_N[index]         = (ds:C(index) + ds:H(index) + ds:L(index))/3
-			cache_H[index]      = ds:H(index)
-			cache_L[index]      = ds:L(index)
-			cache_SAR[index]    = rounding(ds:L(index) - 2*(ds:H(index) - ds:L(index)), round, scale)
-			AMA2[index]         = (ds:C(index) + ds:O(index))/2
+			CC[index]           = close
+			CC_N[index]         = (close + high + low)/3
+			cache_H[index]      = high
+			cache_L[index]      = low
+			cache_SAR[index]    = rounding(low - 2*(high - low), round, scale)
+			AMA2[index]         = (close + open)/2
 			trend[index]        = 1
-			ATR[index]          = math_abs(ds:H(index) - ds:L(index))
-            wave_data.max       = ds:H(index)
-            wave_data.min       = ds:L(index)
+			ATR[index]          = math_abs(high - low)
             last_zz             = wave_data[trend[index] == 1 and 'max' or 'min']
-			return cache_SAR, trend, signal, last_zz
+
+            last_change         = nil
+            wave_data.max       = high
+            wave_data.min       = low
+            sar_waves   = {}
+            WAV_SDMA            = M.new({method = "SD", ma_method = "SMA", not_shifted = true, data_type = 'Any', period = waves_buffer}, sar_waves)
+
+            return cache_SAR, trend, wave_data, last_zz, signal
 		end
 		------------------------------
 		trend[index]        = trend[index-1]
@@ -2121,16 +2164,19 @@ local function F_SAR(settings, ds)
         CC_N[index - save_bars]         = nil
         signal[index - save_bars]       = nil
 
-        if not ds:C(index) then return cache_SAR, trend, signal, last_zz end
+        if not close then return cache_SAR, trend, wave_data, last_zz, signal end
 
-		ZZZ                 = math_max(math_abs(ds:H(index) - ds:L(index)), math_abs(ds:H(index) - ds:C(index-1)), math_abs(ds:L(index) - ds:C(index-1)))
-        ATR[index]          = (ATR[index-1]*(period-1) + ZZZ)/period
-		CC[index]           = ds:C(index)
+        ATR[index]          = atr
+        if not atr then
+            ZZZ             = math_max(math_abs(high - low), math_abs(high - p_close), math_abs(low - p_close))
+            ATR[index]      = (ATR[index-1]*(period-1) + ZZZ)/period
+        end
+		CC[index]           = close
 		AMA2[index]         = (2/(period/2+1))*CC[index] + (1-2/(period/2+1))*AMA2[index-1]
-		CC_N[index]         = (ds:C(index) - AMA2[index])/2 + AMA2[index]
+		CC_N[index]         = (close - AMA2[index])/2 + AMA2[index]
 
         if index - begin_index == 2 then
-			return cache_SAR, trend, signal, last_zz
+			return cache_SAR, trend, wave_data, last_zz, signal
 		end
 
         if trend[index] == 1 then
@@ -2142,7 +2188,7 @@ local function F_SAR(settings, ds)
 
             cache_SAR[index] = math_max((cache_H[index]-ATR[index]*dev), cache_SAR[index-1])
 
-            if (cache_SAR[index] > CC_N[index])and(cache_SAR[index] > ds:C(index)) then
+            if (cache_SAR[index] > CC_N[index])and(cache_SAR[index] > close) then
 				trend[index]        = -1
 				cache_L[index]      = CC[index]
 				L_index[index]      = index
@@ -2159,7 +2205,7 @@ local function F_SAR(settings, ds)
 
             cache_SAR[index] = math_min((cache_L[index]+ATR[index]*dev), cache_SAR[index-1])
 
-            if (cache_SAR[index] < CC_N[index]) and (cache_SAR[index] < ds:C(index)) then
+            if (cache_SAR[index] < CC_N[index]) and (cache_SAR[index] < close) then
 				trend[index]        = 1
 				cache_H[index]      = CC[index]
 				H_index[index]      = index
@@ -2168,18 +2214,10 @@ local function F_SAR(settings, ds)
 			end
 		end
 
-        if trend[index] == trend[index-1] then
-            wave_data.max   = math.max(ds:H(index), wave_data.max or ds:H(index))
-            wave_data.min   = math.min(ds:L(index), wave_data.min or ds:L(index))
-        end
-        if trend[index] ~= trend[index-1] then
-            last_zz       = wave_data[trend[index-1] == 1 and 'max' or 'min']
-            wave_data.max = ds:H(index)
-            wave_data.min = ds:L(index)
-        end
+        calc_waves(index)
 
-        return cache_SAR, trend, signal, last_zz
-	end
+        return cache_SAR, trend, wave_data, last_zz, signal
+	end, cache_SAR, trend, wave_data, ATR, last_zz, signal
 end
 
 local function F_VWAP(settings, ds)
@@ -2276,6 +2314,7 @@ local function F_VWAP(settings, ds)
             if not is_date(ds:T(ds_index)) then return end
             VWAP            = {}
             vEMA            = {}
+            Bars._NUM       = 0
             new_index(ds_index)
             if check_in_time() then fVMA(ds_index) end
             VWAP[index]     = M.Value(index, data_type, ds) or 0
@@ -2482,7 +2521,159 @@ local function F_ZZ(offset, ds)
     end
 end
 
+local function F_FRAC(settings, ds)
+
+    settings            = (settings or {})
+
+    local period        = (settings.period or 21)
+    local save_extr     = (settings.save_bars or 50)
+
+    local fractal_L = {}
+    local fractal_H = {}
+	local h_tmp     = {}
+	local l_tmp     = {}
+
+    local fp        = math_floor(period/2)*2+1
+    local last_index, begin_index
+
+    return function(index)
+
+        if begin_index == nil or index == begin_index then
+            begin_index = index
+            h_tmp       = {}
+            l_tmp       = {}
+            return fractal_H, fractal_L
+        end
+
+        if not M.CheckIndex(index, ds) then return fractal_H, fractal_L end
+
+        if index ~= last_index then
+            last_index      = index
+            h_tmp[#h_tmp+1] = ds:H(index)
+            l_tmp[#l_tmp+1] = ds:L(index)
+        else
+            h_tmp[#h_tmp]   = ds:H(index)
+            l_tmp[#l_tmp]   = ds:L(index)
+        end
+
+        if #h_tmp > fp then
+            table_remove(h_tmp, 1)
+            table_remove(l_tmp, 1)
+        end
+
+        if #h_tmp == fp then
+
+            local sp    = index - fp + 1 + math_floor(fp/2)
+            local val_h = math_max(unpack(h_tmp))
+            local val_l = math_min(unpack(l_tmp))
+            local fL    = ds:L(sp)
+            local fH    = ds:H(sp)
+
+            if (val_h == fH) and (val_h > 0)
+                and (val_l == fL) and (val_l > 0) then
+                    fractal_H[#fractal_H + 1] = sp
+                    fractal_L[#fractal_L + 1] = sp
+            else
+                if (val_h == fH) and (val_h > 0) then
+                    fractal_H[#fractal_H + 1] = sp
+                end
+                if (val_l == fL) and (val_l > 0) then
+                    fractal_L[#fractal_L + 1] = sp
+                end
+            end
+            -- log.debug('F_FRAC bar', index, 'low', l_tmp[#l_tmp],  'lf', #fractal_L, fractal_L[#fractal_L], 'high', h_tmp[#h_tmp], 'hf', #fractal_H, fractal_H[#fractal_H])
+        end
+
+        if #fractal_H > save_extr then
+            table_remove(fractal_H, 1)
+        end
+        if #fractal_L > save_extr then
+            table_remove(fractal_L, 1)
+        end
+
+        return fractal_H, fractal_L
+
+    end, fractal_H, fractal_L
+
+end
+
+-- Chande Momentum Oscillator
+---@param settings table
+---@param ds table
+local function F_CMO(settings, ds)
+
+    settings            = (settings or {})
+
+    local period        = (settings.period or 14)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+    local begin_index   = 1
+
+    local cmo           = {}
+    local fSUM_P        = F_SUM({period = period})
+    local fSUM_N        = F_SUM({period = period})
+
+    local sum_p, sum_n
+
+    return function (index)
+        if cmo[index-1] == nil then begin_index = index end
+
+        cmo[index]      = cmo[index-1] or 0
+
+        local delta = M.Value(index, data_type, ds) - M.Value(index-1, data_type, ds)
+        sum_p = fSUM_P(index, delta > 0 and delta or 0)[index]
+        sum_n = fSUM_N(index, delta < 0 and -delta or 0)[index]
+
+        if index-begin_index>period and (sum_p + sum_n) ~= 0 then
+            cmo[index] = rounding((sum_p - sum_n) / (sum_p + sum_n) * 100, round, scale)
+        end
+
+        cmo[index - save_bars] = nil
+        return cmo
+    end
+end
+
+-- Variable Index Dynamic Average
+---@param settings table
+---@param ds table
+local function F_VIDYA(settings, ds)
+
+    settings            = (settings or {})
+
+    local period        = (settings.period or 14)
+    local cmo_period    = (settings.period or period)
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+
+    local vidya         = {}
+    local fCMO          = F_CMO({period = cmo_period, data_type = data_type, round = round, scale = scale}, ds)
+    local alfa          = 2/(period+1)
+    local cmo
+    local begin_index   = 1
+
+    return function (index)
+        if vidya[index-1] == nil then begin_index = index end
+
+        local val       = M.Value(index, data_type, ds)
+
+        vidya[index]    = vidya[index-1] or val
+        cmo             = math_abs(fCMO(index)[index] or 0)/100
+
+        if index-begin_index>period then
+            vidya[index]    = vidya[index-1] and rounding(val*alfa*cmo + vidya[index-1]*(1 - alfa*cmo), round, scale) or rounding(val, round, scale)
+        end
+
+        vidya[index - save_bars] = nil
+        return vidya
+    end
+end
+
 local FUNCTOR = {
+    SUM     = F_SUM,
     SMA     = F_SMA,
     EMA     = F_EMA,
     SD      = F_SD,
@@ -2511,9 +2702,13 @@ local FUNCTOR = {
     BOL     = F_BOL,
     SAR     = F_SAR,
     VWAP    = F_VWAP,
-    ZZ      = F_ZZ
+    ZZ      = F_ZZ,
+    FRAC    = F_FRAC,
+    CMO     = F_CMO,
+    VIDYA   = F_VIDYA
 }
 M.ALGO_LINES = {
+    SUM     = {'SUM'},
     SMA     = {'SMA'},
     EMA     = {'EMA'},
     SD      = {'SD'},
@@ -2540,9 +2735,12 @@ M.ALGO_LINES = {
     RSI     = {'RSI'},
     CCI     = {'CCI'},
     BOL     = {'BOL_UP', 'BOL_DW', 'BOL_MID'},
-    SAR     = {'SAR', 'TREND', 'SIGNAL', 'LAST_ZZ'},
+    SAR     = {'SAR', 'TREND', 'WAVE_DATA', 'LAST_ZZ', 'SIGNAL'},
     VWAP    = {'VWAP', 'VEMA'},
-    ZZ      = {'ZZ', 'TREND', 'LAST_EXTR'}
+    ZZ      = {'ZZ', 'TREND', 'LAST_EXTR'},
+    FRAC    = {'H_FRAC', 'L_FRAC'},
+    CMO     = {'CMO'},
+    VIDYA   = {'VIDYA'}
 }
 
 M.AV_METHODS = ''
@@ -2556,7 +2754,7 @@ local function MA(settings, ds, ...)
     local method    = (settings.method or "EMA")
 
     if not FUNCTOR[method] then
-        return nil, 'Не удалось инициализировать MA. Допустимые типы: '..M.AV_METHODS..', передано: '..tostring(settings.method)
+        return nil, 'Не удалось инициализировать '..tostring(method)..'. Допустимые типы: '..M.AV_METHODS..', передано: '..tostring(settings.method)
     end
 
     return FUNCTOR[method](settings, ds, ...)
