@@ -7,7 +7,7 @@ _G.load   = _G.loadfile or _G.load
 local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
---logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\MA.txt", "w")
+-- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\MA.txt", "w")
 
 local message       = _G['message']
 local RGB           = _G['RGB']
@@ -31,7 +31,7 @@ _G.Settings= {
     }
 }
 
-local PlotLines     = function() end
+local PlotLines     = function(index) return index end
 local error_log     = {}
 
 local function log_tostring(...)
@@ -63,7 +63,7 @@ local function Algo(Fsettings, ds)
 
     error_log = {}
 
-    local fMA
+    local fMA, err
     local out
     local begin_index
 
@@ -77,12 +77,18 @@ local function Algo(Fsettings, ds)
 
             if fMA == nil or index == 1 then
                 begin_index = index
-                fMA         = maLib.new(Fsettings, ds)
+                fMA, err         = maLib.new(Fsettings, ds)
+                if not fMA and not error_log[tostring(err)] then
+                    error_log[tostring(err)] = true
+                    myLog(tostring(err))
+                    message(tostring(err))
+                end
                 fMA(index)
                 return
             end
-
-            out = fMA(index)[(index - begin_index + 1) >= period and index or -1]
+            if fMA then
+                out = fMA(index)[(index - begin_index + 1) >= period and index or -1]
+            end
 
         end)
         if not status then
