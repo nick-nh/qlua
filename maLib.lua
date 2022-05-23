@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2022.05.21',
+    _VERSION     = 'MA lib 2022.05.23',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -156,7 +156,7 @@ local function Correlation(input, cmp, start, finish)
     local tc    = type(cmp)
     local shift = 0
     local compare
-    if tc == 'table' and #cmp == 0 then return end
+    if tc == 'table' and not cmp[start] then return end
     if tc == 'number' then
         compare = input
         shift   = cmp
@@ -498,7 +498,7 @@ local function F_SUM(settings)
         end
         S_TMP[index-save_bars] = nil
         return S_TMP
-    end
+    end, S_TMP
 end
 
 --[[Simple Moving Average (SMA)
@@ -530,7 +530,7 @@ local function F_SMA(settings, ds)
         SMA_TMP[index]  = rounding(sum/bars, round, scale)
         SMA_TMP[index-save_bars] = nil
         return SMA_TMP
-    end
+    end, SMA_TMP
 end
 
 --[[Произвольная Weighted Moving Average (LWMA) — Произвольная (функция)-взвешенная скользящая средняя
@@ -566,7 +566,7 @@ local function F_LWMA(settings, ds)
         LWMA_TMP[index]  = rounding(sum/n, round, scale)
         LWMA_TMP[index-save_bars] = nil
         return LWMA_TMP
-    end
+    end, LWMA_TMP
 end
 
 --[[Standard Deviation
@@ -609,7 +609,7 @@ local function F_SD(settings, ds)
         SD[index-save_bars]     = nil
         input[index-save_bars]  = nil
         return SD, avg
-    end
+    end, SD
 end
 
 --[[Fractal Adaptive Moving Average]]
@@ -662,7 +662,7 @@ local function F_FRAMA(settings, ds)
         end
         FRAMA_TMP[index-save_bars] = nil
         return FRAMA_TMP
-    end
+    end, FRAMA_TMP
 end
 
 --[[Exponential Moving Average (EMA)
@@ -687,7 +687,7 @@ local function F_EMA(settings, ds)
         EMA_TMP[index]  = EMA_TMP[index-1] and rounding((EMA_TMP[index-1]*(period-1) + 2*val)/(period+1), round, scale) or rounding(val, round, scale)
         EMA_TMP[index-save_bars] = nil
         return EMA_TMP
-    end
+    end, EMA_TMP
 end
 
 --[[
@@ -715,7 +715,7 @@ local function F_WMA(settings, ds)
         end
         WMA_TMP[index-save_bars] = nil
         return WMA_TMP
-    end
+    end, WMA_TMP
 end
 
 --[[
@@ -725,13 +725,14 @@ HMA= LWMA(2*LWMA(n/2) ? LWMA(n)),sqrt(n))
 local function F_HMA(settings, ds)
 
     local period    = (settings.period or 9)
+    local divisor   = (settings.divisor or 2)
     local data_type = (settings.data_type or "Close")
     local round     = (settings.round or "OFF")
     local scale     = (settings.scale or 0)
     local save_bars = (settings.save_bars or period)
 
     local fLwma     = F_LWMA({period = period, data_type = data_type}, ds)
-    local fLwma2    = F_LWMA({period = M.rounding(period/2, 'on'), data_type = data_type}, ds)
+    local fLwma2    = F_LWMA({period = M.rounding(period/divisor, 'on'), data_type = data_type}, ds)
     local swma      = {}
     local fHMA      = F_LWMA({period = M.rounding(math_sqrt(period), 'on'), data_type = 'Any'}, swma)
 
@@ -749,7 +750,7 @@ local function F_HMA(settings, ds)
         end
         HMA_TMP[index-save_bars] = nil
         return HMA_TMP
-    end
+    end, HMA_TMP
 end
 
 --[[
@@ -800,7 +801,7 @@ local function F_JMA(settings, ds)
         J1[index-save_bars]     = nil
         J2[index-save_bars]     = nil
         return JMA
-    end
+    end, JMA
 end
 
 --[[Volume Adjusted Moving Average (VMA)
@@ -829,7 +830,7 @@ local function F_VMA(settings, ds)
         VMA[index] = sumV == 0 and VMA[index] or rounding(fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]/sumV, round, scale)
         VMA[index-save_bars] = nil
         return VMA
-    end
+    end, VMA
 end
 
 --[[Smoothed Moving Average (SMMA)
@@ -865,7 +866,7 @@ local function F_SMMA(settings, ds)
         end
         SMMA_TMP[index-save_bars] = nil
         return SMMA_TMP
-    end
+    end, SMMA_TMP
 end
 
 --[[The Triple Exponential Moving Average (TEMA)
@@ -918,7 +919,7 @@ local function F_AMA(settings, ds)
 
     local value
     local fSUM
-    local AMA
+    local AMA           = {}
     local begin_index
     local fast_k = 2/(fast_period + 1)
     local slow_k = 2/(slow_period + 1)
@@ -930,7 +931,6 @@ local function F_AMA(settings, ds)
             value[index]    = Value(index, data_type, ds) or 0
             fSUM            = F_SUM({period = period, data_type = 'Any', round = round, scale = scale})
             fSUM(index, 0)
-            AMA             = {}
             AMA[index]      = rounding(Value(index, data_type, ds), round, scale) or 0
             return AMA
         end
@@ -956,7 +956,7 @@ local function F_AMA(settings, ds)
         value[index-shift-1] = nil
 
         return AMA
-     end
+     end, AMA
 end
 
 --[[The Reverse EMA Indicator by John F. Ehlers
@@ -1906,6 +1906,71 @@ local function F_STOCH(settings, ds)
     end
 end
 
+--Stochastic Momentum Index
+local function F_SMI(settings, ds)
+
+    settings            = (settings or {})
+
+    local ma_method     = (settings.ma_method or "SMA")
+    local period_q      = (settings.period_q or 10)
+    local period_r      = (settings.ma_period or 3)
+    local period_s      = (settings.period_s or 3)
+    local period_d      = (settings.period_s or 3)
+    local method_d      = (settings.method_d or "SMA")
+    local divisor       = (settings.divisor or 2)
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or math_max(period_s, period_q, period_r))
+    local begin_index   = 1
+
+	local high_buff = {}
+	local low_buff  = {}
+
+    local range_hl  = {}
+    local r_diff    = {}
+	local smi       = {}
+
+    local xMA_settings = {}
+    xMA_settings[1] = {period = period_r,    method = ma_method,   data_type = "Any", round = round, scale = scale}
+    xMA_settings[2] = {period = period_s,    method = ma_method,   data_type = "Any", round = round, scale = scale}
+    local RHL_MA    = M.xMA({times = 2, xMA_settings = xMA_settings}, range_hl)
+	local RDIFF_MA  = M.xMA({times = 2, xMA_settings = xMA_settings}, r_diff)
+	local DMA       = M.new({period = period_d, method = method_d,    data_type = "Any", round = round, scale = scale}, smi)
+
+    return function (index)
+        if smi[index-1] == nil then begin_index = index end
+
+		high_buff[index]    = M.Value(index, "H", ds) or high_buff[index-1]
+		low_buff[index]     = M.Value(index, "L", ds) or low_buff[index-1]
+        smi[index]          = smi[index-1] or 0
+        range_hl[index]     = range_hl[index-1] or 0
+        r_diff[index]       = r_diff[index-1] or 0
+
+        if not M.CheckIndex(index, ds) then
+            RHL_MA(index)
+            RDIFF_MA(index)
+            return smi, DMA(index)
+        end
+
+        local HH            = math_max(unpack(high_buff, math_max(index-period_q+1, begin_index),index))
+        local LL            = math_min(unpack(low_buff,  math_max(index-period_q+1, begin_index),index))
+
+        range_hl[index]     = HH - LL
+        r_diff[index]       = M.Value(index, "C", ds) - (HH + LL)/2
+        local rhl           = RHL_MA(index)[index]
+        local rchl          = RDIFF_MA(index)[index]
+        smi[index]          = rhl == 0 and 0 or rounding(rchl*100/(rhl/divisor), round, scale)
+
+        smi[index-save_bars]        = nil
+        high_buff[index-save_bars]  = nil
+        low_buff[index-save_bars]   = nil
+        range_hl[index-save_bars]   = nil
+        r_diff[index-save_bars]     = nil
+
+        return smi, DMA(index)
+    end
+end
+
 ---@param settings table
 ---@param ds table
 local function F_RSI(settings, ds)
@@ -2632,7 +2697,7 @@ local function F_CMO(settings, ds)
 
         cmo[index - save_bars] = nil
         return cmo
-    end
+    end, cmo
 end
 
 -- Variable Index Dynamic Average
@@ -2669,6 +2734,45 @@ local function F_VIDYA(settings, ds)
 
         vidya[index - save_bars] = nil
         return vidya
+    end, vidya
+end
+
+-- multiple MA
+---@param settings table
+---@param ds table
+function M.xMA(settings, ds)
+
+    settings            = (settings or {})
+    local times         = (settings.times or 2)
+    local xMA_settings  = settings.xMA_settings
+    if not xMA_settings then return nil, 'Не определены настройки множественных MA' end
+
+    local data          = {}
+    local func          = {}
+
+    local res, err      = M.new(xMA_settings[1], ds)
+    if not res then return false, err end
+    func[1]             = res
+
+    local begin_index
+
+    return function(index)
+
+        if data[times] == nil or index == begin_index then
+            begin_index   = index
+            data[1] = func[1](index)
+            for i = 2, times do
+                func[i] = M.new(xMA_settings[i], data[i-1])
+                data[i] = func[i](index)
+            end
+            return data[times]
+        end
+
+        for i = 1, times do
+            func[i](index)
+        end
+
+        return data[times]
     end
 end
 
@@ -2697,6 +2801,7 @@ local FUNCTOR = {
     RENKO   = F_RENKO,
     MACD    = F_MACD,
     STOCH   = F_STOCH,
+    SMI     = F_SMI,
     RSI     = F_RSI,
     CCI     = F_CCI,
     BOL     = F_BOL,
