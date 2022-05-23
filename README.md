@@ -56,6 +56,10 @@ https://nick-nh.github.io
 
   - https://traders.com/Documentation/FEEDbk_docs/2016/09/TradersTips.html
 
+- [corrCycle.lua - Correlation angle by John F. Ehlers.](https://github.com/nick-nh/qlua/blob/master/corrCycle.lua)
+
+  - https://www.mesasoftware.com/papers/CORRELATION%20AS%20A%20CYCLE%20INDICATOR.pdf
+
 - [InstantaneousTrend.lua - Instantaneous trend by John F. Ehlers.](https://github.com/nick-nh/qlua/blob/master/InstantaneousTrend.lua)
 
   - https://c.mql5.com/forextsd/forum/59/023inst.pdf
@@ -104,6 +108,10 @@ https://nick-nh.github.io
 
     - Bollinger Bands AND Keltner Channel define the market conditions, i.e. when BB is narrower than KC then we have a market squeeze. When BB break Outside the KC then trade in the direction of the smoothed Momentum.
     - https://school.stockcharts.com/doku.php?id=technical_indicators:ttm_squeeze
+
+- [smTMMS.lua - TMMS - Trading Made More Simpler.](https://github.com/nick-nh/qlua/blob/master/smTMMS.lua)
+
+    - The TMMS oscillator (aka “Trading Made More Simpler”) is an indicator made of conditions based on both 2 separated Stochastic and 1 RSI
 
 - [WaveTrend.lua - WaveTrend [LazyBear] vX by DGT.](https://github.com/nick-nh/qlua/blob/master/WaveTrend.lua)
 
