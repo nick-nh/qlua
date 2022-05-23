@@ -1,151 +1,159 @@
+--[[
+	nick-h@yandex.ru
+    https://github.com/nick-nh/qlua
 
-Settings = 
-{
-	Name = "*THV Coral",
-	period = 14,
-	koef = 1,
-	color = 0,
-	line=
-	{
-		{
-			Name = "THV MA",
-			Color = RGB(0, 128, 128),
-			Type = TYPE_LINE,
-			Width = 2
-		},	
-		{
-			Name = "g_ibuf_96",
-			Color = RGB(0, 255, 0),
-			Type = TYPE_POINT,
-			Width = 2
-		},
-		{
-			Name = "g_ibuf_100",
-			Color = RGB(255, 0, 0),
-			Type = TYPE_POINT,
-			Width = 2
-		}
-	}
+    THV
+]]
+_G.unpack = rawget(table, "unpack") or _G.unpack
+_G.load   = _G.loadfile or _G.load
+local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
+
+local logFile = nil
+--logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\THV.txt", "w")
+
+local message       = _G['message']
+local RGB           = _G['RGB']
+local TYPE_LINE     = _G['TYPE_LINE']
+local TYPE_POINT    = _G['TYPE_POINT']
+local line_color    = RGB(250, 0, 0)
+local os_time	    = os.time
+
+_G.Settings= {
+    Name 		= "*THV",
+    period      = 64,
+    data_type   = 'Close',
+    koef        = 1.0,
+    trend_shift = 1,
+    trend_sd    = 1.0,
+	color       = 1,
+    line = {
+        {
+            Name  = 'THV',
+            Color = line_color,
+            Type  = TYPE_LINE,
+            Width = 2
+        },
+        {
+            Name = "dir up",
+            Type = TYPE_POINT,
+            Width = 2,
+            Color = RGB(89,213, 107)
+        },
+        {
+            Name = "dir dw",
+            Type = TYPE_POINT,
+            Width = 2,
+            Color = RGB(255, 58, 0)
+        }
+    }
 }
 
-----------------------------------------------------------
-function cached_THV()
-	
-	local g_ibuf_92={}
-	local g_ibuf_96={}
-	local g_ibuf_100={}
-	local g_ibuf_104={}
-	local gda_108={}
-	local gda_112={}
-	local gda_116={}
-	local gda_120={}
-	local gda_124={}
-	local gda_128={}
-	
-	return function(ind, _p, _k, _c)
-		local period = _p
-		local index = ind
-		local koef = _k
-		local color = _c
+local PlotLines     = function(index) return index end
+local error_log     = {}
+local lines         = #_G.Settings.line
 
-		local ild_0
-		local ld_8
+local function log_tostring(...)
+    local n = select('#', ...)
+    if n == 1 then
+    return tostring(select(1, ...))
+    end
+    local t = {}
+    for i = 1, n do
+    t[#t + 1] = tostring((select(i, ...)))
+    end
+    return table.concat(t, " ")
+end
 
-		local gd_188 = koef * koef
-		local gd_196 = 0
-		local gd_196 = gd_188 * koef
-		local gd_132 = -gd_196
-		local gd_140 = 3.0 * (gd_188 + gd_196)
-		local gd_148 = -3.0 * (2.0 * gd_188 + koef + gd_196)
-		local gd_156 = 3.0 * koef + 1.0 + gd_196 + 3.0 * gd_188
-		local gd_164 = period
-		if gd_164 < 1.0 then gd_164 = 1 end
-		gd_164 = (gd_164 - 1.0) / 2.0 + 1.0
-		local gd_172 = 2 / (gd_164 + 1.0)
-		local gd_180 = 1 - gd_172
-		
-		if index == 1 then
-			g_ibuf_92={}
-			g_ibuf_96={}
-			g_ibuf_100={}
-			g_ibuf_104={}
-			gda_108={}
-			gda_112={}
-			gda_116={}
-			gda_120={}
-			gda_124={}
-			gda_128={}
-			
-			g_ibuf_92[index]=0
-			g_ibuf_96[index]=0
-			g_ibuf_100[index]=0
-			g_ibuf_104[index]=0
-			gda_108[index]=0
-			gda_112[index]=0
-			gda_116[index]=0
-			gda_120[index]=0
-			gda_124[index]=0
-			gda_128[index]=0
-			
-			return nil
-		end
-		  
-		if not CandleExist(index) then
-			g_ibuf_92[index] = g_ibuf_92[index-1] 
-			g_ibuf_96[index] = g_ibuf_96[index-1]
-			g_ibuf_100[index] = g_ibuf_100[index-1]
-			g_ibuf_104[index] = g_ibuf_104[index-1] 
-			gda_108[index] = gda_108[index-1]
-			gda_112[index] = gda_112[index-1]
-			gda_116[index] = gda_116[index-1] 
-			gda_120[index] = gda_120[index-1]
-			gda_124[index] = gda_124[index-1]
-			gda_128[index] = gda_128[index-1] 
-			return nil
-		end
-			
-		gda_108[index] = gd_172 * C(index) + gd_180 * (gda_108[index - 1])
-		gda_112[index] = gd_172 * (gda_108[index]) + gd_180 * (gda_112[index - 1])
-		gda_116[index] = gd_172 * (gda_112[index]) + gd_180 * (gda_116[index - 1])
-		gda_120[index] = gd_172 * (gda_116[index]) + gd_180 * (gda_120[index - 1])
-		gda_124[index] = gd_172 * (gda_120[index]) + gd_180 * (gda_124[index - 1])
-		gda_128[index] = gd_172 * (gda_124[index]) + gd_180 * (gda_128[index - 1])
-		g_ibuf_104[index] = gd_132 * (gda_128[index]) + gd_140 * (gda_124[index]) + gd_148 * (gda_120[index]) + gd_156 * (gda_116[index])
-		ld_0 = g_ibuf_104[index]
-		ld_8 = g_ibuf_104[index-1]
-		g_ibuf_92[index] = ld_0
-		g_ibuf_96[index] = ld_0
-		g_ibuf_100[index] = ld_0
-		  
-		local out1, out2, out3  = nil
-				  
-		if ld_8 > ld_0 then 
-			if color == 1 then
-				out3 = g_ibuf_100[index]
-			else
-				out1 = g_ibuf_100[index]
+local function myLog(...)
+	if logFile==nil then return end
+    logFile:write(tostring(os.date("%c",os_time())).." "..log_tostring(...).."\n");
+    logFile:flush();
+end
+------------------------------------------------------------------
+    --Moving Average
+------------------------------------------------------------------
+
+local function Algo(Fsettings, ds)
+
+    Fsettings   = (Fsettings or {})
+    error_log   = {}
+
+    local trend_shift   = Fsettings.trend_shift or 1
+    local trend_sd      = Fsettings.trend_sd or 1
+    local color         = (Fsettings.color or 0) == 1
+
+    local fMA, ma
+    local out
+    local begin_index
+
+    local fDSD
+    local delta
+    local d_sd, trend
+
+    return function (index)
+
+        out = {}
+
+        local status, res = pcall(function()
+
+            if not maLib then return end
+
+            if fMA == nil or index == begin_index then
+                begin_index = index
+                fMA             = maLib.new({method = 'THV', period = Fsettings.period, koef = Fsettings.koef, data_type = Fsettings.data_type}, ds)
+                ma              = fMA(index)
+                delta           = {}
+                delta[index]    = 0
+                fDSD            = maLib.new({method = "SD", not_shifted = true, data_type = 'Any', period = Fsettings.period}, delta)
+                fDSD(index)
+                trend           = {}
+                return
+            end
+
+            out[1]          = fMA(index)[index]
+            trend[index]    = trend[index-1] or 0
+            local t_delta   = ma[index] - (ma[index-trend_shift] or ma[index])
+            delta[index]    = math.abs(t_delta) or delta[index-1]
+            d_sd            = fDSD(index)[index-1] or 0
+            if delta[index] > trend_sd*d_sd then
+                if t_delta > 0 and trend[index] <= 0 then
+                    trend[index] = 1
+                end
+                if t_delta < 0 and trend[index] >= 0 then
+                    trend[index] = -1
+                end
+            end
+            if color then
+				out[2] = trend[index-1] == 1 and out[1] or nil
+				out[3] = trend[index-1] == -1 and out[1] or nil
+                out[1] = nil
+            end
+			if trend[index-1] ~= trend[index-2] and not color then
+				out[2] = trend[index-1] == 1 and _G.O(index) or nil
+				out[3] = trend[index-1] == -1 and _G.O(index) or nil
 			end
-		else 
-			if color == 1 then
-				out2 = g_ibuf_96[index]
-			else
-				out1 = g_ibuf_96[index]
-			end
-		end
-			
-		return out1, out2, out3
-	end	
-	
-end
-----------------------------
-
-function Init()
-	
-	myTHV = cached_THV()
-	return 3
+        end)
+        if not status then
+            if not error_log[tostring(res)] then
+                error_log[tostring(res)] = true
+                myLog(tostring(res))
+                message(tostring(res))
+            end
+            return nil
+        end
+        return unpack(out, 1, lines)
+    end
 end
 
-function OnCalculate(index)
-	return myTHV(index, Settings.period, Settings.koef, Settings.color)
+function _G.Init()
+    PlotLines = Algo(_G.Settings)
+    return lines
 end
 
+function _G.OnChangeSettings()
+    _G.Init()
+end
+
+function _G.OnCalculate(index)
+    return PlotLines(index)
+end
