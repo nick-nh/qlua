@@ -2,7 +2,7 @@
 	nick-h@yandex.ru
 	https://github.com/nick-nh/qlua
 
-	Разница Тройное экспоненциальное сглаженное скользящее среднее и EMA.
+	Р Р°Р·РЅРёС†Р° РўСЂРѕР№РЅРѕРµ СЌРєСЃРїРѕРЅРµРЅС†РёР°Р»СЊРЅРѕРµ СЃРіР»Р°Р¶РµРЅРЅРѕРµ СЃРєРѕР»СЊР·СЏС‰РµРµ СЃСЂРµРґРЅРµРµ Рё EMA.
 ]]
 _G.load   = _G.loadfile or _G.load
 local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
@@ -52,7 +52,7 @@ _G.Settings= {
     }
 }
 
-local PlotLines     = function() end
+local PlotLines     = function(index) return index end
 local error_log     = {}
 
 local function log_tostring(...)

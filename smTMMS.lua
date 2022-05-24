@@ -21,25 +21,25 @@ local os_time	    = os.time
 
 _G.Settings= {
     Name 		= "*smTMMS Oscillator",
-    ['������ RSI'] 			    = 14,
-    ['������ K Stochastic(1)']  = 8,
-    ['������ D Stochastic(1)']  = 3,
-    ['����� MA Stochastic(1)']  = 'EMA',
-    ['������ K Stochastic(2)']  = 14,
-    ['������ D Stochastic(2)']  = 3,
-    ['����� MA Stochastic(2)']  = 'EMA',
+    ['Период RSI'] 			    = 14,
+    ['Период K Stochastic(1)']  = 8,
+    ['Период D Stochastic(1)']  = 3,
+    ['Метод MA Stochastic(1)']  = 'EMA',
+    ['Период K Stochastic(2)']  = 14,
+    ['Период D Stochastic(2)']  = 3,
+    ['Метод MA Stochastic(2)']  = 'EMA',
 
-    ['������ Q SMI']            = 9,
-    ['������ R SMI']            = 9,
-    ['������ S SMI']            = 9,
-    ['����� MA SMI']            = 'EMA',
+    ['Период Q SMI']            = 9,
+    ['Период R SMI']            = 9,
+    ['Период S SMI']            = 9,
+    ['Метод MA SMI']            = 'EMA',
 
-    ['���������� �����������']  = 'STOCH1; *STOCH2',
-    ['���������� ����� Hull']   = 0,
-    ['������ Hull']		        = 12,
-    ['�������� Hull']		    = 2,
+    ['Показывать гистограмму']  = 'STOCH1; *STOCH2',
+    ['Показывать линию Hull']   = 0,
+    ['Период Hull']		        = 12,
+    ['Делитель Hull']		    = 2,
 
-    ['��� ������']              = 'Close',
+    ['Тип данных']              = 'Close',
     line = {
         {
             Name  = 'UP',
@@ -121,34 +121,34 @@ local function Algo(Fsettings, ds)
 
     Fsettings           = (Fsettings or {})
 
-    local period_rsi    = Fsettings['������ RSI'] or 14
-    local period_k1     = Fsettings['������ K Stochastic(1)'] or 8
-    local period_d1     = Fsettings['������ D Stochastic(1)'] or 3
-    local st_ma_method1 = Fsettings['����� MA Stochastic(1)'] or 'SMA'
-    local period_k2     = Fsettings['������ K Stochastic(2)'] or 14
-    local period_d2     = Fsettings['������ D Stochastic(2)'] or 3
-    local st_ma_method2 = Fsettings['����� MA Stochastic(2)'] or 'SMA'
+    local period_rsi    = Fsettings['Период RSI'] or 14
+    local period_k1     = Fsettings['Период K Stochastic(1)'] or 8
+    local period_d1     = Fsettings['Период D Stochastic(1)'] or 3
+    local st_ma_method1 = Fsettings['Метод MA Stochastic(1)'] or 'SMA'
+    local period_k2     = Fsettings['Период K Stochastic(2)'] or 14
+    local period_d2     = Fsettings['Период D Stochastic(2)'] or 3
+    local st_ma_method2 = Fsettings['Метод MA Stochastic(2)'] or 'SMA'
 
-    local period_q_smi  = Fsettings['������ Q SMI'] or 10
-    local period_r_smi  = Fsettings['������ R SMI'] or 3
-    local period_s_smi  = Fsettings['������ S SMI'] or 3
-    local smi_ma_method = Fsettings['����� MA SMI'] or 'EMA'
+    local period_q_smi  = Fsettings['Период Q SMI'] or 10
+    local period_r_smi  = Fsettings['Период R SMI'] or 3
+    local period_s_smi  = Fsettings['Период S SMI'] or 3
+    local smi_ma_method = Fsettings['Метод MA SMI'] or 'EMA'
 
-    local show_hull     = Fsettings['���������� ����� Hull'] == 1
-    local period_hull   = Fsettings['������ Hull']
-    local divisor_hull  = Fsettings['�������� Hull']
+    local show_hull     = Fsettings['Показывать линию Hull'] == 1
+    local period_hull   = Fsettings['Период Hull']
+    local divisor_hull  = Fsettings['Делитель Hull']
 
-    local data_type     = Fsettings['��� ������'] or 'Close'
+    local data_type     = Fsettings['Тип данных'] or 'Close'
 
-    local show_hist     = Fsettings['���������� �����������'] or 'STOCH2'
-    for val in string.gmatch(Fsettings['���������� �����������'] or 'STOCH2', "([^;]+)") do
+    local show_hist     = Fsettings['Показывать гистограмму'] or 'STOCH2'
+    for val in string.gmatch(Fsettings['Показывать гистограмму'] or 'STOCH2', "([^;]+)") do
         if (val:find('*')) then
             show_hist = val:gsub('*', ''):gsub("^%s*(.-)%s*$", "%1")
             break
         end
     end
 
-    myLog(' show_hist', show_hist, Fsettings['���������� �����������'])
+    myLog(' show_hist', show_hist, Fsettings['Показывать гистограмму'])
 
     error_log = {}
 

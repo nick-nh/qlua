@@ -31,10 +31,10 @@ local math_pi	    = math.pi
 
 _G.Settings= {
     Name 		= "*Correlation angle",
-    ['������'] 			        = 20,
-    ['���������� ����']	        = 0,
-    ['���� ������ ���������']	= 9,
-    ['��� ������']              = 'Close',
+    ['Период'] 			        = 20,
+    ['Показывать цикл']	        = 0,
+    ['Угол сброса состояния']	= 9,
+    ['Тип данных']              = 'Close',
     line = {
         {
             Name  = '*Corr Cos/State',
@@ -86,10 +86,10 @@ local function Algo(Fsettings, ds)
 
     Fsettings           = (Fsettings or {})
 
-    local period        = Fsettings['������'] or 20
-    local angle_trash   = Fsettings['���� ������ ���������'] or 9
-    local data_type     = Fsettings['��� ������'] or 'Close'
-    local show_cycle    = (Fsettings['���������� ����'] or 0) == 1
+    local period        = Fsettings['Период'] or 20
+    local angle_trash   = Fsettings['Угол сброса состояния'] or 9
+    local data_type     = Fsettings['Тип данных'] or 'Close'
+    local show_cycle    = (Fsettings['Показывать цикл'] or 0) == 1
 
     error_log = {}
 
