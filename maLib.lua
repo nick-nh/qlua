@@ -2176,7 +2176,7 @@ local function F_SAR(settings, ds)
         close       = M.Value(index, 'Close', ds)
         p_close     = M.Value(index-1, 'Close', ds)
 
-        if cache_H == nil then
+        if cache_H == nil or index = begin_index then
             begin_index  = index
             cache_H     = {}
 			cache_L     = {}
