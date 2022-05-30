@@ -2156,7 +2156,7 @@ local function F_SAR(settings, ds)
                 local ma            = w_ma[#sar_waves]
                 wave_data.sd        = sd
                 wave_data.ma        = ma
-                last_zz             = wave_data[trend[index-1] == 1 and 'max' or 'min']
+                last_zz             = wave_data[trend[index-2] == 1 and 'max' or 'min']
                 wave_data.last_zz   = last_zz
             end
             wave_data.max = high
