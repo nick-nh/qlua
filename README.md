@@ -157,6 +157,8 @@ https://nick-nh.github.io
 
 - [regRangeBar.lua - Поиск участков "флэт" методом линейной регрессии.](https://github.com/nick-nh/qlua/blob/master/regRangeBar.lua)
 
+- [autoLevels.lua - Поиск торговых диапазонов.](https://github.com/nick-nh/qlua/blob/master/autoLevels.lua)
+
 - [tema.lua - TEMA - Triple Exponential Moving Average – Тройная Экспоненциальная Скользящая Средняя.](https://github.com/nick-nh/qlua/blob/master/tema.lua)
 
 - [TMACD.lua - TEMA-EMA MACD как разница TEMA и EMA.](https://github.com/nick-nh/qlua/blob/master/TMACD.lua)
