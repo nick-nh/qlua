@@ -113,6 +113,15 @@ https://nick-nh.github.io
 
     - The TMMS oscillator (aka “Trading Made More Simpler”) is an indicator made of conditions based on both 2 separated Stochastic and 1 RSI
 
+- [JMA_Star_Light.lua - Jurik Research Jurik Moving Average.](https://github.com/nick-nh/qlua/blob/master/JMA_Star_Light.lua)
+
+    - http://www.jurikres.com/catalog1/ms_ama.htm#top
+
+- [JRSX.lua - Jurik Research Relative Strength Quality Index.](https://github.com/nick-nh/qlua/blob/master/JRSX.lua)
+
+    - Jurik's RSX is a "noise free" version of RS
+    - http://www.jurikres.com/catalog1/ms_rsx.htm
+
 - [WaveTrend.lua - WaveTrend [LazyBear] vX by DGT.](https://github.com/nick-nh/qlua/blob/master/WaveTrend.lua)
 
     - https://ru.tradingview.com/script/cYG1lqRI-WaveTrend-LazyBear-vX-by-DGT/
@@ -168,6 +177,8 @@ https://nick-nh.github.io
 - [thv_coral.lua - THV Coral- реализация Coral Trend Indicator.](https://github.com/nick-nh/qlua/blob/master/thv_coral.lua)
 
 - [vsa.lua - Подсветка объемов по методике VSA.](https://github.com/nick-nh/qlua/blob/master/vsa.lua)
+
+- [MarginCalc.lua - Расчет и вывод вариационной маржи (ГО) фьючерсного контракта для текущей цены.](https://github.com/nick-nh/qlua/blob/master/MarginCalc.lua)
 
 - [vwap.lua - Вывод значения средневзвешенной цены из Таблицы текущих торгов (WAPRICE).](https://github.com/nick-nh/qlua/blob/master/vwap.lua)
 
