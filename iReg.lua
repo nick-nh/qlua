@@ -18,7 +18,7 @@ local RGB                   = _G['RGB']
 local TYPE_LINE             = _G['TYPE_LINE']
 local TYPE_DASHLINE         = _G['TYPE_DASHLINE']
 local TYPE_DASH         	= _G['TYPE_DASH']
-local TYPE_POINT         	= _G['TYPE_POINT']
+local TYPE_BAR         		= _G['TYPET_BAR']
 local TYPE_TRIANGLE_UP      = _G['TYPE_TRIANGLE_UP']
 local TYPE_TRIANGLE_DOWN    = _G['TYPE_TRIANGLE_DOWN']
 local C                     = _G['C']
@@ -50,7 +50,7 @@ _G.Settings =
 		-- Показывается канал на исторических данных. Расчет для каждого бара истории.
 		['Показывать всю историю']			= 0,
 		['Выделять цветом историю']			= 1,
-		['Отклонения истории']				= '2;3;4',
+		['Отклонения истории']				= '2;3;4;5',
 		-- Пересчитывать при отклонении
 		-- при расчете без сдвига, после построения канала, если цена зашла за границу отклонения,
 		-- то происходит полный пересчет канала. Иначе идет продолжение исходного канала.
@@ -144,15 +144,15 @@ local lines_set =
 	--14
 	{
 		Name = "hist up",
-		Type = TYPE_POINT,
-		Width = 2,
+		Type = TYPE_BAR,
+		Width = 1,
 		Color = RGB(89,213, 107)
 	},
 	--15
 	{
 		Name = "hist dw",
-		Type = TYPE_POINT,
-		Width = 2,
+		Type = TYPE_BAR,
+		Width = 1,
 		Color = RGB(255, 58, 0)
 	}
 }
@@ -464,7 +464,7 @@ local function Reg(Fsettings)
 				out[8] = out[1]+sq*kstd4
 				out[9] = out[1]-sq*kstd4
 			end
-			if (showHistory and index < start_index) or index >= start_index then
+			if (showHistory and index < start_index) or (index >= start_index and calc_bars > 0) then
 				if color then
 					out[14] = trend[index] == 1 and out[1] or nil
 					out[15] = trend[index] == -1 and out[1] or nil
