@@ -94,6 +94,8 @@ https://nick-nh.github.io
 
   - https://nick-nh.github.io/2021-01-17/renko
 
+- [RegRenkoATR.lua - Регрессионный канал поверх баров Ренко.](https://github.com/nick-nh/qlua/blob/master/RegRenkoATR.lua)
+
 - [SDSO.lua - Осциллятор Стохастик рассчитанный от стандартного отклонения.](https://github.com/nick-nh/qlua/blob/master/SDSO.lua)
 
 - [StepNRTR.lua - Вариант индикатора Nick Rypock Trailing Reverse.](https://github.com/nick-nh/qlua/blob/master/StepNRTR.lua)
