@@ -343,7 +343,7 @@ local function Vol(Fsettings)
 				calc_delta(last_index)
 				SetValue(last_index, 1, showDelta == 1 and (showBarDelta == 0 and cache_VolAsk[last_index] or (Delta[last_index] < 0 and Delta[last_index])))
 				SetValue(last_index, 2, showDelta == 1 and (showBarDelta == 0 and cache_VolBid[last_index] or (Delta[last_index] > 0 and Delta[last_index])))
-				SetValue(last_index, 3, showCumDelta == 1 and Delta[last_index])
+				SetValue(last_index, 3, showCumDelta == 1 and CumDelta[last_index])
 				SetValue(last_index, 4, showOIDelta == 1 and OIDelta[last_index])
 				SetValue(last_index, 5, showVolume == 1 and V(last_index))
 				last_index 				= Size()
@@ -377,7 +377,7 @@ local function Vol(Fsettings)
 		----myLog("Delta "..tostring(Delta[index]))
 		return 	showDelta == 1 and (showBarDelta == 0 and cache_VolAsk[index] or (Delta[index] < 0 and Delta[index])),
 				showDelta == 1 and (showBarDelta == 0 and cache_VolBid[index] or (Delta[index] > 0 and Delta[index])),
-				showCumDelta == 1 and Delta[index],
+				showCumDelta == 1 and CumDelta[index],
 				showOIDelta == 1 and OIDelta[index],
 				showVolume == 1 and V(index)
 	end
