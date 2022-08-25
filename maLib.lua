@@ -2014,9 +2014,11 @@ local function F_RSI(settings, ds)
             return RSI
         end
 
-        RSI[index]  = RSI[index-1]
-        Up[index]   = Up[index-1]
-        Down[index] = Down[index-1]
+        RSI[index]      = RSI[index-1]
+        Up[index]       = Up[index-1]
+        Down[index]     = Down[index-1]
+        val_Up[index]   = val_Up[index-1]
+        val_Down[index] = val_Down[index-1]
 
         if not M.CheckIndex(index, ds) then return RSI end
         if last_index ~= index then
