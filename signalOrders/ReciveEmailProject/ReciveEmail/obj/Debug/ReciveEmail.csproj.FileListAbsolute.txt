@@ -1,0 +1,13 @@
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\ReciveEmail.exe.config
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\ReciveEmail.exe
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\ReciveEmail.pdb
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\obj\Debug\ReciveEmail.csprojAssemblyReference.cache
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\obj\Debug\ReciveEmail.csproj.CoreCompileInputs.cache
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\obj\Debug\ReciveEmail.exe
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\obj\Debug\ReciveEmail.pdb
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\BouncyCastle.Crypto.dll
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\MailKit.dll
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\MimeKit.dll
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\MailKit.xml
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\bin\Debug\MimeKit.xml
+D:\Projects\ReciveEmail\ReciveEmail\ReciveEmail\obj\Debug\ReciveEmail.csproj.CopyComplete
