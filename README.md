@@ -221,3 +221,5 @@ https://nick-nh.github.io
 - [telegramQuik - Решение для отправки (получения) сообщений из терминала Квик в Телеграм (telegram bot api), отправка почты](https://github.com/nick-nh/qlua/blob/master/telegramQuik)
 
     - https://nick-nh.github.io/2021-03-14/teleMessage
+
+- [Сделки на графике из файлов формата Лучший частный инвестор](https://github.com/nick-nh/qlua/blob/master/invest_battle_pro)
