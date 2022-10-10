@@ -26,7 +26,7 @@ local table_unpack	= table.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2022.05.23',
+    _VERSION     = 'MA lib 2022.08.10',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -149,8 +149,8 @@ end
 ---@param cmp table|number
 ---@param start number
 ---@param finish number
----@return number
----@return number
+---@return number|nil
+---@return number|nil
 local function Correlation(input, cmp, start, finish)
 
     local tc    = type(cmp)
@@ -1402,6 +1402,7 @@ local function F_REG(settings, ds)
     local sql_buffer
     local sqh_buffer
     local fx_buffer
+	local sd_buffer
 	local sx
     local input
     local calc_buffer
@@ -1419,6 +1420,7 @@ local function F_REG(settings, ds)
             fx_buffer   = {}
 			sql_buffer  = {}
 			sqh_buffer  = {}
+			sd_buffer	= {}
             input       = {}
 			--- sx
 			sx={}
@@ -1432,15 +1434,15 @@ local function F_REG(settings, ds)
 			    sx[mi+1]=sum
 			end
 
-			return nil
+			return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 		end
 
 		if not recacl and calc_buffer[index] ~= nil then
-			return fx_buffer, sqh_buffer, sql_buffer
+			return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 		end
 
         if not CheckIndex(index, ds) or index < period then
-			return nil
+			return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 		end
 
         input = {}
@@ -1481,7 +1483,7 @@ local function F_REG(settings, ds)
 			end
 
 			if ll==0 then
-				return nil
+				return fx_buffer, sqh_buffer, sql_buffer
 			end
 			if ll~=kk then
 				for jj=1, nn do
@@ -1527,7 +1529,8 @@ local function F_REG(settings, ds)
             sse = sse + math_pow(fx_buffer[index+n-period] - input[n], 2)
         end
 
-        sse = math_sqrt(sse/(period-1))*kstd
+        sd_buffer[index] = math_sqrt(sse/(period-1))
+		sse = sd_buffer[index]*kstd
 
 		for n = 1, period do
 			sqh_buffer[index+n-period]=fx_buffer[index+n-period]+sse
@@ -1536,7 +1539,7 @@ local function F_REG(settings, ds)
 
         calc_buffer[index] = true
 
-		return fx_buffer, sqh_buffer, sql_buffer
+		return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 
 	end
 
@@ -2014,11 +2017,9 @@ local function F_RSI(settings, ds)
             return RSI
         end
 
-        RSI[index]      = RSI[index-1]
-        Up[index]       = Up[index-1]
-        Down[index]     = Down[index-1]
-        val_Up[index]   = val_Up[index-1]
-        val_Down[index] = val_Down[index-1]
+        RSI[index]  = RSI[index-1]
+        Up[index]   = Up[index-1]
+        Down[index] = Down[index-1]
 
         if not M.CheckIndex(index, ds) then return RSI end
         if last_index ~= index then
@@ -2114,6 +2115,7 @@ local function F_SAR(settings, ds)
     settings            = (settings or {})
 
     local period        = (settings.period or 21)
+    local period2       = (settings.period2 or 0)
     local dev           = (settings.dev or 3)
     local waves_buffer  = (settings.waves_buffer or 10)
     local save_bars     = (settings.save_bars or period)
@@ -2178,7 +2180,7 @@ local function F_SAR(settings, ds)
         close       = M.Value(index, 'Close', ds)
         p_close     = M.Value(index-1, 'Close', ds)
 
-        if cache_H == nil or index == begin_index then
+        if cache_H == nil then
             begin_index  = index
             cache_H     = {}
 			cache_L     = {}
@@ -2191,7 +2193,7 @@ local function F_SAR(settings, ds)
 			CC_N        = {}
 
 			CC[index]           = close
-			CC_N[index]         = (close + high + low)/3
+			CC_N[index]         = period2 == 0 and (close + high + low)/3 or 0
 			cache_H[index]      = high
 			cache_L[index]      = low
 			cache_SAR[index]    = rounding(low - 2*(high - low), round, scale)
@@ -2242,44 +2244,72 @@ local function F_SAR(settings, ds)
 		AMA2[index]         = (2/(period/2+1))*CC[index] + (1-2/(period/2+1))*AMA2[index-1]
 		CC_N[index]         = (close - AMA2[index])/2 + AMA2[index]
 
+        -- myLog(tostring(index)..' '..os.date('%Y.%m.%d %H:%M', os.time(ds:T(index)))..' close'..' '..tostring(CC[index])..' cache_SAR'..' '..tostring(cache_SAR[index])..' AMA2'..' '..tostring(AMA2[index])..' CC_N'..' '..tostring(CC_N[index])..' sigma'..' '..tostring(ATR[index]))
+
         if index - begin_index == 2 then
 			return cache_SAR, trend, wave_data, last_zz, signal
 		end
 
-        if trend[index] == 1 then
+        if period2 == 0 then
+            if trend[index] == 1 then
 
-			if cache_H[index] < CC[index] then
-				cache_H[index]  = CC[index]
-                H_index[index]  = index
-			end
+                if cache_H[index] < CC[index] then
+                    cache_H[index]  = CC[index]
+                    H_index[index]  = index
+                end
 
-            cache_SAR[index] = math_max((cache_H[index]-ATR[index]*dev), cache_SAR[index-1])
+                cache_SAR[index] = math_max((cache_H[index]-ATR[index]*dev), cache_SAR[index-1])
 
-            if (cache_SAR[index] > CC_N[index])and(cache_SAR[index] > close) then
-				trend[index]        = -1
-				cache_L[index]      = CC[index]
-				L_index[index]      = index
-				signal[index]       = cache_SAR[index]
-                cache_SAR[index]    = rounding(cache_L[index]+ATR[index]*dev, round, scale)
-			end
+                if (cache_SAR[index] > CC_N[index])and(cache_SAR[index] > close) then
+                    trend[index]        = -1
+                    cache_L[index]      = CC[index]
+                    L_index[index]      = index
+                    signal[index]       = cache_SAR[index]
+                    cache_SAR[index]    = rounding(cache_L[index]+ATR[index]*dev, round, scale)
+                end
 
-        elseif trend[index] == -1 then
+            elseif trend[index] == -1 then
 
-            if cache_L[index] > CC[index] then
-				cache_L[index]  = CC[index]
-                L_index[index]  = index
-			end
+                if cache_L[index] > CC[index] then
+                    cache_L[index]  = CC[index]
+                    L_index[index]  = index
+                end
 
-            cache_SAR[index] = math_min((cache_L[index]+ATR[index]*dev), cache_SAR[index-1])
+                cache_SAR[index] = math_min((cache_L[index]+ATR[index]*dev), cache_SAR[index-1])
 
-            if (cache_SAR[index] < CC_N[index]) and (cache_SAR[index] < close) then
-				trend[index]        = 1
-				cache_H[index]      = CC[index]
-				H_index[index]      = index
-				signal[index]       = cache_SAR[index]
-				cache_SAR[index]    = rounding(cache_H[index]-ATR[index]*dev, round, scale)
-			end
-		end
+                if (cache_SAR[index] < CC_N[index]) and (cache_SAR[index] < close) then
+                    trend[index]        = 1
+                    cache_H[index]      = CC[index]
+                    H_index[index]      = index
+                    signal[index]       = cache_SAR[index]
+                    cache_SAR[index]    = rounding(cache_H[index]-ATR[index]*dev, round, scale)
+                end
+            end
+        else
+            CC_N[index]  = (2/(period2/2+1))*(CC[index]-AMA2[index])^2+(1-2/(period2/2+1))*CC_N[index-1]
+            ATR[index]   = CC_N[index]^(1/2)
+            if trend[index] == 1 then
+
+                cache_SAR[index] = math.max((AMA2[index]-ATR[index]*dev), cache_SAR[index-1])
+
+                if (cache_SAR[index] > CC[index]) then
+                    trend[index]       = -1
+                    cache_SAR[index]   = rounding(AMA2[index]+ATR[index]*dev, round, scale)
+                    signal[index]      = cache_SAR[index]
+                end
+
+            elseif trend[index] == -1 then
+
+
+                cache_SAR[index] = math.min((AMA2[index]+ATR[index]*dev), cache_SAR[index-1])
+
+                if (cache_SAR[index] < CC[index]) then
+                    trend[index]       = 1
+                    cache_SAR[index]   = rounding(AMA2[index]-ATR[index]*dev, round, scale)
+                    signal[index]      = cache_SAR[index]
+                end
+            end
+        end
 
         calc_waves(index)
 
