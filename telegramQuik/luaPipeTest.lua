@@ -10,6 +10,8 @@ local strin = [[test проверка
 четвертая @:)
 пятая строка
 шестая строка
+
+emoji ##1F601
 ]]
 
 if _G.message then
