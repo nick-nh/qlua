@@ -14,6 +14,8 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Net;
 using System.Net.Mail;
+using System.Text.RegularExpressions;
+using System.Globalization;
 
 public delegate void OnReplyHandler();
 
@@ -114,6 +116,7 @@ public class ExitWait
         });
     }
 }
+
 
 public class Settings
 {
@@ -283,6 +286,24 @@ public class PipeTeleServer
     private static BotClient botClient;
     private static string PipeName;
     private static LogBase logger = null;
+    static string DecodeEncodedNonAsciiCharacters2(string value)
+    {
+        return Regex.Replace(
+        value,
+        @"##(?<Value>[a-zA-Z0-9]*)",
+        m =>
+        {
+            try
+            {
+                return char.ConvertFromUtf32((Int32.Parse(m.Groups["Value"].Value, NumberStyles.HexNumber)));
+            }
+            catch
+            {
+                logger.Log(string.Format("Wrong emoji utf string ##{0}", m.Groups["Value"].Value));
+                return m.Groups["Value"].Value;
+            }
+        });
+    }
 
     public PipeTeleServer()
     {
@@ -366,7 +387,7 @@ public class PipeTeleServer
             // Verify our identity to the connected client using a
             // string that the client anticipates.
 
-            string content = ss.ReadString();
+            string content = DecodeEncodedNonAsciiCharacters2(ss.ReadString());
             logger.Log(string.Format("Get Telegram message:\n{0}", content));
 
             logger.Log(string.Format("GetIncomeMessages {0}", content.Contains("GetIncomeMessages()")));
@@ -643,7 +664,7 @@ public class BotClient
         {
             foreach (var chat in chat_id)
             {
-                var run_task = telebotClient.SendTextMessageAsync(chat, data);
+                var run_task = telebotClient.SendTextMessageAsync(chat, data, ParseMode.Html, null, true, true, 0);
 
                 while (run_task.Status != TaskStatus.RanToCompletion)
                 {
@@ -726,7 +747,7 @@ public class StreamString
                 Array.Clear(inBuffer, 0, inBuffer.Length);
             } while (get >= inBuffer.Length);
 
-            if (Settings.DefaultEncoding != "UTF8")
+            if (Settings.DefaultEncoding != "UTF-8")
                 res = DefaultToUTF8(res);
 
             return res;
@@ -743,7 +764,7 @@ public class StreamString
         try
         {
             string to_send = outString;
-            if (Settings.DefaultEncoding != "UTF8")
+            if (Settings.DefaultEncoding != "UTF-8")
                 to_send = UTF8ToDefault(outString);
 
             byte[] outBuffer = Encoding.GetEncoding(Settings.DefaultEncoding).GetBytes(to_send);
