@@ -98,7 +98,7 @@ table_to_string = function(value, show_number_keys, miss_key, done)
     if show_number_keys == nil then show_number_keys = true end
     miss_key = miss_key or ''
 
-    local done = done or {}
+    done = done or {}
 
     if (type(value) ~= 'table') then
         if (type(value) == 'string') then
