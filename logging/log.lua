@@ -93,9 +93,12 @@ local format_value = function(x)
 end
 
 local table_to_string
-table_to_string = function(value, show_number_keys)
+table_to_string = function(value, show_number_keys, miss_key, done)
     local str = ''
     if show_number_keys == nil then show_number_keys = true end
+    miss_key = miss_key or ''
+
+    local done = done or {}
 
     if (type(value) ~= 'table') then
         if (type(value) == 'string') then
@@ -103,12 +106,13 @@ table_to_string = function(value, show_number_keys)
         else
             str = format_value(value)
         end
-    else
+      elseif not done [value] then
+        done[value] = true
         local auxTable = {}
         local max_index = #value
         for key in pairs(value) do
-            if value[key] ~= nil then
-                if type(key) ~= "table" and type(key) ~= "function" then
+            if type(key) ~= "table" and type(key) ~= "function" then
+                if not miss_key:find(key) and value[key] ~= nil then
                     if (tonumber(key) ~= key) then
                         table_insert(auxTable, key)
                     else
@@ -131,7 +135,7 @@ table_to_string = function(value, show_number_keys)
             entry = value[fieldName]
             -- Check the value type
             if type(entry) == "table" and getmetatable(entry) == nil then
-                entry = table_to_string(entry)
+                entry = table_to_string(entry, show_number_keys, miss_key, done)
             elseif type(entry) == "boolean" then
                 entry = _G._tostring(entry)
             elseif type(entry) == "number" then
