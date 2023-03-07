@@ -13,10 +13,13 @@ local math_ceil  = math.ceil
 
 --calc center of claster as median value
 M.MEDIAN = false
+
 --set round calc center of claster
 --M.ROUND  = 2
+
 -- vectors coordinat keys
 --M.V_KEYS = {[1] = 'x', [2] = 'y'}
+
 --vectors coordinat weights
 M.V_WEIGHT = {}
 --M.V_WEIGHT = {x = 1, y = 1}

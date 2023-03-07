@@ -24,6 +24,10 @@ https://nick-nh.github.io
     - Описание - https://nick-nh.github.io/2021-03-14/maLib
     - [MA.lua - Базовый пример использования библиотеки в индикаторе](https://github.com/nick-nh/qlua/blob/master/MA.lua)
 
+- [k-mean.lua - k-means clustering.](https://github.com/nick-nh/qlua/blob/master/k-mean.lua)
+
+   - https://ru.wikipedia.org/wiki/%D0%9C%D0%B5%D1%82%D0%BE%D0%B4_k-%D1%81%D1%80%D0%B5%D0%B4%D0%BD%D0%B8%D1%85
+
 - [AMA.lua - Адаптивная скользящая средняя Перри Кауфмана.](https://github.com/nick-nh/qlua/blob/master/AMA.lua)
 
 - [ATRNormalized.lua - Нормализованный ATR и побарный диапазон движения.](https://github.com/nick-nh/qlua/blob/master/ATRNormalized.lua)
