@@ -160,6 +160,8 @@ https://nick-nh.github.io
 
 - [iReg.lua - Регрессия: линейная, параболическая, кубическая.](https://github.com/nick-nh/qlua/blob/master/iReg.lua)
 
+- [kReg.lua - Nadaraya-Watson kernel regression.](https://github.com/nick-nh/qlua/blob/master/kReg.lua)
+
 - [lineFractals.lua - Вывод линий от найденных фрактальных уровней.](https://github.com/nick-nh/qlua/blob/master/lineFractals.lua)
 
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
