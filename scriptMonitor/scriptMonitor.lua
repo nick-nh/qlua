@@ -78,6 +78,12 @@ end
 
 do---- ДАТА/ВРЕМЯ
 
+    function is_date(val)
+        if not type(val) == "table" then return false end
+        local status = pcall(function() return os.time(val); end)
+        return status
+    end
+
     -- Ждет подключения к серверу, после чего ждет еще UpdateDataSecQty секунд подгрузки пропущенных данных с сервера
     function WaitUpdateDataAfterReconnect()
        while isRun and isConnected() == 0 do sleep(100) end
@@ -456,7 +462,7 @@ function main() -- Функция, реализующая основной по�
                         --myLog(SEC_CODE.." - current_time "..tostring(current_time).." - lastTimeCalculated "..tostring(lastTimeCalculated).." - newTimeToCalculate "..tostring(newTimeToCalculate))
                         --myLog(SEC_CODE.." - current_time "..tostring(current_time))
                         --myLog(SEC_CODE.." - newtimeCandle "..tostring(os.time(timeCandle) + INTERVAL*60))
-                        if SEC_CODE_INDEX[i][cell]<DS:Size() or current_time>newTimeToCalculate and current_time < (os.time(timeCandle) + INTERVAL*60) then --new candle
+                        if SEC_CODE_INDEX[i][cell]<DS:Size() or (current_time>newTimeToCalculate and is_date(timeCandle) and current_time < (os.time(timeCandle) + INTERVAL*60)) then --new candle
 
                             --myLog(SEC_CODE.." - Перерасчет данных за интервал "..INTERVALS["names"][cell])
                             SEC_CODES['lastTimeCalculated'][i][cell] = current_time
