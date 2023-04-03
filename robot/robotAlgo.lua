@@ -1,8 +1,24 @@
 -- nick-h@yandex.ru
 -- Glukk Inc ©
+local function safe_require(lib_name)
+	local status, res = pcall(
+		function() 
+			return require(lib_name) 
+		end
+	)
+	if status then return res end 
+	message('err load '..lib_name..': '..tostring(res))
+end
 
-local w32 = require("w32")
-require("StaticVar")
+-- Раскомментировать, если необходимо использовать библиотеку w32
+--_G.w32 = safe_require('w32')
+-- Раскомментировать, если необходимо использовать библиотеку StaticVar
+--safe_require('StaticVar')
+
+_G.unpack       = rawget(table, "unpack") or _G.unpack
+_G.loadfile     = _G.loadfile or _G.load
+_G.loadstring   = _G.loadstring or _G.load
+math.pow      	= math.pow or function(x, y) return x^y end
 
 maintable={} --maintable.t - главная таблица робота
 
@@ -189,12 +205,10 @@ logging                     = true
 isOptimization              = true -- доступен ли модуль оптимизации, тестирования
 
 --По умолчанию первый пересет
-curPreset = 4
+curPreset = 1
 -----------------------------------------------
 
 _G._tostring = tostring
-_G.unpack    = rawget(table, "unpack") or _G.unpack
-_G.load      = _G.loadfile or _G.load
 
 local format_value = function(x)
     if type(x) == "number" and (math.floor(x) == x) then
@@ -369,7 +383,7 @@ function OnInit()
 
     if iterateAlgorithm == nil then isOptimization = false end
 
-    dofile(getScriptPath().."\\regAlgo.lua")
+	dofile(getScriptPath().."\\regAlgo.lua")
     dofile(getScriptPath().."\\thvAlgo.lua")
     dofile(getScriptPath().."\\shiftMaAlgo.lua")
     dofile(getScriptPath().."\\ethlerAlgo.lua")
@@ -382,9 +396,9 @@ function OnInit()
         {
             Name                    = "simpleM3",       -- имя пресета
             NAME_OF_STRATEGY        = 'simple',         -- имя стратегии
-            ACCOUNT                 = 'A701XS7',    -- Идентификатор счета для этой настройки
-            CLIENT_CODE             = "A701XS7",    -- "Код клиента" для этой настройки
-            SEC_CODE                = 'SRU0',           -- код инструмента для торговли
+            ACCOUNT                 = 'SPBFUT000nm',    -- Идентификатор счета для этой настройки
+            CLIENT_CODE             = "SPBFUT000nm",    -- "Код клиента" для этой настройки
+            SEC_CODE                = 'SiM3',           -- код инструмента для торговли
             CLASS_CODE              = 'SPBFUT',         -- класс инструмента
             QTY_LOTS                = 1,                -- количество для торговли
             OFFSET                  = 2,                -- (ОТСТУП)Если цена достигла Тейк-профита и идет дальше в прибыль
@@ -392,8 +406,8 @@ function OnInit()
             ChartId                 = "Sheet11",        -- индентификатор графика, куда выводить метки сделок и данные алгоритма.
             STOP_LOSS               = 25,               -- Размер СТОП-ЛОССА в пунктах (в рублях)
             TAKE_PROFIT             = 130,              -- Размер ТЕЙК-ПРОФИТА в пунктах (в рублях)
-            TRAILING_SIZE           = 25,               -- Размер выхода в плюс в пунктах (в рублях), после которого активируется трейлинг
-            TRAILING_SIZE_STEP      = 1,                -- Размер шага трейлинга в пунктах (в рублях)
+            TRAILING_SIZE           = 50,               -- Размер выхода в плюс в пунктах (в рублях), после которого активируется трейлинг
+            TRAILING_SIZE_STEP      = 25,               -- Размер шага трейлинга в пунктах (в рублях)
             CLOSE_BAR_SIGNAL        = 1,                -- Сигналы на вход поступают: 1 - по закрытию бара; 0 -- в произволное время
             kATR                    = 0.95,             -- коэффициент ATR для расчета стоп-лосса
             periodATR               = 17,               -- период ATR для расчета стоп-лосса
@@ -1360,7 +1374,7 @@ local function startTrade()
         myLog("Start "..", trend: "..tostring(trend.current)..", past trend: "..tostring(trend.last))
     end
 
-    if ChartId ~= nil then
+    if ChartId ~= nil and stv then
         stv.UseNameSpace(ChartId)
         stv.SetVar('algoResults', calcChartResults)
     end
@@ -2134,7 +2148,7 @@ local function getRealTimeTradeState()
         local index = DS:Size()
         calculateAlgo(index, Settings)
 
-        if ChartId ~= nil then
+        if ChartId ~= nil and stv then
             stv.UseNameSpace(ChartId)
             stv.SetVar('algoResults', calcChartResults)
         end
@@ -2259,6 +2273,7 @@ end
 --Поиск сигнала для открытия сделки по закрытым барам, генерация команды роботу для выполнения сделки
 local function getCloseBarTradeState()
 
+	if not DS then return end
     local index = DS:Size() - 1
     if isTrade and index > lastCalculatedBar then
 
@@ -2272,7 +2287,7 @@ local function getCloseBarTradeState()
 
         lastCalculatedBar = index
 
-        if ChartId ~= nil then
+        if ChartId ~= nil and stv then
             stv.UseNameSpace(ChartId)
             --myLog('calcChartResults '..tostring(calcChartResults)..', calcChartResults[] '..tostring(calcChartResults[DS:Size()-1]))
             stv.SetVar('algoResults', calcChartResults)
