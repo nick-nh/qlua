@@ -315,7 +315,8 @@ public class PipeTeleServer
         logger      = new FileLogger(false);
 
         int i;
-        Thread[] servers = new Thread[numThreads];
+        Thread[] servers     = new Thread[numThreads];
+        Thread[] out_servers = new Thread[numThreads];
 
         logger.Log(string.Format("\nStart Telegram Named pipe server stream {0}\n", PipeName), true);
         logger.Log("Waiting for client connect...", true) ;
@@ -325,6 +326,8 @@ public class PipeTeleServer
         {
             servers[i] = new Thread(ServerThread);
             servers[i].Start();
+            out_servers[i] = new Thread(OutServerThread);
+            out_servers[i].Start();
         }
         Thread.Sleep(250);
 
@@ -348,6 +351,20 @@ public class PipeTeleServer
                         servers[j] = new Thread(ServerThread);
                         servers[j].Start();
                     }
+                    if (out_servers[j] != null)
+                    {
+                        if (out_servers[j].Join(250))
+                        {
+                            logger.Log(string.Format("Telegram Server out_thread[{0}] finished.", out_servers[j].ManagedThreadId));
+                            out_servers[j].Abort();
+                            out_servers[j] = null;
+                        }
+                    }
+                    else
+                    {
+                        out_servers[j] = new Thread(OutServerThread);
+                        out_servers[j].Start();
+                    }
                 }
             }
 
@@ -358,17 +375,23 @@ public class PipeTeleServer
                     servers[j].Abort();
                     servers[j] = null;
                 }
+                if (out_servers[j] != null)
+                {
+                    out_servers[j].Abort();
+                    out_servers[j] = null;
+                }
             }
 
             logger.Log(string.Format("\nTelegram Server {0} stops, exiting.", PipeName), true);
+            logger.Close();
+            Environment.Exit(0);
         });
-
     }
 
     private static void ServerThread(object data)
     {
         NamedPipeServerStream pipeServer =
-            new NamedPipeServerStream(PipeName, PipeDirection.InOut, numThreads);
+            new NamedPipeServerStream(PipeName, PipeDirection.In, numThreads);
 
         int threadId = Thread.CurrentThread.ManagedThreadId;
         logger.Log(string.Format("Start Telegram thread[{0}].", threadId));
@@ -388,23 +411,7 @@ public class PipeTeleServer
             // string that the client anticipates.
 
             string content = DecodeEncodedNonAsciiCharacters2(ss.ReadString());
-            logger.Log(string.Format("Get Telegram message:\n{0}", content));
-
-            logger.Log(string.Format("GetIncomeMessages {0}", content.Contains("GetIncomeMessages()")));
-
-            if (content.Contains("GetIncomeMessages()"))
-            {
-                var msgs = botClient.GetIncomeMessages();
-                if (msgs == null)
-                    msgs = "{[===[No new messages]===]}";
-
-                ReadMessagesToStream msgsReader = new ReadMessagesToStream(ss, msgs);
-                ss.ClearMessages += new OnReplyHandler(BotClient.ClearIncomeMessages);
-
-                pipeServer.RunAsClient(msgsReader.Start);
-            }
-            else
-                botClient.Send(content);
+            botClient.Send(content);
 
         }
         // Catch the IOException that is raised if the pipe is broken
@@ -415,6 +422,43 @@ public class PipeTeleServer
         }
         pipeServer.Close();
     }
+
+    private static void OutServerThread(object data)
+    {
+        NamedPipeServerStream pipeServer =
+            new NamedPipeServerStream("out_" + PipeName, PipeDirection.Out, numThreads);
+
+        int threadId = Thread.CurrentThread.ManagedThreadId;
+        logger.Log(string.Format("Start Telegram out_thread[{0}].", threadId));
+
+        // Wait for a client to connect
+        pipeServer.WaitForConnection();
+
+        logger.Log(string.Format("Client connected on Telegram out_thread[{0}].", threadId));
+        try
+        {
+
+            StreamString ss = new StreamString(pipeServer);
+
+            var msgs = botClient.GetIncomeMessages();
+            if (msgs == null)
+                msgs = "{[===[No new messages]===]}";
+
+            logger.Log(string.Format("IncomeMessages {0}", msgs));
+
+            ss.WriteString(msgs);
+            BotClient.ClearIncomeMessages();
+
+        }
+        // Catch the IOException that is raised if the pipe is broken
+        // or disconnected.
+        catch (IOException e)
+        {
+            logger.Log(string.Format("Telegram OutServerThread ERROR: {0}", e.Message), true);
+        }
+        pipeServer.Close();
+    }
+
 
 }
 
@@ -707,7 +751,6 @@ public class StreamString
 {
     private Stream ioStream;
     private static LogBase logger = null;
-    public event OnReplyHandler ClearMessages;
 
     public StreamString(Stream ioStream)
     {
@@ -776,7 +819,6 @@ public class StreamString
             ioStream.Write(outBuffer, 0, len);
             ioStream.Flush();
 
-            ClearMessages();
             return outBuffer.Length + 2;
         }
         catch (IOException e)
@@ -784,24 +826,5 @@ public class StreamString
             logger.Log(string.Format("WriteString ERROR: {0}", e.ToString()), true);
         }
         return 0;
-    }
-}
-
-
-// Contains the method executed in the context of the impersonated user
-public class ReadMessagesToStream
-{
-    private string msg;
-    private StreamString ss;
-
-    public ReadMessagesToStream(StreamString str, string messages)
-    {
-        msg = messages;
-        ss = str;
-    }
-
-    public void Start()
-    {
-        ss.WriteString(msg);
     }
 }
