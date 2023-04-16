@@ -26,7 +26,7 @@ _G.unpack           = rawget(table, "unpack") or _G.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2023.02.24',
+    _VERSION     = 'MA lib 2023.04.16',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -3285,11 +3285,12 @@ local function F_DSMA(settings, ds)
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
 
-    local fSSF, begin_index
+    local fSSF, ssf, begin_index
 
     local edsma         = {}
     local avgZeros
     local zeros
+    local ssfFunc       = poles == 2 and M.Get2PoleSSF or M.Get3PoleSSF
 
     return function (index)
 
@@ -3304,7 +3305,8 @@ local function F_DSMA(settings, ds)
                 zeros[index]    = 0
                 avgZeros        = {}
                 avgZeros[index] = 0
-                fSSF            = poles == 2 and M.Get2PoleSSF({period = period, data_type = 'Any'}, avgZeros) or M.Get3PoleSSF({period = period, data_type = 'Any'}, avgZeros)
+                --Ehlers Super Smoother Filter
+                fSSF, ssf       = ssfFunc({period = period, data_type = 'Any'}, avgZeros)
                 fSSF(index)
                 return
             end
@@ -3313,15 +3315,14 @@ local function F_DSMA(settings, ds)
 			avgZeros[index] = avgZeros[index-1]
 			edsma[index]    = edsma[index-1]
 
-            --Ehlers Super Smoother Filter
-            local ssf = fSSF(index)
-
             if not M.CheckIndex(index, ds) then
+                fSSF(index)
 				return
 			end
 
             zeros[index]    = val - (M.Value(M.GetIndex(index, 2, ds, data_type), data_type, ds))
             avgZeros[index] = (zeros[index] + zeros[index-1])/2
+            fSSF(index)
 
             --Rescale filter in terms of Standard Deviations
             local stdev         = M.Sigma(ssf, nil, index - period + 1, index)
