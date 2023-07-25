@@ -49,3 +49,6 @@ https://youtu.be/14c4nQiDdfU
 
 Пример настроек
 https://youtu.be/Vy_m7qUwirY
+
+## Update 2023.07.20.
+Новая версия, использующая Telegram.Bot v19.0.0 и C# preview
