@@ -154,6 +154,8 @@ https://nick-nh.github.io
 
     - Уровни откладываются от величины ATR. Дополнительно можно вывести TEMA, THV.
 
+- [MA_ATR.lua - Скользящая средная с выводом канальных линий +/- ATR.](https://github.com/nick-nh/qlua/blob/master/MA_ATR.lua)
+
 - [hourOpen.lua - Вывод уровня начала каждого часа.](https://github.com/nick-nh/qlua/blob/master/hourOpen.lua)
 
 - [weekDayOpen.lua - Вывод уроня начала дня, недели.](https://github.com/nick-nh/qlua/blob/master/weekDayOpen.lua)
@@ -229,3 +231,6 @@ https://nick-nh.github.io
     - https://nick-nh.github.io/2021-03-14/teleMessage
 
 - [Сделки на графике из файлов формата Лучший частный инвестор](https://github.com/nick-nh/qlua/blob/master/invest_battle_pro)
+
+
+Для благодарностей: кошелек ЮMoney 410012258109375
