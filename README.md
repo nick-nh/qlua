@@ -16,6 +16,8 @@ Quik Lua indicators
 Мой блог
 https://nick-nh.github.io
 
+Для благодарностей: кошелек ЮMoney 410012258109375
+
 
 ## Список индикаторов
 
@@ -231,6 +233,3 @@ https://nick-nh.github.io
     - https://nick-nh.github.io/2021-03-14/teleMessage
 
 - [Сделки на графике из файлов формата Лучший частный инвестор](https://github.com/nick-nh/qlua/blob/master/invest_battle_pro)
-
-
-Для благодарностей: кошелек ЮMoney 410012258109375
