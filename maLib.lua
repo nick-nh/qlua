@@ -16,6 +16,7 @@ local math_max      = math.max
 local math_min      = math.min
 local math_abs      = math.abs
 local math_pow      = function(x, y) return x^y end
+local math_fmod     = math.fmod
 local math_sqrt     = math.sqrt
 local math_exp      = math.exp
 local math_log      = math.log
@@ -26,7 +27,7 @@ _G.unpack           = rawget(table, "unpack") or _G.unpack
 
 local M = {}
 M.LICENSE = {
-    _VERSION     = 'MA lib 2023.04.16',
+    _VERSION     = 'MA lib 2023.08.15',
     _DESCRIPTION = 'quik lib',
     _AUTHOR      = 'nnh: nick-h@yandex.ru'
 }
@@ -200,7 +201,7 @@ local function rounding(num, round, scale)
 end
 
 local function Value(index, data_type, ds)
-    local Out = nil
+    local Out
     if tostring(data_type):upper() == 'TIME' then
         return (ds and ds:T(index))
     end
@@ -317,8 +318,8 @@ local function wave_processor(ds, waves_buffer, wave_data)
             update_wave(index, high, low)
         end
 
-        if online then
-            return wave_data, last_zz
+        if online or count_index[index] > 1 then
+            return last_zz, wave_data
         end
 
         if trend[index-shift] ~= trend[index-shift-1] then
@@ -356,7 +357,7 @@ local function wave_processor(ds, waves_buffer, wave_data)
             zz_waves[n_waves]       = wave_data.cur_wave
             zz_waves[n_waves - waves_buffer] = nil
         end
-        return wave_data, last_zz
+        return last_zz, wave_data
     end, wave_data
 end
 
@@ -484,12 +485,14 @@ end
 ]]
 local function Get2PoleSSF(settings, ds)
 
-    local period    = (settings.period or 9)
+    local period    = (settings.period or 20)
     local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
     local save_bars = math_max((settings.save_bars or period), 3)
 
     local pi        = math.pi
-    local arg       = math.sqrt(2)*pi/(0.5*period)
+    local arg       = math.sqrt(2)*pi/(period)
     local a1        = math.exp(-arg)
     local b1        = 2*a1*math.cos(arg)
     local c2        = b1
@@ -503,19 +506,21 @@ local function Get2PoleSSF(settings, ds)
         if not CheckIndex(index, ds) then
             return SSF
         end
-        SSF[index]      = c1*Value(index, data_type, ds) + c2*(SSF[index-1] or 0) + c3*(SSF[index-2] or 0)
+        SSF[index]      = rounding(c1*Value(index, data_type, ds) + c2*(SSF[index-1] or 0) + c3*(SSF[index-2] or 0), round, scale)
         SSF[index-save_bars] = nil
         return SSF
     end, SSF
 end
 local function Get3PoleSSF(settings, ds)
 
-    local period    = (settings.period or 9)
+    local period    = (settings.period or 20)
     local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
     local save_bars = math_max((settings.save_bars or period), 4)
 
     local pi        = math.pi
-    local arg       = pi/(0.5*period)
+    local arg       = pi/(period)
     local a1        = math.exp(-arg)
     local b1        = 2*a1*math.cos(1.738*arg)
     local c1        = a1*a1
@@ -532,7 +537,7 @@ local function Get3PoleSSF(settings, ds)
         if not CheckIndex(index, ds) then
             return SSF
         end
-        SSF[index]      = coef1*Value(index, data_type, ds) + coef2*(SSF[index-1] or 0) + coef3*(SSF[index-2] or 0) + coef4*(SSF[index-3] or 0)
+        SSF[index]      = rounding(coef1*Value(index, data_type, ds) + coef2*(SSF[index-1] or 0) + coef3*(SSF[index-2] or 0) + coef4*(SSF[index-3] or 0), round, scale)
         SSF[index-save_bars] = nil
         return SSF
     end, SSF
@@ -566,6 +571,31 @@ local function F_ATR(settings, ds)
         l_index = index
         return ATR
     end, ATR
+end
+
+--[[PRICE RANGE
+]]
+local function F_P_RANGE(settings, ds)
+
+    local period    = (settings.period or 9)
+
+    local RANGE     = {}
+    local LOW       = {}
+    local HIGH      = {}
+    local l_high, l_low, s_index, ip
+    return function(index)
+        if not CheckIndex(index, ds) then
+            return RANGE
+        end
+        s_index     = s_index or index
+        ip          = math_fmod(index - s_index, period)+1
+        LOW[ip]     = Value(index, 'Low', ds)
+        HIGH[ip]    = Value(index, 'High', ds)
+        l_high      = math_max(unpack(HIGH))
+        l_low       = math_min(unpack(LOW))
+        RANGE[index] = l_high - l_low
+        return RANGE, HIGH, LOW
+    end, RANGE, l_high, l_low
 end
 
 --[[Sum od values
@@ -649,13 +679,13 @@ local function F_LWMA(settings, ds)
     local l_index
     return function(index)
         LWMA_TMP[index]  = LWMA_TMP[index-1] or 0
-        local sum, n     = 0, 0
         if l_index ~= index then
             l_index = index
             bars = bars + 1
         end
         bars = bars < period and bars or period
         local w
+        local sum, n = 0, 0
         for i = 1, bars do
             if CheckIndex(index-bars+i, ds) then
                 w   = lambda(i)
@@ -794,7 +824,7 @@ end
 William Moving Average (WMA)
 ( Previous WILLMA * ( period - 1 ) + Data ) / period
 ]]
-local function F_WMA(settings, ds)
+local function F_WILLMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
@@ -853,6 +883,40 @@ local function F_HMA(settings, ds)
     end, HMA_TMP
 end
 
+--[[Arnaud Legoux Moving Average (ALMA)
+]]
+local function F_ALMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local offset    = (settings.offset or 0.85)
+    local sigma     = (settings.sigma or 6)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local ALMA      = {}
+
+    local m         = (offset * (period - 1))
+    local s         = (period/sigma)
+    local w         = {}
+    for k = 0, period-1 do
+        w[k+1]  = math.exp(-((k-m)^2)/(2*(s^2)))
+    end
+
+    local fLwma = F_LWMA({period = period, data_type = data_type, round = round, scale = scale, weight_func = function(i) return w[i] end}, ds)
+
+    return function (index)
+        ALMA[index]  = ALMA[index-1] or 0
+        if not CheckIndex(index, ds) then
+            return ALMA
+        end
+        ALMA[index] = fLwma(index)[index]
+        ALMA[index-save_bars] = nil
+        return ALMA
+    end, ALMA
+end
+
 --[[
 Jurik Moving Average
 ]]
@@ -904,10 +968,40 @@ local function F_JMA(settings, ds)
     end, JMA
 end
 
---[[Volume Adjusted Moving Average (VMA)
-VMA = sum(Pi*Vi) / sum(Vi)
+--[[Weighted Moving Average (WMA)
+WMA = sum(Pi*i) / sum(i)
 ]]
-local function F_VMA(settings, ds)
+local function F_WMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local WMA       = {}
+
+    local w         = {}
+    for k = 1, period do
+        w[k]  = k
+    end
+    local fLwma = F_LWMA({period = period, data_type = data_type, round = round, scale = scale, weight_func = function(i) return w[i] end}, ds)
+
+    return function (index)
+        WMA[index]  = WMA[index-1] or 0
+        if not CheckIndex(index, ds) then
+            return WMA
+        end
+        WMA[index] = fLwma(index)[index]
+        WMA[index-save_bars] = nil
+        return WMA
+    end, WMA
+end
+
+--[[Volume Adjusted Moving Average (VWMA)
+VWMA = sum(Pi*Vi) / sum(Vi)
+]]
+local function F_VWMA(settings, ds)
 
     local period    = (settings.period or 9)
     local data_type = (settings.data_type or "Close")
@@ -917,20 +1011,20 @@ local function F_VMA(settings, ds)
 
     local fSum      = F_SUM(settings)
     local fSumV     = F_SUM(settings)
-    local VMA       = {}
+    local VWMA      = {}
     local sumV
 
     return function (index)
-        VMA[index]  = VMA[index-1] or 0
+        VWMA[index]  = VWMA[index-1] or 0
         if not CheckIndex(index, ds) then
-            return VMA
+            return VWMA
         end
         local vol   = Value(index, "Volume", ds) or 0
         sumV        = fSumV(index, vol)[index]
-        VMA[index] = sumV == 0 and VMA[index] or rounding(fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]/sumV, round, scale)
-        VMA[index-save_bars] = nil
-        return VMA
-    end, VMA
+        VWMA[index] = sumV == 0 and VWMA[index] or rounding(fSum(index, (Value(index, data_type, ds) or 0)*vol)[index]/sumV, round, scale)
+        VWMA[index-save_bars] = nil
+        return VWMA
+    end, VWMA
 end
 
 --[[Smoothed Moving Average (SMMA)
@@ -967,6 +1061,69 @@ local function F_SMMA(settings, ds)
         SMMA_TMP[index-save_bars] = nil
         return SMMA_TMP
     end, SMMA_TMP
+end
+
+--[[Triangular (extreme smooth) Moving Average (TMA)
+TMA = sma(sma)
+]]
+local function F_TMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local fSMA1
+    local sma1
+    local fSMA2
+    local TMA  = {}
+    local begin_index
+    return function(index)
+        if fSMA1 == nil or index == begin_index then
+            begin_index = index
+            fSMA1 = F_SMA(settings, ds)
+            sma1  = fSMA1(index)
+            fSMA2 = F_SMA({period = period, data_type = 'Any', round = round, scale = scale}, sma1)
+            TMA[index] = rounding(Value(index, data_type, ds), round, scale) or 0
+        end
+
+        fSMA1(index)
+        TMA[index] = rounding(fSMA2(index)[index], round, scale)
+        TMA[index-save_bars] = nil
+        return TMA
+     end, TMA
+end
+
+--[[The Double Exponential Moving Average (DEMA)
+DEMA = 2 * ema1 - ema2
+]]
+local function F_DEMA(settings, ds)
+
+    local period    = (settings.period or 9)
+    local data_type = (settings.data_type or "Close")
+    local round     = (settings.round or "OFF")
+    local scale     = (settings.scale or 0)
+    local save_bars = (settings.save_bars or period)
+
+    local fEMA1
+    local ema1
+    local fEMA2
+    local DEMA  = {}
+    local begin_index
+    return function(index)
+        if fEMA1 == nil or index == begin_index then
+            begin_index = index
+            fEMA1 = F_EMA(settings, ds)
+            ema1  = fEMA1(index)
+            fEMA2 = F_EMA({period = period, data_type = 'Any', round = round, scale = scale}, ema1)
+            DEMA[index] = rounding(Value(index, data_type, ds), round, scale) or 0
+        end
+
+        DEMA[index] = rounding(2*fEMA1(index)[index] - fEMA2(index)[index], round, scale)
+        DEMA[index-save_bars] = nil
+        return DEMA
+     end, DEMA
 end
 
 --[[The Triple Exponential Moving Average (TEMA)
@@ -1466,6 +1623,13 @@ local function F_NRMA(settings, ds)
     end, NRMA, NRTR
 end
 
+--nw kernel
+local function nadaraya_watson_kernel(u, h)
+    local b2h = h*h*2
+    local k = math_exp(-math_pow(u, 2)/b2h)
+    return k
+end
+
 --kernel regression
 local function epanechnikov_kernel(u, h, scale)
     u = u/h
@@ -1512,8 +1676,11 @@ end
 ]]
 local function kernel_regression(data, lookback, k_type)
 
-    local kernel_evaluator = gaussian_kernel
+    local kernel_evaluator = nadaraya_watson_kernel
 
+    if k_type == 'gaussian' then
+        kernel_evaluator = gaussian_kernel
+    end
     if k_type == 'epanechnikov' then
         kernel_evaluator = epanechnikov_kernel
     end
@@ -1527,10 +1694,11 @@ local function kernel_regression(data, lookback, k_type)
 	local size 	= #data
     local se 	= 0
     local y  	= {}
+	local sum_w, sum_wy
     for i = 1, size do
-        local sum_w     = 0
-        local sum_wy    = 0
-        for j = 1, size-1 do
+        sum_w  = 0
+        sum_wy = 0
+        for j = 1, size do
             local k = kernel_evaluator((data[i].x or i)-(data[j].x or j), lookback)
             sum_wy  = sum_wy + data[j].y*k
             sum_w   = sum_w + k
@@ -1580,11 +1748,12 @@ local function F_KREG(settings, ds, dsy)
             data        = {}
             while not data[1] and i < index do
                 data[j] = {x = get_x(index-i), y = get_y(index-i)}
-                i = i + 1
                 if data[j].y then
                     j = j - 1
                 end
+                i = i + 1
             end
+            last_cal_bar = index
         end
 
         if not CheckIndex(index, ds) or index < period then
@@ -1605,7 +1774,7 @@ local function F_KREG(settings, ds, dsy)
         end
 
         sd[index]       = (mae or 0)*kstd
-        trend[index]    = math_abs(fx_buffer[index] - fx_buffer[index-period+1])*100/fx_buffer[index-period+1] >= trend_delta and ((fx_buffer[index] - fx_buffer[index-1]) > 0 and 1 or -1) or trend[index-1]
+        trend[index]    = math_abs(fx_buffer[index] - fx_buffer[index-1])*100/fx_buffer[index-1] >= trend_delta and ((fx_buffer[index] - fx_buffer[index-1]) > 0 and 1 or -1) or trend[index-1]
 
         return fx_buffer, trend, sd
 
@@ -1651,7 +1820,7 @@ local function LIN_REG(data)
     return ((YSum*XXSum)-(XSum*XYSum))/div, ((#data*XYSum) - (XSum*YSum))/div
 end
 
-
+--fast linear regression
 local function F_FLREG(settings, ds, dsy)
 
     settings            = (settings or {})
@@ -1737,42 +1906,38 @@ local function F_REG(settings, ds)
     local degree        = settings.degree or 1
     local kstd          = settings.kstd or 1
     local data_type     = (settings.data_type or "Close")
-
-    local sql_buffer
-    local sqh_buffer
-    local fx_buffer
-	local sd_buffer
-	local sx
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+    local fx_buffer     = {}
+    local sql_buffer    = {}
+    local sqh_buffer    = {}
+	local sd_buffer     = {}
+    local begin_index
     local input
     local calc_buffer
-    local nn = degree + 1
-    local ai = {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
-	local b  = {}
-	local x  = {}
+    local nn            = degree + 1
+    local ai            = {{1,2,3,4}, {1,2,3,4}, {1,2,3,4}, {1,2,3,4}}
+	local solve         = {}
+	local b
+
+    local sx = {}
+	-- sx[1]    = period
+    local sum
+	for mi = 0, nn*2-2 do
+        sum=0
+        for n = 1, period do
+			sum = sum + math_pow(n,mi)
+		end
+	    sx[mi+1]=sum
+	end
 
     return function(index, recacl)
 
-
-		if fx_buffer == nil or index == 1 then
-
+		if fx_buffer == nil or index == begin_index then
+            begin_index = index
             calc_buffer = {}
-            fx_buffer   = {}
-			sql_buffer  = {}
-			sqh_buffer  = {}
-			sd_buffer	= {}
             input       = {}
-			--- sx
-			sx={}
-			-- sx[1] = period + 1
-            local sum
-			for mi = 0, nn*2-2 do
-                sum=0
-                for n = 1, period do
-					sum = sum + math_pow(n,mi)
-				end
-			    sx[mi+1]=sum
-			end
-
 			return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 		end
 
@@ -1785,9 +1950,9 @@ local function F_REG(settings, ds)
 		end
 
         input = {}
+        b     = {}
 
         --- syx
-        local sum
 		for mi=1, nn do
 			sum = 0
 			for n = 1, period do
@@ -1811,9 +1976,10 @@ local function F_REG(settings, ds)
 		end
 
 		--- Gauss
+        local mm, ll, tt
 		for kk=1, nn-1 do
-			local ll = 0
-			local mm = 0
+			ll = 0
+			mm = 0
 			for ii = kk, nn do
 				if math_abs(ai[ii][kk])>mm then
 					mm = math_abs(ai[ii][kk])
@@ -1830,8 +1996,10 @@ local function F_REG(settings, ds)
 				end
 				b[ll], b[kk] = b[kk], b[ll]
 			end
+
+            local qq
 			for ii = kk+1, nn do
-				local qq = ai[ii][kk]/ai[kk][kk]
+				qq = ai[ii][kk]/ai[kk][kk]
 				for jj=1, nn do
 					if jj==kk then
 						ai[ii][jj]=0
@@ -1843,14 +2011,14 @@ local function F_REG(settings, ds)
 			end
 		end
 
-		x[nn] = b[nn]/ai[nn][nn]
+        solve       = {}
+		solve[nn]   = b[nn]/ai[nn][nn]
 
-        local tt
         for ii=nn-1, 1, -1 do
             tt = 0
 			for jj=1, nn-ii do
-				tt    = tt + ai[ii][ii+jj]*x[ii+jj]
-				x[ii] = (1/ai[ii][ii])*(b[ii] - tt)
+				tt          = tt+ai[ii][ii+jj]*solve[ii+jj]
+				solve[ii]   = (1/ai[ii][ii])*(b[ii]-tt)
 			end
 		end
 
@@ -1858,42 +2026,49 @@ local function F_REG(settings, ds)
 		for n = 1, period do
 			sum=0
 			for kk = 1, degree do
-				sum = sum + x[kk+1]*math_pow(n,kk)
+				sum = sum + solve[kk+1]*math_pow(n,kk)
 			end
-			fx_buffer[index+n-period]=x[1] + sum
+			fx_buffer[index+n-period]=rounding(solve[1] + sum, round, scale)
 		end
 
-        local sse = 0
+        local sq = 0
         for n = 1, period do
-            sse = sse + math_pow(fx_buffer[index+n-period] - input[n], 2)
+            sq = sq + math_pow(fx_buffer[index+n-period] - input[n], 2)
         end
 
-        sd_buffer[index] = math_sqrt(sse/(period-1))
-		sse = sd_buffer[index]*kstd
+        sd_buffer[index] = math_sqrt(sq/(period-1))
+		sq = sd_buffer[index]*kstd
 
 		for n = 1, period do
-			sqh_buffer[index+n-period]=fx_buffer[index+n-period]+sse
-			sql_buffer[index+n-period]=fx_buffer[index+n-period]-sse
+			sqh_buffer[index+n-period]=rounding(fx_buffer[index+n-period]+sq, round, scale)
+			sql_buffer[index+n-period]=rounding(fx_buffer[index+n-period]-sq, round, scale)
 		end
 
-        calc_buffer[index] = true
+        calc_buffer[index]              = true
+        sd_buffer[index-save_bars]      = nil
+        calc_buffer[index-save_bars]    = nil
+        fx_buffer[index-save_bars]      = nil
+        sqh_buffer[index-save_bars]     = nil
+        sql_buffer[index-save_bars]     = nil
+        input = nil
+        b     = nil
+        return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 
-		return fx_buffer, sqh_buffer, sql_buffer, sd_buffer
-
-	end
+	end, fx_buffer, sqh_buffer, sql_buffer, sd_buffer
 
 end
 
+--RENKO bars
 local function F_RENKO(settings, ds)
 
     local fATR
     local fMA
-    local Renko_UP
-    local Renko_DW
+    local Renko_UP      = {}
+    local Renko_DW      = {}
 
     local recalc_index
     local l_index
-    local trend
+    local trend         = {}
     local begin_index
     local brick_bars    = 0
     local Brick         = {}
@@ -1930,9 +2105,7 @@ local function F_RENKO(settings, ds)
         if Renko_UP == nil or index == begin_index then
 
             begin_index     = index
-            Renko_UP        = {}
             Renko_UP[index] = Value(index, 'High', ds) or 0
-            Renko_DW        = {}
             Renko_DW[index] = Value(index, 'Low', ds) or 0
             Bars._NUM   = 0
             if brick_type ~='Fix' or brick_size == 0 then
@@ -1978,7 +2151,6 @@ local function F_RENKO(settings, ds)
                 Brick[index] = brick_size/math_pow(10, scale)
             end
             l_index         = index
-            trend           = {}
             trend[index]    = 0
             if get_bars then
                 Bars._NUM         = Bars._NUM + 1
@@ -2325,6 +2497,7 @@ local function F_SMI(settings, ds)
     end, SMI
 end
 
+--RSI Relative strength index
 ---@param settings table
 ---@param ds table
 local function F_RSI(settings, ds)
@@ -2457,6 +2630,7 @@ local function F_CCI(settings, ds)
     end, CCI
 end
 
+--SAR ATR
 local function F_SAR(settings, ds)
 
     settings            = (settings or {})
@@ -2464,11 +2638,10 @@ local function F_SAR(settings, ds)
     local period        = (settings.period or 21)
     local period2       = (settings.period2 or 0)
     local dev           = (settings.dev or 3)
-    local waves_buffer  = (settings.waves_buffer or 10)
+    local waves_buffer  = (settings.waves_buffer or 0)
     local save_bars     = (settings.save_bars or period)
     local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
-    local shift         = settings.last_bars and 1 or 0
 
     if period == 1 then return false, 'Период SAR должен быть больше 1' end
 
@@ -2481,50 +2654,14 @@ local function F_SAR(settings, ds)
 	local CC_N      = {}
 	local ATR       = {}
 	local signal    = {}
-    local last_zz   = nil
-    local WAV_SDMA
-    local sar_waves = {}
+    local last_zz
     local wave_data = {}
-    local n_waves   = 0
+    local calc_wave
     local ZZZ
     local begin_index
-    local last_change
 
     local open, high, low, close, p_close
-
-    local function calc_waves(index)
-
-        if trend[index] == trend[index-1] then
-            wave_data.max           = math_max(high, wave_data.max or high)
-            wave_data.min           = math_min(low, wave_data.min or low)
-            wave_data.cur_wave      = (wave_data.max - wave_data.min)
-            sar_waves[n_waves]      = wave_data.cur_wave
-        end
-
-        if trend[index-shift] ~= trend[index-shift-1] and last_change ~= index then
-            last_change = index
-            if n_waves > 0 then
-                local w_sd, w_ma    = WAV_SDMA(n_waves)
-                local sd            = w_sd[n_waves]
-                local ma            = w_ma[n_waves]
-                wave_data.sd        = sd
-                wave_data.ma        = ma
-                last_zz             = wave_data[trend[index-shift-1] == 1 and 'max' or 'min']
-                wave_data.last_zz   = last_zz
-                wave_data.last_wave = (wave_data.max - wave_data.min)
-            end
-            wave_data.max = high
-            wave_data.min = low
-            if shift > 0 then
-                wave_data.max       = math_max(M.Value(index-1, 'High', ds), wave_data.max or high)
-                wave_data.min       = math_min(M.Value(index-1, 'Low', ds), wave_data.min or low)
-            end
-            wave_data.cur_wave      = (wave_data.max - wave_data.min)
-            n_waves                 = n_waves + 1
-            sar_waves[n_waves]      = wave_data.cur_wave
-            sar_waves[n_waves - waves_buffer] = nil
-        end
-    end
+    local calculated_buffer
 
 	return function(index, atr)
 
@@ -2534,7 +2671,7 @@ local function F_SAR(settings, ds)
         close       = M.Value(index, 'Close', ds)
         p_close     = M.Value(index-1, 'Close', ds)
 
-        if cache_H[index-1] == nil or begin_index  == index then
+        if calculated_buffer == nil or begin_index  == index then
             begin_index         = index
 			CC[index]           = close
 			CC_N[index]         = (close + high + low)/3
@@ -2544,16 +2681,15 @@ local function F_SAR(settings, ds)
 			AMA2[index]         = (close + open)/2
             trend[index]        = 1
 			ATR[index]          = math_abs(high - low)
-            last_zz             = wave_data[trend[index] == 1 and 'max' or 'min']
 
-            last_change         = nil
             wave_data.max       = high
             wave_data.min       = low
-            sar_waves           = {}
-            n_waves             = 0
-            WAV_SDMA            = M.new({method = "SD", ma_method = "SMA", not_shifted = true, data_type = 'Any', period = waves_buffer}, sar_waves)
+            last_zz             = wave_data[trend[index] == 1 and 'max' or 'min']
 
-            return SAR, trend, wave_data, last_zz, signal
+            calculated_buffer   = {}
+            calc_wave           = wave_processor(ds, waves_buffer, wave_data)
+
+            return SAR, trend, wave_data, last_zz, signal, ATR
 		end
 		------------------------------
 		trend[index]    = trend[index-1]
@@ -2576,7 +2712,7 @@ local function F_SAR(settings, ds)
         CC_N[index - save_bars]     = nil
         signal[index - save_bars]   = nil
 
-        if not close then return SAR, trend, wave_data, last_zz, signal end
+        if not close then return SAR, trend, wave_data, last_zz, signal, ATR end
 
         ATR[index]          = atr
         if not atr then
@@ -2588,7 +2724,7 @@ local function F_SAR(settings, ds)
 		CC_N[index]         = (close - AMA2[index])/2 + AMA2[index]
 
         if index - begin_index <= 2 then
-			return SAR, trend, wave_data, last_zz, signal
+			return SAR, trend, wave_data, last_zz, signal, ATR
 		end
 
         if period2 == 0 then
@@ -2648,9 +2784,14 @@ local function F_SAR(settings, ds)
             end
         end
 
-        calc_waves(index)
+        local last_bar = index == dsSize('Close', ds)
+        if last_bar and not calculated_buffer[index] and calculated_buffer[index-1] then
+            calc_wave(index-1, trend, Value(index-1, "H", ds), Value(index-1, "L", ds), false)
+        end
+        last_zz = calc_wave(index, trend, high, low, last_bar)
+        calculated_buffer[index] = true
 
-        return SAR, trend, wave_data, last_zz, signal
+        return SAR, trend, wave_data, last_zz, signal, ATR
 	end, SAR, trend, wave_data, last_zz, signal, ATR
 end
 
@@ -2675,7 +2816,7 @@ local function F_PSAR(settings, ds)
     local last      = {}
 
     local signal    = {}
-    local last_zz   = nil
+    local last_zz
     local begin_index
 
     local wave_data = {}
@@ -2714,10 +2855,12 @@ local function F_PSAR(settings, ds)
             trend[index]        = 1
             last                = {extr = high, step = step}
 
+            wave_data.max       = high
+            wave_data.min       = low
             last_zz             = wave_data[trend[index] == 1 and 'max' or 'min']
             calculated_buffer   = {}
 
-            calc_wave, wave_data = wave_processor(ds, waves_buffer, wave_data)
+            calc_wave           = wave_processor(ds, waves_buffer, wave_data)
 
             return PSAR, trend, wave_data, last_zz, signal
 		end
@@ -2774,13 +2917,14 @@ local function F_PSAR(settings, ds)
         if last_bar and not calculated_buffer[index] and calculated_buffer[index-1] then
             calc_wave(index-1, trend, Value(index-1, "H", ds), Value(index-1, "L", ds), false)
         end
-        calc_wave(index, trend, high, low, last_bar)
+        last_zz = calc_wave(index, trend, high, low, last_bar)
         calculated_buffer[index] = true
 
         return PSAR, trend, wave_data, last_zz, signal
 	end, PSAR, trend, wave_data, last_zz, signal
 end
 
+--Volume-weighted average price
 local function F_VWAP(settings, ds)
 
     if not ds then return false, 'Не задан ТФ расчета VWAP' end
@@ -2863,7 +3007,7 @@ local function F_VWAP(settings, ds)
 
         end_calc_time     = end_time ~= 0 and end_time or (os_time(Bars[Bars._NUM].Time) + quant_shift)
 
-        fVMA = F_VMA({period = quant_interval, method = 'VMA', data_type = data_type, round = round, scale = scale}, ds)
+        fVMA              = F_VWMA({period = quant_interval, method = 'VMA', data_type = data_type, round = round, scale = scale}, ds)
         VWAP[index]       = M.Value(bar, data_type, ds) or 0
         VWAP[index - save_bars] = nil
     end
@@ -2900,10 +3044,10 @@ local function F_VWAP(settings, ds)
     end, VWAP, vEMA, Bars
 end
 
----@param settings table
--- offset.type      = Тип отсутпа: '%' - в процентах, 'Price' - в шагах цены
--- offset.calc_kind = Вид расчета 'Range' - как процент от прошлой волны, 'Extr' - как отступ в цене от прошлого экстремума; ATR - по пробитю канала ATR
--- offset.value     = Значение отступа выраженное в цене инструмента или в процентах
+--Zig-Zag
+-- settings.offset_type     = Тип отсутпа: '%' - в процентах, 'Price' - в шагах цены
+-- settings.calc_kind       = Вид расчета 'Range' - как процент от прошлой волны, 'Extr' - как отступ в цене от прошлого экстремума; ATR - по пробитю канала ATR
+-- settings.offset_value    = Значение отступа выраженное в цене инструмента или в процентах
 local function F_ZZ(settings, ds)
 
     local calc_kind     = settings.calc_kind or 'Range'
@@ -3086,6 +3230,7 @@ local function F_ZZ(settings, ds)
     end, zz_levels, trend
 end
 
+--Fractals
 local function F_FRAC(settings, ds)
 
     settings            = (settings or {})
@@ -3275,6 +3420,7 @@ function M.xMA(settings, ds)
     end
 end
 
+--Deviation-Scaled Moving Average by John F. Ehlers
 local function F_DSMA(settings, ds)
 
     settings            = (settings or {})
@@ -3285,12 +3431,11 @@ local function F_DSMA(settings, ds)
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
 
-    local fSSF, ssf, begin_index
+    local fSSF, begin_index
 
     local edsma         = {}
     local avgZeros
     local zeros
-    local ssfFunc       = poles == 2 and M.Get2PoleSSF or M.Get3PoleSSF
 
     return function (index)
 
@@ -3305,8 +3450,7 @@ local function F_DSMA(settings, ds)
                 zeros[index]    = 0
                 avgZeros        = {}
                 avgZeros[index] = 0
-                --Ehlers Super Smoother Filter
-                fSSF, ssf       = ssfFunc({period = period, data_type = 'Any'}, avgZeros)
+                fSSF            = poles == 2 and M.Get2PoleSSF({period = period, data_type = 'Any'}, avgZeros) or M.Get3PoleSSF({period = period, data_type = 'Any'}, avgZeros)
                 fSSF(index)
                 return
             end
@@ -3315,14 +3459,15 @@ local function F_DSMA(settings, ds)
 			avgZeros[index] = avgZeros[index-1]
 			edsma[index]    = edsma[index-1]
 
+            --Ehlers Super Smoother Filter
+            local ssf = fSSF(index)
+
             if not M.CheckIndex(index, ds) then
-                fSSF(index)
 				return
 			end
 
             zeros[index]    = val - (M.Value(M.GetIndex(index, 2, ds, data_type), data_type, ds))
             avgZeros[index] = (zeros[index] + zeros[index-1])/2
-            fSSF(index)
 
             --Rescale filter in terms of Standard Deviations
             local stdev         = M.Sigma(ssf, nil, index - period + 1, index)
@@ -3338,63 +3483,175 @@ local function F_DSMA(settings, ds)
             return nil
         end
         return edsma
-    end
+    end, edsma
 end
 
-local FUNCTOR = {
-    SUM     = F_SUM,
-    SMA     = F_SMA,
-    EMA     = F_EMA,
-    SD      = F_SD,
-    VMA     = F_VMA,
-    SMMA    = F_SMMA,
-    WMA     = F_WMA,
-    LWMA    = F_LWMA,
-    HMA     = F_HMA,
-    JMA     = F_JMA,
-    TEMA    = F_TEMA,
-    FRAMA   = F_FRAMA,
-    AMA     = F_AMA,
-    EFI     = F_EFI,
-    WRI     = F_WRI,
-    ATR     = F_ATR,
-    THV     = F_THV,
-    NRTR    = F_NRTR,
-    NRMA    = F_NRMA,
-    REG     = F_REG,
-    FLREG   = F_FLREG,
-    KREG    = F_KREG,
-    REMA    = F_REMA,
-    RENKO   = F_RENKO,
-    MACD    = F_MACD,
-    STOCH   = F_STOCH,
-    SMI     = F_SMI,
-    RSI     = F_RSI,
-    CCI     = F_CCI,
-    BOL     = F_BOL,
-    SAR     = F_SAR,
-    PSAR    = F_PSAR,
-    VWAP    = F_VWAP,
-    ZZ      = F_ZZ,
-    FRAC    = F_FRAC,
-    CMO     = F_CMO,
-    VIDYA   = F_VIDYA,
-    DSMA    = F_DSMA
+--SuperSmoother filter Moving Average by John F. Ehlers
+local function F_SSMA(settings, ds)
+
+    settings            = (settings or {})
+    local data_type     = (settings.data_type or "Close")
+    local period        = settings.period or 9
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+
+    local begin_index
+
+    local avgVal        = {}
+    --Ehlers Super Smoother Filter
+    local fSSF, ssf     = M.Get2PoleSSF({period = period, data_type = 'Any', round = round, scale = scale, save_bars = save_bars}, avgVal)
+    local prev_val
+
+    return function (index)
+
+            local val = M.Value(index, data_type, ds)
+
+            if fSSF == nil or index == begin_index then
+                begin_index     = index
+                avgVal          = {}
+                avgVal[index]   = 0
+                fSSF(index)
+                return
+            end
+
+			avgVal[index]  = avgVal[index-1]
+            if not M.CheckIndex(index, ds) then
+                fSSF(index)
+				return
+			end
+            avgVal[index]   = (val + (prev_val or val))/2
+            fSSF(index)
+            prev_val        = val
+            return ssf
+    end, ssf
+end
+
+--Least Squares MA
+local function F_LSMA(settings, ds)
+
+    settings            = (settings or {})
+    local data_type     = (settings.data_type or "Close")
+    local period        = settings.period or 9
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+
+    --Least Squares
+	local last_cal_bar
+
+    local data
+    local LSMA          = {}
+    local begin_index
+
+    local function get_y(index)
+        return Value(index, data_type, ds)
+    end
+
+    return function(index)
+
+        if index < period then return LSMA end
+
+        if (not data and index >= period) or index == begin_index then
+            begin_index = index
+            local i     = 0
+            local j     = period
+            data        = {}
+            while not data[1] and i < index do
+                data[j] = {y = get_y(index-i)}
+                i = i + 1
+                if data[j].y then
+                    j = j - 1
+                end
+            end
+        end
+
+        LSMA[index] = LSMA[index-1]
+
+        if not CheckIndex(index, ds) or index < period then
+			return LSMA
+		end
+        if last_cal_bar ~= index and data[1] then
+            table.remove(data, 1)
+            data[period] = {y = get_y(index)}
+        end
+        last_cal_bar = index
+
+        local a, b = LIN_REG(data)
+        if a and b then
+            LSMA[index] = rounding(a + b*period, round, scale)
+        end
+        LSMA[index - save_bars] = nil
+        return LSMA
+    end, LSMA
+end
+
+M.FUNCTOR = {
+    SUM         = F_SUM,
+    SMA         = F_SMA,
+    TMA         = F_TMA,
+    EMA         = F_EMA,
+    SD          = F_SD,
+    P_RANGE     = F_P_RANGE,
+    WMA         = F_WMA,
+    VWMA        = F_VWMA,
+    SMMA        = F_SMMA,
+    WILLMA      = F_WILLMA,
+    LWMA        = F_LWMA,
+    HMA         = F_HMA,
+    JMA         = F_JMA,
+    TEMA        = F_TEMA,
+    DEMA        = F_DEMA,
+    FRAMA       = F_FRAMA,
+    AMA         = F_AMA,
+    ALMA        = F_ALMA,
+    EFI         = F_EFI,
+    WRI         = F_WRI,
+    ATR         = F_ATR,
+    THV         = F_THV,
+    NRTR        = F_NRTR,
+    NRMA        = F_NRMA,
+    REG         = F_REG,
+    FLREG       = F_FLREG,
+    KREG        = F_KREG,
+    REMA        = F_REMA,
+    RENKO       = F_RENKO,
+    MACD        = F_MACD,
+    STOCH       = F_STOCH,
+    SMI         = F_SMI,
+    RSI         = F_RSI,
+    CCI         = F_CCI,
+    BOL         = F_BOL,
+    SAR         = F_SAR,
+    PSAR        = F_PSAR,
+    VWAP        = F_VWAP,
+    ZZ          = F_ZZ,
+    FRAC        = F_FRAC,
+    CMO         = F_CMO,
+    VIDYA       = F_VIDYA,
+    DSMA        = F_DSMA,
+    SSMA        = F_SSMA,
+    LSMA        = F_LSMA
 }
 M.ALGO_LINES = {
     SUM     = {'SUM'},
     SMA     = {'SMA'},
+    TMA     = {'TMA'},
     EMA     = {'EMA'},
     SD      = {'SD'},
-    VMA     = {'VMA'},
-    SMMA    = {'SMMA'},
+    P_RANGE = {'RANGE', 'HIGH', 'LOW'},
     WMA     = {'WMA'},
+    VWMA    = {'VWMA'},
+    SMMA    = {'SMMA'},
+    WILLMA  = {'WILLMA'},
     LWMA    = {'LWMA'},
     HMA     = {'HMA'},
     JMA     = {'JMA'},
     TEMA    = {'TEMA'},
+    DEMA    = {'DEMA'},
     FRAMA   = {'FRAMA'},
     AMA     = {'AMA'},
+    ALMA    = {'ALMA'},
     EFI     = {'EFI'},
     WRI     = {'WRI'},
     ATR     = {'ATR'},
@@ -3419,11 +3676,13 @@ M.ALGO_LINES = {
     FRAC    = {'H_FRAC', 'L_FRAC'},
     CMO     = {'CMO'},
     VIDYA   = {'VIDYA'},
-    DSMA    = {'DSMA'}
+    DSMA    = {'DSMA'},
+    SSMA    = {'SSMA'},
+    LSMA    = {'LSMA'}
 }
 
 M.AV_METHODS = ''
-for key in pairs(FUNCTOR) do
+for key in pairs(M.FUNCTOR) do
     M.AV_METHODS = M.AV_METHODS..(M.AV_METHODS == '' and '' or '|')..key
 end
 
@@ -3432,11 +3691,11 @@ local function MA(settings, ds, ...)
     settings = (settings or {})
     local method    = (settings.method or "EMA")
 
-    if not FUNCTOR[method] then
+    if not M.FUNCTOR[method] then
         return nil, 'Не удалось инициализировать '..tostring(method)..'. Допустимые типы: '..M.AV_METHODS..', передано: '..tostring(settings.method)
     end
 
-    return FUNCTOR[method](settings, ds, ...)
+    return M.FUNCTOR[method](settings, ds, ...)
 end
 
 M.new               = MA
