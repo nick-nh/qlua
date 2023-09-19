@@ -118,7 +118,7 @@ local function Algo(Fsettings, ds)
 
     local JRSX
     local out
-    local begin_index
+    local begin_index, last_index
 
     local trend
 
@@ -152,6 +152,7 @@ local function Algo(Fsettings, ds)
 
             if JRSX == nil or index == begin_index then
                 begin_index     = index
+                last_index      = index
                 JRSX            = {}
                 JRSX[index]     = 0
                 f28             = {}
@@ -202,39 +203,42 @@ local function Algo(Fsettings, ds)
                 return unpack(out, 1, lines)
             end
 
+            if last_index ~= index then
+                c1 = M.Value(last_index, data_type, ds)
+            end
+            v8  = (c - c1)
+            v8a = math.abs(v8)
 
-                v8  = (c - c1)
-                c1  = c
-                v8a = math.abs(v8)
+            ---- вычисление V14 ------
+            f28[index]  = Hg*f28[index-1] + Kg*v8
+            f30[index]  = Kg*f28[index] + Hg*f30[index-1]
+            local v0C   = 1.5*f28[index] - 0.5*f30[index]
+            f38[index]  = Hg*f38[index-1] + Kg*v0C
+            f40[index]  = Kg*f38[index] + Hg*f40[index-1]
+            local v10   = 1.5*f38[index] - 0.5*f40[index]
+            f48[index]  = Hg*f48[index-1] + Kg*v10
+            f50[index]  = Kg*f48[index] + Hg*f50[index-1]
+            local v14   = 1.5*f48[index] - 0.5*f50[index]
+            ---- вычисление V20 ------
+            f58[index]  = Hg*f58[index-1] + Kg*v8a
+            f60[index]  = Kg*f58[index] + Hg*f60[index-1]
+            local v18   = 1.5*f58[index] - 0.5*f60[index]
+            f68[index]  = Hg*f68[index-1] + Kg*v18
+            f70[index]  = Kg*f68[index] + Hg*f70[index-1]
+            local v1C   = 1.5*f68[index] - 0.5*f70[index]
+            f78[index]  = Hg*f78[index-1] + Kg*v1C
+            f80[index]  = Kg*f78[index] + Hg*f80[index-1]
+            local v20   = 1.5*f78[index] - 0.5*f80[index]
 
-                ---- вычисление V14 ------
-                f28[index]  = Hg*f28[index-1] + Kg*v8
-                f30[index]  = Kg*f28[index] + Hg*f30[index-1]
-                local v0C   = 1.5*f28[index] - 0.5*f30[index]
-                f38[index]  = Hg*f38[index-1] + Kg*v0C
-                f40[index]  = Kg*f38[index] + Hg*f40[index-1]
-                local v10   = 1.5*f38[index] - 0.5*f40[index]
-                f48[index]  = Hg*f48[index-1] + Kg*v10
-                f50[index]  = Kg*f48[index] + Hg*f50[index-1]
-                local v14   = 1.5*f48[index] - 0.5*f50[index]
-                ---- вычисление V20 ------
-                f58[index]  = Hg*f58[index-1] + Kg*v8a
-                f60[index]  = Kg*f58[index] + Hg*f60[index-1]
-                local v18   = 1.5*f58[index] - 0.5*f60[index]
-                f68[index]  = Hg*f68[index-1] + Kg*v18
-                f70[index]  = Kg*f68[index] + Hg*f70[index-1]
-                local v1C   = 1.5*f68[index] - 0.5*f70[index]
-                f78[index]  = Hg*f78[index-1] + Kg*v1C
-                f80[index]  = Kg*f78[index] + Hg*f80[index-1]
-                local v20   = 1.5*f78[index] - 0.5*f80[index]
+            if (index - begin_index) > w and (v20>0) then
+                JRSX[index]  = (v14/v20+1)*50
+                if JRSX[index] > 100 then JRSX[index] = 100 end
+                if JRSX[index] < 0 then JRSX[index]=0 end
+            else JRSX[index] = 50
+            end
 
-                if (index - begin_index) > w and (v20>0) then
-                    JRSX[index]  = (v14/v20+1)*50
-                    if JRSX[index] > 100 then JRSX[index] = 100 end
-                    if JRSX[index] < 0 then JRSX[index]=0 end
-                else JRSX[index] = 50
-                end
-
+            last_index = index
+        
             out[1] = JRSX[index]
 
             if (JRSX[index] > JRSX[index-1]) and trend[index] <= 0 then

@@ -2519,6 +2519,7 @@ local function F_RSI(settings, ds)
     local prev_index    = 0
     local last_index    = 0
     local begin_index   = 0
+    local prev_val      = 0
 
     return function(index)
 
@@ -2543,11 +2544,11 @@ local function F_RSI(settings, ds)
 
         if not M.CheckIndex(index, ds) then return RSI end
         if last_index ~= index then
-            prev_index = last_index
+            prev_index  = last_index
+            prev_val    = M.Value(prev_index, data_type, ds)
         end
 
         local val       = M.Value(index, data_type, ds)
-        local prev_val  = M.Value(prev_index, data_type, ds)
         if prev_val < val then
             Up[index] = val - prev_val
         else
@@ -3490,13 +3491,13 @@ end
 local function F_SSMA(settings, ds)
 
     settings            = (settings or {})
-    local data_type     = (settings.data_type or "Close")
     local period        = settings.period or 9
+    local data_type     = (settings.data_type or "Close")
     local round         = (settings.round or "OFF")
     local scale         = (settings.scale or 0)
     local save_bars     = (settings.save_bars or period)
 
-    local begin_index
+    local begin_index, last_index
 
     local avgVal        = {}
     --Ehlers Super Smoother Filter
@@ -3509,6 +3510,8 @@ local function F_SSMA(settings, ds)
 
             if fSSF == nil or index == begin_index then
                 begin_index     = index
+                last_index      = index
+                prev_val        = val
                 avgVal          = {}
                 avgVal[index]   = 0
                 fSSF(index)
@@ -3520,9 +3523,13 @@ local function F_SSMA(settings, ds)
                 fSSF(index)
 				return
 			end
+            if last_index ~= index then
+                prev_val = M.Value(last_index, data_type, ds)
+            end
+
             avgVal[index]   = (val + (prev_val or val))/2
             fSSF(index)
-            prev_val        = val
+            last_index = index
             return ssf
     end, ssf
 end
@@ -3586,7 +3593,7 @@ local function F_LSMA(settings, ds)
     end, LSMA
 end
 
---JRSX
+-- Jurik Research Relative Strength Quality Index
 local function F_JRSX(settings, ds)
 
     settings            = (settings or {})
@@ -3597,7 +3604,7 @@ local function F_JRSX(settings, ds)
     local save_bars     = (settings.save_bars or period)
 
     local JRSX = {}
-    local begin_index
+    local begin_index, last_index
 
     local trend = {}
 
@@ -3627,6 +3634,7 @@ local function F_JRSX(settings, ds)
 
         if f28 == nil or index == begin_index then
             begin_index     = index
+            last_index      = index
             f28             = {}
             f30             = {}
             f38             = {}
@@ -3676,8 +3684,10 @@ local function F_JRSX(settings, ds)
             return JRSX, trend
         end
 
+        if last_index ~= index then
+            c1 = M.Value(last_index, data_type, ds)
+        end
         v8  = (c - c1)
-        c1  = c
         v8a = math_abs(v8)
 
         ---- вычисление V14 ------
@@ -3716,6 +3726,8 @@ local function F_JRSX(settings, ds)
         if (JRSX[index] < JRSX[index-1]) and trend[index] >= 0 then
             trend[index] = -1
         end
+
+        last_index = index
 
         JRSX[index - save_bars] = nil
         trend[index - save_bars] = nil
