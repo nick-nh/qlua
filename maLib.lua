@@ -2439,9 +2439,9 @@ local function F_SMI(settings, ds)
 
     local ma_method     = (settings.ma_method or "SMA")
     local period_q      = (settings.period_q or 10)
-    local period_r      = (settings.ma_period or 3)
+    local period_r      = (settings.period_r or 3)
     local period_s      = (settings.period_s or 3)
-    local period_d      = (settings.period_s or 3)
+    local period_d      = (settings.period_d or 3)
     local method_d      = (settings.method_d or "SMA")
     local divisor       = (settings.divisor or 2)
     local round         = (settings.round or "OFF")
@@ -3586,6 +3586,157 @@ local function F_LSMA(settings, ds)
     end, LSMA
 end
 
+--JRSX
+local function F_JRSX(settings, ds)
+
+    settings            = (settings or {})
+    local period        = settings.period or 14
+    local data_type     = (settings.data_type or "Close")
+    local round         = (settings.round or "OFF")
+    local scale         = (settings.scale or 0)
+    local save_bars     = (settings.save_bars or period)
+
+    local JRSX = {}
+    local begin_index
+
+    local trend = {}
+
+    local w     = math_max(period-1, 5)
+    local Kg    = 3/(period+2)
+    local Hg    = 1 - Kg
+
+    local v8, v8a
+    local f28
+    local f30
+    local f38
+    local f40
+    local f48
+    local f50
+    local f58
+    local f60
+    local f68
+    local f70
+    local f78
+    local f80
+
+    local c, c1
+
+    return function (index)
+
+        c = Value(index, data_type, ds) or 0
+
+        if f28 == nil or index == begin_index then
+            begin_index     = index
+            f28             = {}
+            f30             = {}
+            f38             = {}
+            f40             = {}
+            f48             = {}
+            f50             = {}
+            f58             = {}
+            f60             = {}
+            f68             = {}
+            f70             = {}
+            f78             = {}
+            f80             = {}
+            f28[index]      = 0
+            f30[index]      = 0
+            f38[index]      = 0
+            f40[index]      = 0
+            f48[index]      = 0
+            f50[index]      = 0
+            f58[index]      = 0
+            f60[index]      = 0
+            f68[index]      = 0
+            f70[index]      = 0
+            f78[index]      = 0
+            f80[index]      = 0
+            c1              = c
+            JRSX[index]     = 0
+            trend[index]    = 0
+            return
+        end
+
+        JRSX[index]     = JRSX[index-1] or 0
+        trend[index]    = trend[index-1] or 0
+        f28[index]      = f28[index-1] or 0
+        f30[index]      = f30[index-1] or 0
+        f38[index]      = f38[index-1] or 0
+        f40[index]      = f40[index-1] or 0
+        f48[index]      = f48[index-1] or 0
+        f50[index]      = f50[index-1] or 0
+        f58[index]      = f58[index-1] or 0
+        f60[index]      = f60[index-1] or 0
+        f68[index]      = f68[index-1] or 0
+        f70[index]      = f70[index-1] or 0
+        f78[index]      = f78[index-1] or 0
+        f80[index]      = f80[index-1] or 0
+
+        if not CheckIndex(index, ds) then
+            return JRSX, trend
+        end
+
+        v8  = (c - c1)
+        c1  = c
+        v8a = math_abs(v8)
+
+        ---- вычисление V14 ------
+        f28[index]  = Hg*f28[index-1] + Kg*v8
+        f30[index]  = Kg*f28[index] + Hg*f30[index-1]
+        local v0C   = 1.5*f28[index] - 0.5*f30[index]
+        f38[index]  = Hg*f38[index-1] + Kg*v0C
+        f40[index]  = Kg*f38[index] + Hg*f40[index-1]
+        local v10   = 1.5*f38[index] - 0.5*f40[index]
+        f48[index]  = Hg*f48[index-1] + Kg*v10
+        f50[index]  = Kg*f48[index] + Hg*f50[index-1]
+        local v14   = 1.5*f48[index] - 0.5*f50[index]
+        ---- вычисление V20 ------
+        f58[index]  = Hg*f58[index-1] + Kg*v8a
+        f60[index]  = Kg*f58[index] + Hg*f60[index-1]
+        local v18   = 1.5*f58[index] - 0.5*f60[index]
+        f68[index]  = Hg*f68[index-1] + Kg*v18
+        f70[index]  = Kg*f68[index] + Hg*f70[index-1]
+        local v1C   = 1.5*f68[index] - 0.5*f70[index]
+        f78[index]  = Hg*f78[index-1] + Kg*v1C
+        f80[index]  = Kg*f78[index] + Hg*f80[index-1]
+        local v20   = 1.5*f78[index] - 0.5*f80[index]
+
+        if (index - begin_index) > w and (v20>0) then
+            JRSX[index]  = (v14/v20+1)*50
+            if JRSX[index] > 100 then JRSX[index] = 100 end
+            if JRSX[index] < 0 then JRSX[index]=0 end
+        else JRSX[index] = 50
+        end
+
+        JRSX[index] = rounding(JRSX[index], round, scale)
+
+        if (JRSX[index] > JRSX[index-1]) and trend[index] <= 0 then
+            trend[index] = 1
+        end
+        if (JRSX[index] < JRSX[index-1]) and trend[index] >= 0 then
+            trend[index] = -1
+        end
+
+        JRSX[index - save_bars] = nil
+        trend[index - save_bars] = nil
+        f28[index-2]  = nil
+        f30[index-2]  = nil
+        f38[index-2]  = nil
+        f40[index-2]  = nil
+        f48[index-2]  = nil
+        f50[index-2]  = nil
+        f58[index-2]  = nil
+        f60[index-2]  = nil
+        f68[index-2]  = nil
+        f70[index-2]  = nil
+        f78[index-2]  = nil
+        f80[index-2]  = nil
+
+        return JRSX, trend
+
+    end, JRSX, trend
+end
+
 M.FUNCTOR = {
     SUM         = F_SUM,
     SMA         = F_SMA,
@@ -3631,7 +3782,8 @@ M.FUNCTOR = {
     VIDYA       = F_VIDYA,
     DSMA        = F_DSMA,
     SSMA        = F_SSMA,
-    LSMA        = F_LSMA
+    LSMA        = F_LSMA,
+    JRSX        = F_JRSX
 }
 M.ALGO_LINES = {
     SUM     = {'SUM'},
@@ -3678,7 +3830,8 @@ M.ALGO_LINES = {
     VIDYA   = {'VIDYA'},
     DSMA    = {'DSMA'},
     SSMA    = {'SSMA'},
-    LSMA    = {'LSMA'}
+    LSMA    = {'LSMA'},
+    JRSX    = {'JRSX', 'TREND'}
 }
 
 M.AV_METHODS = ''
