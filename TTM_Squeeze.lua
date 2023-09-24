@@ -227,7 +227,7 @@ local function Algo(Fsettings, ds)
                 local lowerKC   = sma_kc[index] - sma_range*multKC
                 local sqzOn     = (lowerBB > lowerKC) and (upperBB < upperKC)
                 local sqzOff    = (lowerBB < lowerKC) and (upperBB > upperKC)
-                local noSqz     = (sqzOn == false) and (sqzOff == false)
+                local noSqz     = (lowerBB[index] < lowerKC) or (upperBB[index] > upperKC)
                 no_squeeze      = noSqz and 0 or nil
                 squeeze         = sqzOn and 0 or nil
             end
