@@ -10,7 +10,7 @@ _G.load   = _G.loadfile or _G.load
 local maLib = load(_G.getWorkingFolder().."\\Luaindicators\\maLib.lua")()
 
 local logFile = nil
---logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\Squeeze.txt", "w")
+-- logFile = io.open(_G.getWorkingFolder().."\\LuaIndicators\\Squeeze.txt", "w")
 
 local message       = _G['message']
 local RGB           = _G['RGB']
@@ -25,10 +25,10 @@ _G.Settings= {
     Name 		= "*TTM Squeeze",
     data_type   = 'Close',
     useATR      = 0,      -- использовать ATR; 0 - не использовать; 1 - использовать
-    periodBB    = 10,     -- Период расчета полос Болинджера
-    multBB      = 2.0,      -- коэффициент при расчете полос Болинджера
-    periodKC    = 10,     -- Период расчета канала Кельтнера
-    multKC      = 2.0,      -- коэффициент при расчете канала Кельтнера
+    periodBB    = 29,     -- Период расчета полос Болинджера
+    multBB      = 2.0,    -- коэффициент при расчете полос Болинджера
+    periodKC    = 29,     -- Период расчета канала Кельтнера
+    multKC      = 1.5,    -- коэффициент при расчете канала Кельтнера
     line = {
         {
             Name  = 'zero',
@@ -52,18 +52,18 @@ _G.Settings= {
             Name  = 'NO Squeeze',
             Color = sq_no_color,
             Type  = _G['TYPE_POINT'],
-            Width = 3
+            Width = 2
         },
         {
             Name  = 'Squeeze',
             Color = line_color,
             Type  = _G['TYPE_POINT'],
-            Width = 3
+            Width = 2
         }
     }
 }
 
-local PlotLines     = function() end
+local PlotLines     = function(index) return index end
 local error_log     = {}
 
 local math_max      = math.max
@@ -111,8 +111,6 @@ local function Algo(Fsettings, ds)
     local fATR
     local sourceH
     local sourceL
-    local sourceBB
-    local sourceKC
     local range
     local fSMA_Range
     local Average
@@ -135,17 +133,13 @@ local function Algo(Fsettings, ds)
             out_dw  = nil
             squeeze = nil
 
-            if sourceBB == nil or index == 1 then
+            if fSMA_BB == nil or index == 1 then
                 begin_index    = index
                 sourceH         = {}
                 sourceH[1]      = maLib.Value(index, 'High', ds)
                 sourceL         = {}
                 sourceL[1]      = maLib.Value(index, 'Low', ds)
-                sourceBB        = {}
-                sourceBB[1]     = maLib.Value(index, data_type, ds)
-                sourceKC        = {}
-                sourceKC[1]     = sourceBB[1]
-                fSMA_BB         = maLib.new({period = periodBB, method = 'SMA', data_type = 'Close', round = round, scale = scale}, ds)
+                fSMA_BB         = maLib.new({period = periodBB, method = 'BOL', avg_method = 'SMA', data_type = 'Close', k_std = multBB,round = round, scale = scale}, ds)
                 fSMA_BB(index)
                 fSMA_KC         = maLib.new({period = periodKC, method = 'SMA', data_type = 'Close', round = round, scale = scale}, ds)
                 fSMA_KC(index)
@@ -168,10 +162,10 @@ local function Algo(Fsettings, ds)
                 return
             end
 
-            local sma_bb    = fSMA_BB(index)
-            local sma_kc    = fSMA_KC(index)
-            range[index]    = range[index - 1]
-            reg[index]      = reg[index - 1]
+            local upperBB, lowerBB  = fSMA_BB(index)
+            local sma_kc            = fSMA_KC(index)
+            range[index]            = range[index - 1]
+            reg[index]              = reg[index - 1]
 
             if not maLib.CheckIndex(index, ds) then
                 if useATR == 1 then
@@ -182,10 +176,6 @@ local function Algo(Fsettings, ds)
             end
 
             if index ~= l_index then
-                sourceBB[#sourceBB + 1] = sourceBB[#sourceBB]
-                if #sourceBB > periodBB then table_remove(sourceBB, 1) end
-                sourceKC[#sourceKC + 1] = sourceKC[#sourceKC]
-                if #sourceKC > periodKC then table_remove(sourceKC, 1) end
                 sourceH[#sourceH + 1]   = sourceH[#sourceH]
                 if #sourceH > periodKC then table_remove(sourceH, 1) end
                 sourceL[#sourceL + 1]   = sourceL[#sourceL]
@@ -197,8 +187,6 @@ local function Algo(Fsettings, ds)
             end
 
             local data          = maLib.Value(index, data_type, ds)
-            sourceKC[#sourceKC] = data
-            sourceBB[#sourceBB] = data
             sourceH[#sourceH]   = maLib.Value(index, 'High', ds)
             sourceL[#sourceL]   = maLib.Value(index, 'Low', ds)
 
@@ -219,17 +207,15 @@ local function Algo(Fsettings, ds)
                 else
                     out_dw  = reg[index]
                 end
-                local std       = maLib.Sigma(sourceBB)*multBB
 
-                local upperBB   = sma_bb[index] + std
-                local lowerBB   = sma_bb[index] - std
                 local upperKC   = sma_kc[index] + sma_range*multKC
                 local lowerKC   = sma_kc[index] - sma_range*multKC
-                local sqzOn     = (lowerBB > lowerKC) and (upperBB < upperKC)
-                local sqzOff    = (lowerBB < lowerKC) and (upperBB > upperKC)
+                local sqzOn     = (lowerBB[index] > lowerKC) and (upperBB[index] < upperKC)
+                -- local sqzOff    = (lowerBB[index] < lowerKC) and (upperBB[index] > upperKC)
                 local noSqz     = (lowerBB[index] < lowerKC) or (upperBB[index] > upperKC)
                 no_squeeze      = noSqz and 0 or nil
                 squeeze         = sqzOn and 0 or nil
+                -- myLog(tostring(index)..' '..os.date('%Y.%m.%d %H:%M', os.time(T(index)))..' reg'..' '..tostring(reg[index])..' sqzOn'..' '..tostring(sqzOn)..' sqzOff'..' '..tostring(sqzOff)..' noSqz'..' '..tostring(noSqz))
             end
             l_index = index
 
