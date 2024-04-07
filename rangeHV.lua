@@ -1,6 +1,7 @@
 --logfile=io.open(getWorkingFolder().."\\LuaIndicators\\rangeHV.txt", "w")
 
 min_price_step = 0
+math.pow      	= math.pow or function(x, y) return x^y end
 
 Settings=
 {

@@ -1,6 +1,7 @@
 -- nnh Glukk Inc. nick-h@yandex.ru
 
 require("StaticVar")
+math.pow      	= math.pow or function(x, y) return x^y end
 
 SEC_CODE = '' -- бумаги в файле настроек
 SEC_CODES = {}

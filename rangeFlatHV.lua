@@ -7,6 +7,7 @@ local min_price_step = 0
 local DSInfo
 local scale = 0
 local myFunc = function() end
+math.pow      	= math.pow or function(x, y) return x^y end
 
 Settings=
 {
