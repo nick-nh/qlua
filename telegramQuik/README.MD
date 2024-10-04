@@ -52,3 +52,6 @@ https://youtu.be/Vy_m7qUwirY
 
 ## Update 2023.07.20.
 Новая версия, использующая Telegram.Bot v19.0.0 и C# preview
+
+## Update 2024.10.04
+Новая версия, использующая Telegram.Bot v21.11.0
