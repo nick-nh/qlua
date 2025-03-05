@@ -194,6 +194,8 @@ https://nick-nh.github.io
 
 - [vwap.lua - Вывод значения средневзвешенной цены из Таблицы текущих торгов (WAPRICE).](https://github.com/nick-nh/qlua/blob/master/vwap.lua)
 
+- [min_max_price.lua - Вывод значений максимально и минимально возможной цены торговой сессии из Таблицы текущих торгов. Это позволит визуально оценивать допустимый диапазон цен установки лимитного ордера.](https://github.com/nick-nh/qlua/blob/master/min_max_price.lua)
+
 - [smartZZ2 - Две версии индикатора Zig-Zag. Вывод целевых уровней движения цены. Определение паттернов.](https://github.com/nick-nh/qlua/blob/master/smartZZ2)
 
 - [w32.dll - Сборка библиотеки w32.dll](https://github.com/nick-nh/qlua/blob/master/w32.dll.zip)
