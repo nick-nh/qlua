@@ -13,7 +13,7 @@ local getParamEx       	= _G['getParamEx']
 local getDataSourceInfo = _G['getDataSourceInfo']
 local message       	= _G['message']
 local RGB           	= _G['RGB']
-local SetValue          = _G['SetValue']
+local SetRangeValue     = _G['SetRangeValue']
 local Size              = _G['Size']
 local isDark            = _G.isDarkTheme()
 local line_color        = isDark and RGB(240, 240, 240) or RGB(20, 20, 20)
@@ -66,7 +66,7 @@ local function Algo()
     error_log = {}
 
 	local ds_info
-	local min_price, max_price
+	local min_price, max_price, last_index
 
     return function (index)
 
@@ -80,14 +80,15 @@ local function Algo()
             end
 
             if index == Size() then
+                if index ~= last_index then
+                    SetRangeValue(1, index-12, index, nil)
+                    SetRangeValue(2, index-12, index, nil)
+                    last_index = index
+                end
                 min_price = tonumber((getParamEx(ds_info.class_code, ds_info.sec_code,"PRICEMIN") or {}).param_value) or min_price
-                SetValue(index-11, 1, nil)
-                SetValue(index-10, 1, min_price)
-                SetValue(index, 1, min_price)
+                SetRangeValue(1, index-10, index, min_price)
                 max_price = tonumber((getParamEx(ds_info.class_code, ds_info.sec_code,"PRICEMAX") or {}).param_value) or max_price
-                SetValue(index-11, 2, nil)
-                SetValue(index-10, 2, max_price)
-                SetValue(index, 2, max_price)
+                SetRangeValue(2, index-10, index, max_price)
             end
         end)
         if not status then
