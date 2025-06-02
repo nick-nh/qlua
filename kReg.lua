@@ -17,14 +17,16 @@ local CandleExist           = _G['CandleExist']
 local RGB                   = _G['RGB']
 local TYPE_LINE             = _G['TYPE_LINE']
 local TYPE_DASHLINE         = _G['TYPE_DASHLINE']
-local TYPE_BAR         		= _G['TYPET_BAR']
 local TYPE_TRIANGLE_UP      = _G['TYPE_TRIANGLE_UP']
 local TYPE_TRIANGLE_DOWN    = _G['TYPE_TRIANGLE_DOWN']
+local TYPE_DASH         	= _G['TYPE_DASH']
+local TYPE_BAR         		= _G['TYPET_BAR']
 local isDark                = _G.isDarkTheme()
 local line_color            = isDark and RGB(240, 240, 240) or RGB(0, 0, 0)
 local os_time	            = os.time
 local math_abs	            = math.abs
 local math_exp	            = math.exp
+local math_sqrt	            = math.sqrt
 local O                     = _G['O']
 local C                     = _G['C']
 local H                     = _G['H']
@@ -33,109 +35,117 @@ local L                     = _G['L']
 _G.Settings =
 	{
 		Name = "*kReg",
-		['Период'] 							= 500,
-		['Окно оценки']						= 8,
-		['Отклонение1']						= 3.0,
-		['Отклонение2']						= 0.0,
-		['Отклонение3']						= 0.0,
-		['Отклонение4']						= 0.0,
-		['Вариант расчета ядра']			= 1, -- 1- nw kernel, 2 - Gaussian, 3 quartic_biweight, 4 Epanechnikov
-		['Сдвиг бар']						= 0,
-		['Выделять цветом']					= 1,
-		['Вариант данных']					= 'C' -- C, O, H, L, M, T, W
+		['01. Период'] 							= 200,
+		['02. Окно оценки']						= 8,
+		['03. Отклонение1']						= 3.0,
+		['04. Отклонение2']						= 0.0,
+		['05. Отклонение3']						= 0.0,
+		['06. Отклонение4']						= 0.0,
+		['07. Вариант расчета ядра']			= 1, -- 1- nw kernel, 2 - Gaussian, 3 quartic_biweight, 4 Epanechnikov
+		['08. Выводить точки пробоя']			= 0,
+		['09. Вариант данных']					= 'C', -- C, O, H, L, M, T, W
+		['10. Сдвиг бар']						= 0,
+		['11. Рассчитывать бар истории']		= 0,
 	}
 
 local lines_set =
 {
 	{
-		Name = "iReg",
+		Name = "kReg",
 		Color = line_color,
 		Type = TYPE_LINE,
 		Width = 1
 	},
 	{
-		Name = "+iReg1",
+		Name = "+kReg1",
 		Color = RGB(0, 128, 0),
 		Type = TYPE_LINE,
 		Width = 1
 	},
 	{
-		Name = "-iReg1",
+		Name = "-kReg1",
 		Color = RGB(192, 0, 0),
 		Type = TYPE_DASHLINE,
 		Width = 1
 	},
 	{
-		Name = "+iReg2",
+		Name = "+kReg2",
 		Color = RGB(0, 128, 0),
 		Type = TYPE_LINE,
 		Width = 1
 	},
 	{
-		Name = "-iReg2",
+		Name = "-kReg2",
 		Color = RGB(192, 0, 0),
 		Type = TYPE_DASHLINE,
 		Width = 1
 	},
 	{
-		Name = "+iReg3",
+		Name = "+kReg3",
 		Color = RGB(0, 128, 0),
 		Type = TYPE_LINE,
 		Width = 1
 	},
 	{
-		Name = "-iReg3",
+		Name = "-kReg3",
 		Color = RGB(192, 0, 0),
 		Type = TYPE_DASHLINE,
 		Width = 1
 	},
 	{
-		Name = "+iReg4",
+		Name = "+kReg4",
 		Color = RGB(0, 128, 0),
 		Type = TYPE_LINE,
 		Width = 1
 	},
 	{
-		Name = "-iReg4",
+		Name = "-kReg4",
 		Color = RGB(192, 0, 0),
 		Type = TYPE_DASHLINE,
 		Width = 1
 	},
 	--10
 	{
-		Name = "RegPredictPoint",
-		Color = line_color,
-		Type = _G.TYPE_POINT,
-		Width = 3
-	},
-	--11
-	{
 		Name = "change dir up",
 		Type = TYPE_TRIANGLE_UP,
 		Width = 3,
 		Color = RGB(89,213, 107)
 	},
-	--12
+	--11
 	{
 		Name = "change dir dw",
 		Type = TYPE_TRIANGLE_DOWN,
 		Width = 3,
 		Color = RGB(255, 58, 0)
 	},
+	--12
+	{
+		Name = "RegPredictPoint",
+		Color = line_color,
+		Type = _G.TYPE_POINT,
+		Width = 3
+	},
 	--13
 	{
-		Name = "reg up",
-		Type = TYPE_BAR,
+		Name = "kReg_hist",
+		Type = TYPE_DASH,
 		Width = 1,
-		Color = RGB(89,213, 107)
+		Color = line_color
 	},
 	--14
 	{
-		Name = "reg dw",
+		Name = "+kReg_hist",
+		Color = RGB(0, 128, 0),
 		Type = TYPE_BAR,
-		Width = 1,
-		Color = RGB(255, 58, 0)
-	}
+		Width = 1
+	},
+	--15
+	{
+		Name = "-kReg_hist",
+		Color = RGB(192, 0, 0),
+		Type = TYPE_BAR,
+		Width = 1
+	},
 }
 ----------------------------------------------------------
 
@@ -201,7 +211,6 @@ k_functor[4] = function(u, h, scale)
     return scale and k/h or k
 end
 
-
 --data array of x and Y
 --[[
     data = {
@@ -216,7 +225,7 @@ end
     {x = 60, y = 120}
 }
 ]]
-local function kernel_regression(data, lookback, k_type)
+local function kernel_regression(data, lookback, k_type, k_m)
 
     local kernel_evaluator = k_functor[k_type or 1] or k_functor[1]
 
@@ -226,39 +235,44 @@ local function kernel_regression(data, lookback, k_type)
 	local size 	= #data
     local se 	= 0
     local y  	= {}
+	k_m			= k_m or {}
 	local sum_w, sum_wy
     for i = 1, size do
-        sum_w  = 0
-        sum_wy = 0
+		k_m[i]	= k_m[i] or {}
+        sum_w  	= 0
+        sum_wy 	= 0
         for j = 1, size do
-            local k = kernel_evaluator((data[i].x or i)-(data[j].x or j), lookback)
-            sum_wy  = sum_wy + data[j].y*k
-            sum_w   = sum_w + k
+            local k 	= k_m[i][j] or kernel_evaluator((data[i].x or i)-(data[j].x or j), lookback)
+			--save prediction weights
+			k_m[i][j]	= k
+            sum_wy  	= sum_wy + data[j].y*k
+            sum_w   	= sum_w + k
         end
         y[i]    = sum_wy/sum_w
-        se      = se + math_abs(data[i].y - y[i])
+        se      = se + (data[i].y - y[i])^2
     end
-    return y, se/size
+    return y, math_sqrt(se/(size-1)), k_m
 end
 
 local function Reg(Fsettings)
 
 	Fsettings			= (Fsettings or {})
-	local period 		= Fsettings['Период'] or 182
-	local lookback		= Fsettings['Окно оценки'] or 50
-	local kstd1 		= Fsettings['Отклонение1'] or 1
-	local kstd2 		= Fsettings['Отклонение2'] or 2
-	local kstd3 		= Fsettings['Отклонение3'] or 3
-	local kstd4 		= Fsettings['Отклонение4'] or 4
-	local barsshift 	= Fsettings['Сдвиг бар'] or 0
-	local data_type		= Fsettings['Вариант данных'] or 'C'
-	local k_type 		= Fsettings['Вариант расчета ядра'] or 1
+	local period 		= Fsettings['01. Период'] or 182
+	local lookback		= Fsettings['02. Окно оценки'] or 50
+	local kstd1 		= Fsettings['03. Отклонение1'] or 1
+	local kstd2 		= Fsettings['04. Отклонение2'] or 2
+	local kstd3 		= Fsettings['05. Отклонение3'] or 3
+	local kstd4 		= Fsettings['06. Отклонение4'] or 4
+	local k_type 		= Fsettings['07. Вариант расчета ядра'] or 1
+	local break_points	= (Fsettings['08. Выводить точки пробоя'] or 0) == 1
+	local data_type		= Fsettings['09. Вариант данных'] or 'C'
+	local bars_shift 	= Fsettings['10. Сдвиг бар'] or 0
+	local calc_bars 	= Fsettings['11. Рассчитывать бар истории'] or 0
 
+	local k_m
 	local est		= {}
 	local sq		= 0
-	local alpha		= 0
 	local calculated_buffer={}
-	local predict_index
 	error_log = {}
 
 	local out 	= {}
@@ -291,20 +305,17 @@ local function Reg(Fsettings)
 
 				calculated_buffer 	= {}
 				est 			= {}
-				est[1]		= 0
-				data        		= {}
+				est[1]			= 0
+				data        	= {}
 
-				last_cal_bar 	= index
-				start_index 	= Size() - barsshift
-				if barsshift ~= 0 then
-					predict_index = Size() - barsshift
-				end
+				start_index 	= bars_shift == 0 and (Size() - calc_bars) or (Size() - bars_shift)
+				last_cal_bar 	= nil
 				trend			= {}
 				trend[index]	= 0
 				return
 			end
 
-			if index < period then return nil end
+			if index < start_index then return nil end
 
 			if calculated_buffer[index] ~= nil then
 				return
@@ -312,26 +323,27 @@ local function Reg(Fsettings)
 
 			trend[index] = trend[index - 1]
 
-			SetValue(index-period-barsshift, 1, nil)
-			SetValue(index-period-barsshift, 2, nil)
-			SetValue(index-period-barsshift, 3, nil)
-			SetValue(index-period-barsshift, 4, nil)
-			SetValue(index-period-barsshift, 5, nil)
-			SetValue(index-period-barsshift, 6, nil)
-			SetValue(index-period-barsshift, 7, nil)
-			SetValue(index-period-barsshift, 8, nil)
-			SetValue(index-period-barsshift, 9, nil)
+			if bars_shift == 0 then
+				SetValue(index-period - bars_shift, 1, nil)
+				SetValue(index-period - bars_shift, 2, nil)
+				SetValue(index-period - bars_shift, 3, nil)
+				SetValue(index-period - bars_shift, 4, nil)
+				SetValue(index-period - bars_shift, 5, nil)
+				SetValue(index-period - bars_shift, 6, nil)
+				SetValue(index-period - bars_shift, 7, nil)
+				SetValue(index-period - bars_shift, 8, nil)
+				SetValue(index-period - bars_shift, 9, nil)
 
-			SetValue(index-period-barsshift-1, 1, nil)
-			SetValue(index-period-barsshift-1, 2, nil)
-			SetValue(index-period-barsshift-1, 3, nil)
-			SetValue(index-period-barsshift-1, 4, nil)
-			SetValue(index-period-barsshift-1, 5, nil)
-			SetValue(index-period-barsshift-1, 6, nil)
-			SetValue(index-period-barsshift-1, 7, nil)
-			SetValue(index-period-barsshift-1, 8, nil)
-			SetValue(index-period-barsshift-1, 9, nil)
-
+				SetValue(index-period - bars_shift-1, 1, nil)
+				SetValue(index-period - bars_shift-1, 2, nil)
+				SetValue(index-period - bars_shift-1, 3, nil)
+				SetValue(index-period - bars_shift-1, 4, nil)
+				SetValue(index-period - bars_shift-1, 5, nil)
+				SetValue(index-period - bars_shift-1, 6, nil)
+				SetValue(index-period - bars_shift-1, 7, nil)
+				SetValue(index-period - bars_shift-1, 8, nil)
+				SetValue(index-period - bars_shift-1, 9, nil)
+			end
 
 			--Calc
 			out = {}
@@ -340,23 +352,24 @@ local function Reg(Fsettings)
 				return
 			end
 
-			c_index = index-1
-			if index < start_index or last_cal_bar == c_index then return nil end
+			local last_bar = index == Size()
+			c_index = last_bar and index-1 or index
+			if last_cal_bar == c_index then return nil end
 
-			if not predict_index or index <= predict_index then
+			if bars_shift == 0 or index == start_index then
 
 				if not data[1] then
 					local i     = 0
 					local j     = period
 					while not data[1] and i < c_index do
 						data[j] = {y = get_y(c_index-i)}
-						i = i + 1
 						if data[j].y then
 							j = j - 1
 						end
+						i = i + 1
 					end
 				end
-				if last_cal_bar ~= c_index and data[1] then
+				if last_cal_bar and last_cal_bar ~= c_index and data[1] then
 					for kk = last_cal_bar + 1, c_index do
 						table.remove(data, 1)
 						data[period] = {y = get_y(kk)}
@@ -364,19 +377,12 @@ local function Reg(Fsettings)
 				end
 				last_cal_bar = c_index
 
-				est, sq = kernel_regression(data, lookback, k_type)
-				alpha 	= (est[#est] - est[#est-1])/(get_y(c_index-1) - est[#est-1])
-
-				if predict_index and index == predict_index-period+1 then
-					out[10] = est[#est]
-				end
-				if index == predict_index then
-					out[10] = est[#est]
-				end
+				est, sq, k_m = kernel_regression(data, lookback, k_type, bars_shift ~= 0 and k_m or nil)
 
 				local h_index, h_up, h_dw, new_up, old_up, new_dw, old_dw
-				for n=1, period do
-					h_index = index+n-period
+				local p = (bars_shift == 0 or index == start_index) and period or 1
+				for n = 1, p do
+					h_index = index+n-p
 					SetValue(h_index, 1, est[n])
 					if kstd1 > 0 then
 						SetValue(h_index, 2, est[n]+sq*kstd1)
@@ -394,7 +400,7 @@ local function Reg(Fsettings)
 						SetValue(h_index, 8, est[n]+sq*kstd4)
 						SetValue(h_index, 9, est[n]-sq*kstd4)
 					end
-					if n>1 then
+					if break_points and n>1 then
 						h_up = est[n-1]+sq*kstd1
 						h_dw = est[n-1]-sq*kstd1
 						new_up = C(h_index)
@@ -402,45 +408,51 @@ local function Reg(Fsettings)
 						new_dw = C(h_index)
 						old_dw = C(h_index-1)
 						if new_dw < h_dw and old_dw >= h_dw then
-							SetValue(h_index+1, 11, O(h_index+1))
+							SetValue(h_index+1, 10, O(h_index+1))
 						end
 						if new_up > h_up and old_up <= h_up then
-							SetValue(h_index+1, 12, O(h_index+1))
+							SetValue(h_index+1, 11, O(h_index+1))
 						end
 					end
 				end
 
-			else
-				est[#est+1] = est[#est] + alpha*(get_y(c_index-1) - est[#est])
-				-- est[#est+1] = alpha*get_y(c_index) + (1 - alpha)*(est[#est] or 0)
-			end
+				out[1] = est[#est]
 
-			out[1] = est[#est]
+				if bars_shift ~= 0 and index == start_index then
+					out[12] = out[1]
+					SetValue(index, 12, out[1])
+				end
 
-			if kstd1 > 0 then
-				out[2] = out[1]+sq*kstd1
-				out[3] = out[1]-sq*kstd1
+				if kstd1 > 0 then
+					out[2] = out[1]+sq*kstd1
+					out[3] = out[1]-sq*kstd1
+				end
+				if kstd2 > 0 then
+					out[4] = out[1]+sq*kstd2
+					out[5] = out[1]-sq*kstd2
+				end
+				if kstd3 > 0 then
+					out[6] = out[1]+sq*kstd3
+					out[7] = out[1]-sq*kstd3
+				end
+				if kstd4 > 0 then
+					out[8] = out[1]+sq*kstd4
+					out[9] = out[1]-sq*kstd4
+				end
+				if break_points then
+					if C(index-1) < out[3] and C(index-2) >= out[3] then
+						out[10] = O(index) or nil
+					end
+					if C(index-1) > out[2] and C(index-2) <= out[2] then
+						out[11] = O(index) or nil
+					end
+				end
 			end
-			if kstd2 > 0 then
-				out[4] = out[1]+sq*kstd2
-				out[5] = out[1]-sq*kstd2
+			if (index >= start_index and calc_bars > 0) then
+				out[13] = out[1]
+				out[14] = out[1]+sq*kstd1
+				out[15] = out[1]-sq*kstd1
 			end
-			if kstd3 > 0 then
-				out[6] = out[1]+sq*kstd3
-				out[7] = out[1]-sq*kstd3
-			end
-			if kstd4 > 0 then
-				out[8] = out[1]+sq*kstd4
-				out[9] = out[1]-sq*kstd4
-			end
-
-			if C(index-1) < out[3] and C(index-2) >= out[3] then
-				out[11] = O(index) or nil
-			end
-			if C(index-1) > out[2] and C(index-2) <= out[2] then
-				out[12] = O(index) or nil
-			end
-
 			calculated_buffer[index] = true
 
         end)
