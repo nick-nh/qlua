@@ -166,6 +166,12 @@ https://nick-nh.github.io
 
 - [kReg.lua - Nadaraya-Watson kernel regression.](https://github.com/nick-nh/qlua/blob/master/kReg.lua)
 
+- [KalmanReg.lua - Kalman filter regression.](https://github.com/nick-nh/qlua/blob/master/KalmanReg.lua)
+
+- [LSMA.lua - скользящее среднее наименьших квадратов.](https://github.com/nick-nh/qlua/blob/master/LSMA.lua)
+
+- [AVDI.lua - Adaptive Volume-Demand-Index (AVDI).](https://github.com/nick-nh/qlua/blob/master/AVDI.lua)
+
 - [lineFractals.lua - Вывод линий от найденных фрактальных уровней.](https://github.com/nick-nh/qlua/blob/master/lineFractals.lua)
 
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
