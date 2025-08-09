@@ -9,14 +9,14 @@ using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Exceptions;
-//using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Net;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
 using System.Globalization;
-using System.Net.Http;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 public delegate void OnReplyHandler();
 
@@ -118,6 +118,80 @@ public class ExitWait
     }
 }
 
+
+public class TelegramSettings
+{
+    public string Token { get; set; }
+    public string ChatId { get; set; }
+    public int? ReplyToMessageId { get; set; }
+    public bool? DisableNotification { get; set; }
+    public string ParseMode { get; set; }
+    // Другие параметры API Telegram при необходимости
+}
+
+public class EmailSettings
+{
+    public string Sender { get; set; }
+    public string Recipient { get; set; }
+    public string ToCopy { get; set; }
+    public string Subject { get; set; }
+    public string SmtpServer { get; set; }
+    public int ServerPort { get; set; }
+    public string Login { get; set; }
+    public string Password { get; set; }
+}
+
+public class MessageRequest
+{
+    [JsonProperty("message")]
+    public string Message { get; set; }
+
+    [JsonProperty("telegram")]
+    public TelegramSettings Telegram { get; set; }
+
+    [JsonProperty("email")]
+    public EmailSettings Email { get; set; }
+
+    public bool ShouldSerializeTelegram() => Telegram != null;
+    public bool ShouldSerializeEmail() => Email != null;
+}
+
+public static class MessageValidator
+{
+    public static bool IsJsonMessage(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return false;
+
+        content = content.Trim();
+        return (content.StartsWith("{") && content.EndsWith("}")) ||
+               (content.StartsWith("[") && content.EndsWith("]"));
+    }
+
+    public static bool TryParseMessageRequest(string content, out MessageRequest request)
+    {
+        request = null;
+
+        if (!IsJsonMessage(content))
+            return false;
+
+        try
+        {
+            request = JsonConvert.DeserializeObject<MessageRequest>(content);
+            return request != null && (request.Telegram != null || request.Email != null);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool IsTelegramRequest(MessageRequest request) =>
+        request?.Telegram != null;
+
+    public static bool IsEmailRequest(MessageRequest request) =>
+        request?.Email != null;
+}
 
 public class Settings
 {
@@ -553,27 +627,51 @@ public class PipeEmailServer
             string content = ss.ReadString();
             logger.Log(string.Format("Get Email message:\n{0}", content));
 
-            var CountArray = content.Length;
-            var Subject = Settings.DefaultEmail_subject;
-            var Body = String.Join("\n", content);
-            MailAddress From = new MailAddress(Settings.DefaultSender);
-            MailAddress To = new MailAddress(Settings.DefaultRecipient);
+            var sender = Settings.DefaultSender;
+            var recipient = Settings.DefaultRecipient;
+            var subject = Settings.DefaultEmail_subject;
+            var smtpServer = Settings.DefaultSmtpServer;
+            var port = Settings.DefaultServerPort;
+            var login = Settings.DefaultLogin;
+            var password = Settings.DefaultPassword;
+            var body = String.Join("\n", content);
+            var to_copy = Settings.DefaultTo_copy;
+
+            if (MessageValidator.TryParseMessageRequest(content, out MessageRequest request) &&
+                MessageValidator.IsEmailRequest(request))
+            {
+                logger.Log($"Processing JSON request with custom Email settings");
+
+                // Используем настройки из запроса или дефолтные
+                sender = request.Email.Sender ?? Settings.DefaultSender;
+                recipient = request.Email.Recipient ?? Settings.DefaultRecipient;
+                subject = request.Email.Subject ?? Settings.DefaultEmail_subject;
+                smtpServer = request.Email.SmtpServer ?? Settings.DefaultSmtpServer;
+                port = request.Email.ServerPort != 0 ? request.Email.ServerPort : Settings.DefaultServerPort;
+                login = request.Email.Login ?? Settings.DefaultLogin;
+                password = request.Email.Password ?? Settings.DefaultPassword;
+                body = request.Message;
+                to_copy = request.Email.ToCopy;
+            }
+
+            MailAddress From = new MailAddress(sender);
+            MailAddress To = new MailAddress(recipient);
             var msg = new MailMessage(From, To)
             {
-                Body = Body,
-                Subject = Subject
+                Body = body,
+                Subject = subject
             };
-            if (Settings.DefaultTo_copy != "")
+            if (to_copy != "")
             {
-                string[] elements = Settings.DefaultTo_copy.Split(';');
+                string[] elements = to_copy.Split(';');
                 foreach (var element in elements)
                 {
                     msg.CC.Add(new MailAddress(element.Trim()));
                 }
             }
-            var smtpClient = new SmtpClient(Settings.DefaultSmtpServer, Settings.DefaultServerPort)
+            var smtpClient = new SmtpClient(smtpServer, port)
             {
-                Credentials = new NetworkCredential(Settings.DefaultLogin, Settings.DefaultPassword),
+                Credentials = new NetworkCredential(login, password),
                 EnableSsl = true
             };
             smtpClient.Send(msg);
@@ -628,16 +726,6 @@ public class BotClient
         }
 
         cts = new CancellationTokenSource();
-        //var receiverOptions = new ReceiverOptions
-        //{
-        //    AllowedUpdates = { } // receive all update types
-        //};
-
-        //telebotClient.StartReceiving(
-        //    HandleUpdateAsync,
-        //    HandleErrorAsync,
-        //    receiverOptions,
-        //    cancellationToken: cts.Token);
         telebotClient.StartReceiving(
             HandleUpdateAsync,
             HandleErrorAsync, null, cancellationToken: cts.Token);
@@ -672,11 +760,12 @@ public class BotClient
 
         var chatId = update.Message.Chat.Id;
         var messageText = update.Message.Text;
+        var messageId = update.Message.Id;
 
         if (messageText != null)
         {
             logger.Log(string.Format("Received a text message in chat {0}:\n", chatId), true);
-            logger.Log(string.Format("{0}", messageText));
+            logger.Log(string.Format("id: {0} text: {1}", messageId, messageText));
             if (chat_id.Count() == 0)
             //& (chat_id.FirstOrDefault(item => item == e.Message.Chat.Id.ToString()) == null)
             {
@@ -713,26 +802,48 @@ public class BotClient
     {
         try
         {
-            foreach (var chat in chat_id)
-            {
-                var run_task = telebotClient.SendMessage(chat, data);
-                //var run_task = telebotClient.SendTextMessageAsync(chatId: chat,
-                //  text: data,
-                //  disableNotification: default);
 
-                //using (var httpClient = new HttpClient())
-                //{
-                //    var res = httpClient.GetAsync(
-                //        $"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={chat}&text={data}"
-                //        ).Result;
-                //    if (res.StatusCode == HttpStatusCode.OK)
-                //    { /* done, go check your channel */ }
-                //    else
-                //    {
-                //        break;
-                //    }
-                //    logger.Log(string.Format("Send to {0} Result: {1}", chat, res));
-                //}
+            var client = telebotClient;
+            var chatIds = chat_id;
+            var disableNotification = false;
+            ReplyParameters replyToMessage = null;
+            var body = String.Join("\n", data);
+            
+            ParseMode parseMode = ParseMode.Html;
+
+            if (MessageValidator.TryParseMessageRequest(data, out MessageRequest request) &&
+                MessageValidator.IsTelegramRequest(request))
+            {
+                logger.Log($"Processing JSON request with custom Telegram settings");
+
+                 if (!string.IsNullOrEmpty(request.Telegram.Token))
+                    client = new TelegramBotClient(request.Telegram.Token);
+
+                body = request.Message;
+                chatIds = request.Telegram.ChatId != null
+                    ? request.Telegram.ChatId.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries).ToList()
+                    : chat_id;
+
+                if (request.Telegram.ParseMode != null && Enum.TryParse<ParseMode>(request.Telegram.ParseMode, out ParseMode parsedMode))
+                {
+                    parseMode = parsedMode;
+                }
+                if (request.Telegram.ReplyToMessageId != null)
+                    replyToMessage = request.Telegram.ReplyToMessageId;
+
+                disableNotification = request.Telegram.DisableNotification ?? disableNotification;
+
+                logger.Log(string.Format("Parse json request: {0} chatIds: {1} parseMode {2} replyToMessage {3} disableNotification {4}", request.Telegram.Token, request.Telegram.ChatId, parseMode, request.Telegram.ReplyToMessageId, disableNotification));
+
+            }
+
+            foreach (var chat in chatIds)
+            {
+                var run_task = client.SendMessage(chat, body,
+                        parseMode,
+                        protectContent: true,
+                        replyParameters: replyToMessage,
+                        disableNotification: disableNotification);
 
                 while (run_task.Status != TaskStatus.RanToCompletion)
                 {
