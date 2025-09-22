@@ -202,6 +202,8 @@ https://nick-nh.github.io
 
 - [min_max_price.lua - Вывод значений максимально и минимально возможной цены торговой сессии из Таблицы текущих торгов. Это позволит визуально оценивать допустимый диапазон цен установки лимитного ордера.](https://github.com/nick-nh/qlua/blob/master/min_max_price.lua)
 
+- [bondETM.lua - Купонная и общая доходность облигации на графике (если по облигации транслируется купон).](https://github.com/nick-nh/qlua/blob/master/bondETM.lua)
+
 - [smartZZ2 - Две версии индикатора Zig-Zag. Вывод целевых уровней движения цены. Определение паттернов.](https://github.com/nick-nh/qlua/blob/master/smartZZ2)
 
 - [w32.dll - Сборка библиотеки w32.dll](https://github.com/nick-nh/qlua/blob/master/w32.dll.zip)
