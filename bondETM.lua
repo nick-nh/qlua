@@ -2,7 +2,7 @@
 	nick-h@yandex.ru
 	https://github.com/nick-nh/qlua
 
-    Купонная и общая доходность облигации на графике (если по облигации транслируется купон)
+    Купонная и общая доходность облигации на графике. Если купон не транслируется, то проивзодится попытка расчета купона.
     Удобно выводить в ту же область графика где цены, привязав к левому краю.
 ]]
 
@@ -74,7 +74,18 @@ local function round(num, idp)
     end
 end
 
+local function GetNumberDate(num)
+    if type(num) ~= 'number' then  error(("bad argument GetNumberDate:num (number expected, got %s)"):format(type(num)),2) end
+    local dt = {}
+    dt.year,dt.month,dt.day = string.match(tostring(num),"(%d%d%d%d)(%d%d)(%d%d)")
+    for key,value in pairs(dt) do dt[key] = tonumber(value) end
+    dt.hour = 0
+    dt.sec  = 0
+    return dt
+end
+
 local ds_info
+local TODAY =  os.date('*t', os_time())
 
 ---@param info_string string
 function GetServerInfo(info_string)
@@ -101,12 +112,26 @@ calc_algos['pProfit'] = function(sec_data)
     return round((sec_data.DAYS_TO_MAT_DATE*sec_data.COUPONVALUE/sec_data.COUPONPERIOD + sec_data.SEC_FACE_VALUE - price*sec_data.price_coeff), sec_data.SEC_SCALE)
 end
 
+local function calc_coupon(sec_data)
+    if (sec_data.ACCRUEDINT or 0) == 0 then return 0 end
+    if (sec_data.COUPONPERIOD or 0) == 0 then return 0 end
+    if (sec_data.NEXTCOUPON or 0) == 0 then return 0 end
+
+    local add       = TODAY.wday == 6 and 2 or 0
+    local r_days    = round((os_time(sec_data.NEXTCOUPON) - os_time(TODAY))/(24*60*60)) - add
+    local c_days    = sec_data.COUPONPERIOD - r_days + 1
+    local day_c     = sec_data.ACCRUEDINT/c_days
+    local coupon    = round(day_c*sec_data.COUPONPERIOD, 2)
+    -- myLog('calc_coupon next', os.date('%Y-%m-%d', os_time(sec_data.NEXTCOUPON)), 'period', sec_data.COUPONPERIOD, 'c_days', c_days, 'r_days', r_days, 'day_c', day_c, 'coupon', coupon, 'TODAY', TODAY)
+    return coupon
+end
+
 local function Algo()
 
     error_log = {}
 
     local out1, out2
-    local last_index,last_price
+    local last_index, last_price
     local sec_data = {}
 
     return function (index)
@@ -121,12 +146,19 @@ local function Algo()
                 sec_data.SEC_FACE_VALUE     = tonumber(GetServerInfo("SEC_FACE_VALUE").param_value) or 0
                 sec_data.DAYS_TO_MAT_DATE   = tonumber(GetServerInfo("DAYS_TO_MAT_DATE").param_value) or 0
                 sec_data.COUPONVALUE        = tonumber(GetServerInfo("COUPONVALUE").param_value) or 0
+                sec_data.NEXTCOUPON         = tonumber(GetServerInfo("NEXTCOUPON").param_value) or 0
+                sec_data.NEXTCOUPON         = (sec_data.NEXTCOUPON or 0) == 0 and 0 or GetNumberDate(sec_data.NEXTCOUPON)
                 sec_data.COUPONPERIOD       = tonumber(GetServerInfo("COUPONPERIOD").param_value) or 0
+                sec_data.ACCRUEDINT         = tonumber(GetServerInfo("ACCRUEDINT").param_value) or 0
+                if sec_data.COUPONVALUE == 0 then
+                    sec_data.COUPONVALUE = calc_coupon(sec_data) or 0
+                end
 
                 sec_data.price_coeff        = (sec_data.SEC_FACE_VALUE or 0) == 0 and 1 or sec_data.SEC_FACE_VALUE/100
                 sec_data.year_base          = 365
                 sec_data.days_from_buy      = 0
                 last_index                  = index
+                last_price                  = nil
 
                 -- myLog(ds_info.class_code, ds_info.sec_code, sec_data.SEC_FACE_VALUE, sec_data.price_coeff, sec_data.DAYS_TO_MAT_DATE, sec_data.COUPONVALUE, sec_data.COUPONPERIOD)
 
@@ -145,8 +177,8 @@ local function Algo()
                     last_price = sec_data.cur_price
                     SetRangeValue(1, index-10, index, out1)
                     SetRangeValue(2, index-10, index, out2)
+                    -- myLog(index, out1, out2, last_price)
                 end
-                -- myLog(index, out1, out2, last_time)
             end
 
         end)
