@@ -117,6 +117,8 @@ https://nick-nh.github.io
     - Bollinger Bands AND Keltner Channel define the market conditions, i.e. when BB is narrower than KC then we have a market squeeze. When BB break Outside the KC then trade in the direction of the smoothed Momentum.
     - https://school.stockcharts.com/doku.php?id=technical_indicators:ttm_squeeze
 
+- [VolatilityCycle.lua - Volatility Cycle.](https://github.com/nick-nh/qlua/blob/master/VolatilityCycle.lua)
+
 - [smTMMS.lua - TMMS - Trading Made More Simpler.](https://github.com/nick-nh/qlua/blob/master/smTMMS.lua)
 
     - The TMMS oscillator (aka “Trading Made More Simpler”) is an indicator made of conditions based on both 2 separated Stochastic and 1 RSI
