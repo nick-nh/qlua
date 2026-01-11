@@ -68,6 +68,10 @@ https://youtu.be/Vy_m7qUwirY
 
 Ссылка на собранные библиотеки с Telegram.Bot to v22.4.4 и поддержкой JSON обмена https://disk.360.yandex.ru/d/iHvDuII6y_k8CQ
 
+## Update 2026.01.04
+Поддержка MessageThreadId в JSON формате (Сообщение в тему чата, группы).
+Ссылка на собранные библиотеки с Telegram.Bot to v22.4.4 и поддержкой JSON обмена https://disk.360.yandex.ru/d/aJiqcbPWpRuMUw
+
 Базовый формат - это отправить просто сообщение в виде текста. MessagesQServer его примет и отправит по заданным настройкам в файле параметров settings.ini
 Этот формат отправки продолжат поддерживаться. Но теперь добавлен новый метод через JSON.
 

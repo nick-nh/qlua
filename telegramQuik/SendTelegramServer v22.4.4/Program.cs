@@ -124,6 +124,7 @@ public class TelegramSettings
     public string Token { get; set; }
     public string ChatId { get; set; }
     public int? ReplyToMessageId { get; set; }
+    public int? MessageThreadId { get; set; }
     public bool? DisableNotification { get; set; }
     public string ParseMode { get; set; }
     // Другие параметры API Telegram при необходимости
@@ -191,6 +192,25 @@ public static class MessageValidator
 
     public static bool IsEmailRequest(MessageRequest request) =>
         request?.Email != null;
+
+    public static string DecodeEncodedNonAsciiCharacters2(string value)
+    {
+        return Regex.Replace(
+        value,
+        @"##(?<Value>[a-zA-Z0-9]*)",
+        m =>
+        {
+            try
+            {
+                return char.ConvertFromUtf32((Int32.Parse(m.Groups["Value"].Value, NumberStyles.HexNumber)));
+            }
+            catch
+            {
+                //logger.Log(string.Format("Wrong emoji utf string ##{0}", m.Groups["Value"].Value));
+                return m.Groups["Value"].Value;
+            }
+        });
+    }
 }
 
 public class Settings
@@ -361,24 +381,6 @@ public class PipeTeleServer
     private static BotClient botClient;
     private static string PipeName;
     private static LogBase logger = null;
-    static string DecodeEncodedNonAsciiCharacters2(string value)
-    {
-        return Regex.Replace(
-        value,
-        @"##(?<Value>[a-zA-Z0-9]*)",
-        m =>
-        {
-            try
-            {
-                return char.ConvertFromUtf32((Int32.Parse(m.Groups["Value"].Value, NumberStyles.HexNumber)));
-            }
-            catch
-            {
-                logger.Log(string.Format("Wrong emoji utf string ##{0}", m.Groups["Value"].Value));
-                return m.Groups["Value"].Value;
-            }
-        });
-    }
 
     public PipeTeleServer()
     {
@@ -485,7 +487,7 @@ public class PipeTeleServer
             // Verify our identity to the connected client using a
             // string that the client anticipates.
 
-            string content = DecodeEncodedNonAsciiCharacters2(ss.ReadString());
+            string content = ss.ReadString();
             logger.Log(string.Format("Send msg {0}.", content));
             botClient.Send(content);
 
@@ -654,11 +656,13 @@ public class PipeEmailServer
                 to_copy = request.Email.ToCopy;
             }
 
+            string send_msg = MessageValidator.DecodeEncodedNonAsciiCharacters2(body);
+
             MailAddress From = new MailAddress(sender);
             MailAddress To = new MailAddress(recipient);
             var msg = new MailMessage(From, To)
             {
-                Body = body,
+                Body = send_msg,
                 Subject = subject
             };
             if (to_copy != "")
@@ -675,7 +679,7 @@ public class PipeEmailServer
                 EnableSsl = true
             };
             smtpClient.Send(msg);
-
+            logger.Log(string.Format("Send to {0} msg: {1}", recipient, send_msg));
         }
         // Catch the IOException that is raised if the pipe is broken
         // or disconnected.
@@ -807,6 +811,7 @@ public class BotClient
             var chatIds = chat_id;
             var disableNotification = false;
             ReplyParameters replyToMessage = null;
+            int? messageThreadId = null;
             var body = String.Join("\n", data);
             
             ParseMode parseMode = ParseMode.Html;
@@ -831,19 +836,26 @@ public class BotClient
                 if (request.Telegram.ReplyToMessageId != null)
                     replyToMessage = request.Telegram.ReplyToMessageId;
 
+                if (request.Telegram.MessageThreadId != null)
+                    messageThreadId = request.Telegram.MessageThreadId;
+
                 disableNotification = request.Telegram.DisableNotification ?? disableNotification;
 
-                logger.Log(string.Format("Parse json request: {0} chatIds: {1} parseMode {2} replyToMessage {3} disableNotification {4}", request.Telegram.Token, request.Telegram.ChatId, parseMode, request.Telegram.ReplyToMessageId, disableNotification));
+                logger.Log(string.Format("Parse json request: {0} chatIds: {1} parseMode {2} replyToMessage {3} messageThreadId {4} disableNotification {5}",
+                    request.Telegram.Token, request.Telegram.ChatId, parseMode, request.Telegram.ReplyToMessageId, request.Telegram.MessageThreadId, disableNotification));
 
             }
 
+            string send_msg = MessageValidator.DecodeEncodedNonAsciiCharacters2(body);
+
             foreach (var chat in chatIds)
             {
-                var run_task = client.SendMessage(chat, body,
+                var run_task = client.SendMessage(chat, send_msg,
                         parseMode,
                         protectContent: true,
                         replyParameters: replyToMessage,
-                        disableNotification: disableNotification);
+                        disableNotification: disableNotification,
+                        messageThreadId: messageThreadId);
 
                 while (run_task.Status != TaskStatus.RanToCompletion)
                 {
