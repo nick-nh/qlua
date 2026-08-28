@@ -202,6 +202,8 @@ https://nick-nh.github.io
 
 - [vwap.lua - Вывод значения средневзвешенной цены из Таблицы текущих торгов (WAPRICE).](https://github.com/nick-nh/qlua/blob/master/vwap.lua)
 
+- [dVWAP.lua - VWAP через распределение объёма по телу бара.](https://github.com/nick-nh/qlua/blob/master/dVWAP.lua)
+
 - [min_max_price.lua - Вывод значений максимально и минимально возможной цены торговой сессии из Таблицы текущих торгов. Это позволит визуально оценивать допустимый диапазон цен установки лимитного ордера.](https://github.com/nick-nh/qlua/blob/master/min_max_price.lua)
 
 - [bondETM.lua - Купонная и общая доходность облигации на графике (если по облигации транслируется купон).](https://github.com/nick-nh/qlua/blob/master/bondETM.lua)
