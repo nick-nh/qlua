@@ -176,6 +176,11 @@ https://nick-nh.github.io
 
 - [lineFractals.lua - Вывод линий от найденных фрактальных уровней.](https://github.com/nick-nh/qlua/blob/master/lineFractals.lua)
 
+- [TrendLines.lua - Trendlines with Breaks Вывод наклонных линий тренда от найденных фрактальных уровней.](https://github.com/nick-nh/qlua/blob/master/TrendLines.lua)
+
+    - Реализация этого индикатора https://ru.tradingview.com/v/IYL88A1N/
+
+
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
 
 - [priceAvgProfile.lua - Горизонтальные объемы, рассчитанные распределением объема по телу бара.](https://github.com/nick-nh/qlua/blob/master/priceAvgProfile.lua)
