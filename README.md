@@ -180,6 +180,8 @@ https://nick-nh.github.io
 
     - Реализация этого индикатора https://ru.tradingview.com/v/IYL88A1N/
 
+- [Kase_DevStops.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/Kase_DevStops.lua)
+    - [Kase Dev Stop от Синтия Кейс (Cynthia Kase)](https://docs.wickra.org/Indicators/Indicator-KaseDevStop)
 
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
 
