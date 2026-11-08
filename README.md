@@ -183,6 +183,9 @@ https://nick-nh.github.io
 - [Kase_DevStops.lua - помогает устанавливать динамические стоп-уровни.](https://github.com/nick-nh/qlua/blob/master/Kase_DevStops.lua)
     - [Kase Dev Stop от Синтия Кейс (Cynthia Kase)](https://docs.wickra.org/Indicators/Indicator-KaseDevStop)
 
+- [SupplyAndDemandZones.lua - зоны предложения (потенциальное сопротивление) и зоны спроса (потенциальную поддержку) на вашем графике.](https://github.com/nick-nh/qlua/blob/master/SupplyAndDemandZones.lua)
+    - [Реализация для Квие индикатора TW: edgeful - supply and demand zones](https://www.tradingview.com/script/vOpLnN91-edgeful-supply-and-demand-zones/)
+
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
 
 - [priceAvgProfile.lua - Горизонтальные объемы, рассчитанные распределением объема по телу бара.](https://github.com/nick-nh/qlua/blob/master/priceAvgProfile.lua)
