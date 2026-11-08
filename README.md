@@ -178,13 +178,14 @@ https://nick-nh.github.io
 
 - [TrendLines.lua - Trendlines with Breaks Вывод наклонных линий тренда от найденных фрактальных уровней.](https://github.com/nick-nh/qlua/blob/master/TrendLines.lua)
 
-    - Реализация этого индикатора https://ru.tradingview.com/v/IYL88A1N/
+    - Реализация этого индикатора TW https://ru.tradingview.com/v/IYL88A1N/
 
 - [Kase_DevStops.lua - помогает устанавливать динамические стоп-уровни.](https://github.com/nick-nh/qlua/blob/master/Kase_DevStops.lua)
     - [Kase Dev Stop от Синтия Кейс (Cynthia Kase)](https://docs.wickra.org/Indicators/Indicator-KaseDevStop)
 
-- [SupplyAndDemandZones.lua - зоны предложения (потенциальное сопротивление) и зоны спроса (потенциальную поддержку) на вашем графике.](https://github.com/nick-nh/qlua/blob/master/SupplyAndDemandZones.lua)
-    - [Реализация для Квие индикатора TW: edgeful - supply and demand zones](https://www.tradingview.com/script/vOpLnN91-edgeful-supply-and-demand-zones/)
+- [SupplyAndDemandZones.lua - зоны предложения и зоны спроса.](https://github.com/nick-nh/qlua/blob/master/SupplyAndDemandZones.lua)
+
+    - Реализация этого индикатора TW https://www.tradingview.com/script/vOpLnN91-edgeful-supply-and-demand-zones/
 
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
 
