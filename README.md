@@ -187,6 +187,8 @@ https://nick-nh.github.io
 
     - Реализация этого индикатора TW https://www.tradingview.com/script/vOpLnN91-edgeful-supply-and-demand-zones/
 
+- [ORB.lua - ORB - Opening Range Breakout.](https://github.com/nick-nh/qlua/blob/master/ORB.lua)
+
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
 
 - [priceAvgProfile.lua - Горизонтальные объемы, рассчитанные распределением объема по телу бара.](https://github.com/nick-nh/qlua/blob/master/priceAvgProfile.lua)
