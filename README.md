@@ -189,6 +189,8 @@ https://nick-nh.github.io
 
 - [ORB.lua - ORB - Opening Range Breakout.](https://github.com/nick-nh/qlua/blob/master/ORB.lua)
 
+    - Индикатор ORB автоматически определяет ценовой диапазон, сформированный в первые минуты торговой сессии (например, 30 минут после открытия). Он рисует на графике горизонтальные линии на уровне High и Low этого диапазона, а также может отображать среднюю точку, цели движнния. 
+
 - [pATR.lua - ATR, выраженный в процентах.](https://github.com/nick-nh/qlua/blob/master/pATR.lua)
 
 - [priceAvgProfile.lua - Горизонтальные объемы, рассчитанные распределением объема по телу бара.](https://github.com/nick-nh/qlua/blob/master/priceAvgProfile.lua)
@@ -216,6 +218,11 @@ https://nick-nh.github.io
 - [vwap.lua - Вывод значения средневзвешенной цены из Таблицы текущих торгов (WAPRICE).](https://github.com/nick-nh/qlua/blob/master/vwap.lua)
 
 - [dVWAP.lua - VWAP через распределение объёма по телу бара.](https://github.com/nick-nh/qlua/blob/master/dVWAP.lua)
+
+    - VWAP за весь период баров как: VWAP = (Сумма (Цена × Объём)) / (Сумма объёмов). 
+      Также, если указано в параметрах, то рассчитывается:
+        - цена максимального объема (Point of Control)
+        - Зона стоимости (Value Area)
 
 - [min_max_price.lua - Вывод значений максимально и минимально возможной цены торговой сессии из Таблицы текущих торгов. Это позволит визуально оценивать допустимый диапазон цен установки лимитного ордера.](https://github.com/nick-nh/qlua/blob/master/min_max_price.lua)
 

@@ -1,3 +1,10 @@
+--[[
+	nick-h@yandex.ru
+	https://github.com/nick-nh/qlua
+
+    Индикатор автоматически определяет ценовой диапазон, сформированный каждый новый час, строит уровни откртыия, минимума, максимума, середины диапазона.
+]]
+
 --logfile=io.open(getWorkingFolder().."\\LuaIndicators\\openHour.txt", "w")
 
 Settings = 
