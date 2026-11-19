@@ -158,8 +158,9 @@ local function Algo(settings)
             if index == last_index then return end
             local day = get_day(index)
             if last_day ~= day then
-                out = {}
-                last_day = day
+                out 		= {}
+				hl_times 	= {}
+                last_day 	= day
             end
             for i = 1, ct do
                 if orb_times[i] and orb_times[i].start_time == last_time then
@@ -174,7 +175,11 @@ local function Algo(settings)
                     out[orb_times[i].mid_line] = (hl_times[i].max + hl_times[i].min)/2
                     SetRangeValue(orb_times[i].mid_line, hl_times[i].start_index, index, out[orb_times[i].mid_line])
                     hl_times[i].end_time       = bar_time
-					hl_times[i].range		   = hl_times[i].max - hl_times[i].min
+					if orb_times[i].l_target ~= 0 then
+						hl_times[i].range		   = hl_times[i].max - hl_times[i].min
+						hl_times[i].t_max		   = hl_times[i].max + hl_times[i].range*orb_times[i].l_target
+						hl_times[i].t_min		   = hl_times[i].min - hl_times[i].range*orb_times[i].s_target
+					end
                     log('end ORB', i, last_time, hl_times[i].min, hl_times[i].max)
                 end
                 if hl_times[i] and orb_times[i] and bar_time >= hl_times[i].start_time and not hl_times[i].end_time  then
@@ -182,14 +187,25 @@ local function Algo(settings)
                     hl_times[i].min = math_min(hl_times[i].min, L(last_index))
                 end
                 if hl_times[i] and orb_times[i] and hl_times[i].end_time then
-					if C(last_index) > hl_times[i].max and orb_times[i].l_target ~= 0 and hl_times[i].range ~= 0 then
-						out[orb_times[i].tmax_line] = hl_times[i].max + hl_times[i].range*orb_times[i].l_target
+					if not hl_times[i].c_max and C(last_index) > hl_times[i].max and hl_times[i].t_max then
+						out[orb_times[i].tmax_line] = hl_times[i].t_max
+						hl_times[i].c_max = true
 						SetRangeValue(orb_times[i].tmax_line, hl_times[i].start_index, index, out[orb_times[i].tmax_line])
 					end
-					if C(last_index) < hl_times[i].min and orb_times[i].s_target ~= 0 and hl_times[i].range ~= 0 then
-						out[orb_times[i].tmin_line] = hl_times[i].min - hl_times[i].range*orb_times[i].s_target
+					if not hl_times[i].c_min and C(last_index) < hl_times[i].min and hl_times[i].t_min then
+						out[orb_times[i].tmin_line] = hl_times[i].t_min
+						hl_times[i].c_min = true
 						SetRangeValue(orb_times[i].tmin_line, hl_times[i].start_index, index, out[orb_times[i].tmin_line])
 					end
+					if hl_times[i].t_max and C(last_index) > hl_times[i].t_max then
+						out[orb_times[i].tmax_line] = nil
+						hl_times[i].t_max = nil
+					end
+					if hl_times[i].t_min and C(last_index) < hl_times[i].t_min then
+						hl_times[i].t_min = nil
+						out[orb_times[i].tmin_line] = nil
+					end
+
                 end
             end
 
